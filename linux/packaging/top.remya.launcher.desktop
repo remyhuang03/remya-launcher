@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Remya Launcher
+Comment=Preview the Remya Launcher interface
+Exec=remya_launcher
+Icon=system-search
+Terminal=false
+Categories=Utility;

@@ -1,0 +1,9 @@
+/.dart_tool/
+/.fvm/
+/.idea/
+/build/
+/coverage/
+/target/
+.flutter-plugins-dependencies
+*.iml
+__pycache__/
