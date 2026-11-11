@@ -192,6 +192,9 @@ class LauncherSearchField extends StatelessWidget {
     this.scope = .all,
     this.trailing,
     this.autofocus = false,
+    this.compact = false,
+    this.controller,
+    this.focusNode,
     this.onChanged,
     this.onSubmitted,
     super.key,
@@ -202,6 +205,9 @@ class LauncherSearchField extends StatelessWidget {
   final LauncherScope scope;
   final Widget? trailing;
   final bool autofocus;
+  final bool compact;
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -209,7 +215,7 @@ class LauncherSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      height: 56,
+      height: compact ? 46 : 56,
       padding: .only(left: scope == .all ? 16 : 12, right: 14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
@@ -221,12 +227,14 @@ class LauncherSearchField extends StatelessWidget {
           if (scope == .all)
             const LauncherIcon(.search, size: 24)
           else
-            _ScopeToken(scope),
+            _ScopeToken(scope, compact: compact),
           Expanded(
             child: Semantics(
               label: placeholder,
               child: TextFormField(
-                initialValue: initialQuery,
+                initialValue: controller == null ? initialQuery : null,
+                controller: controller,
+                focusNode: focusNode,
                 autofocus: autofocus,
                 onChanged: onChanged,
                 onFieldSubmitted: onSubmitted,
@@ -241,7 +249,7 @@ class LauncherSearchField extends StatelessWidget {
               ),
             ),
           ),
-          ?trailing,
+          if (!compact) ?trailing,
         ],
       ),
     );
@@ -249,16 +257,17 @@ class LauncherSearchField extends StatelessWidget {
 }
 
 class _ScopeToken extends StatelessWidget {
-  const _ScopeToken(this.scope);
+  const _ScopeToken(this.scope, {required this.compact});
 
   final LauncherScope scope;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
       height: 32,
-      padding: const .only(left: 8, right: 10),
+      padding: .only(left: 8, right: compact ? 8 : 10),
       decoration: BoxDecoration(
         color: colors.primaryContainer,
         borderRadius: .circular(10),
@@ -266,11 +275,20 @@ class _ScopeToken extends StatelessWidget {
       child: Row(
         spacing: 6,
         children: [
-          LauncherIcon(scope.icon, size: 18, color: colors.onPrimaryContainer),
-          Text(
-            scope.label,
-            style: TextStyle(fontSize: 14, color: colors.onPrimaryContainer),
+          Tooltip(
+            message: scope.label,
+            excludeFromSemantics: !compact,
+            child: LauncherIcon(
+              scope.icon,
+              size: 18,
+              color: colors.onPrimaryContainer,
+            ),
           ),
+          if (!compact)
+            Text(
+              scope.label,
+              style: TextStyle(fontSize: 14, color: colors.onPrimaryContainer),
+            ),
         ],
       ),
     );

@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app.dart';
+import 'features/clipboard/clipboard_platform.dart';
 import 'features/preview/launcher_examples.dart';
 
-void main(List<String> arguments) {
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
@@ -35,10 +36,17 @@ void main(List<String> arguments) {
     'clipboard-hidden' => 'hidden',
     _ => null,
   };
+  final selectedExample = preview == null
+      ? null
+      : example ?? (clipboardType == null ? .empty : .clipboard);
   runApp(
     RemyaLauncherApp(
-      example: example ?? (clipboardType == null ? .empty : .clipboard),
+      example: selectedExample,
       clipboardType: clipboardType ?? 'command',
+      startInClipboard: arguments.contains('--clipboard'),
+      clipboardPlatform: selectedExample == null
+          ? await ClipboardPlatform.capture()
+          : const ClipboardPlatform(),
     ),
   );
 }

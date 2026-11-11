@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "launcher_window.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -15,7 +16,7 @@ struct _MyApplication {
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
 // Called when first Flutter frame received.
-static void first_frame_cb(MyApplication* self, FlView* view) {
+static void first_frame_cb(FlView* view, gpointer) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
@@ -24,6 +25,11 @@ static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  gboolean preview = FALSE;
+  for (char** argument = self->dart_entrypoint_arguments; *argument; ++argument) {
+    if (g_str_has_prefix(*argument, "--preview=")) preview = TRUE;
+  }
+  const bool overlay = !preview && configure_launcher_overlay(window);
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -42,7 +48,9 @@ static void my_application_activate(GApplication* application) {
     }
   }
 #endif
-  if (use_header_bar) {
+  if (overlay) {
+    gtk_window_set_title(window, "Remya Launcher");
+  } else if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
     gtk_header_bar_set_title(header_bar, "Remya Launcher");
@@ -52,7 +60,7 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Remya Launcher");
   }
 
-  gtk_window_set_default_size(window, 1000, 820);
+  if (!overlay) gtk_window_set_default_size(window, 1000, 820);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -62,18 +70,18 @@ static void my_application_activate(GApplication* application) {
   GdkRGBA background_color;
   // Background defaults to black, override it here if necessary, e.g. #00000000
   // for transparent.
-  gdk_rgba_parse(&background_color, "#141218");
+  gdk_rgba_parse(&background_color, overlay ? "#00000000" : "#141218");
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   // Show the window when Flutter renders.
   // Requires the view to be realized so we can start rendering.
-  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
-                           self);
+  g_signal_connect(view, "first-frame", G_CALLBACK(first_frame_cb), nullptr);
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  if (!preview) register_launcher_window(view, window);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

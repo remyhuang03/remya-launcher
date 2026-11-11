@@ -1,0 +1,23 @@
+[package]
+name = "remya_launcher_clipboard"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "remya-launcher-clipboard"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.23"
+csscolorparser = { version = "0.8", default-features = false, features = ["std"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
+rustix = { version = "1", features = ["event", "fs", "net", "process"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+url = "2"
+wl-clipboard-rs = "=0.9.5"
+zeroize = "1"

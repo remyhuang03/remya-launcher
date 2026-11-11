@@ -8,6 +8,8 @@ import tempfile
 
 APP_ID = "remya_launcher"
 PACKAGE = "top.remya.launcher"
+CLIPBOARD_SERVICE = "remya-launcher-clipboard"
+UNIT = f"{PACKAGE}.clipboard.service"
 
 
 def data_home(environment):
@@ -27,6 +29,27 @@ def desktop_quote(path):
     return '"' + value.replace("\\", "\\\\") + '"'
 
 
+def unit_quote(path):
+    value = str(path).replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + value.replace("%", "%%").replace("$", "$$") + '"'
+
+
+def clipboard_unit(executable):
+    return (
+        "[Unit]\nDescription=Remya Launcher clipboard history\n"
+        "PartOf=graphical-session.target\nAfter=graphical-session.target\n\n"
+        f"[Service]\nExecStart={unit_quote(executable)}\n"
+        "Restart=on-failure\nRestartSec=2\nUMask=0077\nLimitCORE=0\n\n"
+        "[Install]\nWantedBy=graphical-session.target\n"
+    )
+
+
+def systemctl(*arguments, check=True):
+    return subprocess.run(
+        ["systemctl", "--user", *arguments], check=check, capture_output=not check
+    )
+
+
 def require_inter_font():
     try:
         result = subprocess.run(['fc-match', '--format=%{family}', 'Inter'], capture_output=True, text=True, check=True)
@@ -40,9 +63,44 @@ def install(root, environment):
     require_inter_font()
     data = data_home(environment).resolve()
     source = root / "build/linux/x64/release/bundle"
-    if not (source / APP_ID).is_file():
+    if not all((source / binary).is_file() for binary in (APP_ID, CLIPBOARD_SERVICE)):
         raise RuntimeError("Run fvm flutter build linux --release first")
     destination = data / "remya" / APP_ID
+    home = environment.get("HOME", "")
+    if not home.startswith("/"):
+        raise ValueError("An absolute HOME is required for ~/.local/bin")
+    command = Path(home) / ".local/bin" / APP_ID
+    if command.exists() or command.is_symlink():
+        if not command.is_symlink() or command.resolve() != destination / APP_ID:
+            raise RuntimeError(f"Refusing to replace unrelated command: {command}")
+    if not shutil.which("systemctl"):
+        raise RuntimeError("The clipboard watcher requires systemd user services")
+    if systemctl("show", "--property=Version", "--value", check=False).returncode != 0:
+        raise RuntimeError("Cannot connect to the systemd user manager")
+    was_active = systemctl("is-active", "--quiet", UNIT, check=False).returncode == 0
+    if was_active:
+        systemctl("stop", UNIT)
+    try:
+        install_bundle(root, source, destination, data, command)
+        units = data / "systemd/user"
+        units.mkdir(parents=True, exist_ok=True)
+        (units / UNIT).write_text(clipboard_unit(destination / CLIPBOARD_SERVICE))
+        systemctl("daemon-reload")
+        systemctl("enable", UNIT)
+        if was_active or systemctl(
+            "is-active", "--quiet", "graphical-session.target", check=False
+        ).returncode == 0:
+            systemctl("start", UNIT)
+    except Exception:
+        if was_active:
+            systemctl("start", UNIT, check=False)
+        raise
+    print(f"Installed {PACKAGE} in {destination}")
+    print(f"Command: {command} (add ~/.local/bin to PATH if needed)")
+    print(f"Autostart: {UNIT} starts with the graphical session")
+
+
+def install_bundle(root, source, destination, data, command):
     for process in Path("/proc").iterdir():
         if not process.name.isdecimal():
             continue
@@ -52,13 +110,6 @@ def install(root, environment):
             continue
         if executable.is_relative_to(destination):
             raise RuntimeError(f"Stop {APP_ID} before updating its installed bundle")
-    home = environment.get("HOME", "")
-    if not home.startswith("/"):
-        raise ValueError("An absolute HOME is required for ~/.local/bin")
-    command = Path(home) / ".local/bin" / APP_ID
-    if command.exists() or command.is_symlink():
-        if not command.is_symlink() or command.resolve() != destination / APP_ID:
-            raise RuntimeError(f"Refusing to replace unrelated command: {command}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{APP_ID}-", dir=destination.parent) as temporary:
         staging = Path(temporary) / "bundle"
@@ -82,8 +133,6 @@ def install(root, environment):
         command.symlink_to(destination / APP_ID)
     if shutil.which("update-desktop-database"):
         subprocess.run(["update-desktop-database", str(applications)], check=True)
-    print(f"Installed {PACKAGE} in {destination}")
-    print(f"Command: {command} (add ~/.local/bin to PATH if needed)")
 
 
 if __name__ == "__main__":

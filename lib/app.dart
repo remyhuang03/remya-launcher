@@ -1,16 +1,25 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'features/clipboard/clipboard_client.dart';
+import 'features/clipboard/clipboard_launcher.dart';
+import 'features/clipboard/clipboard_platform.dart';
 import 'features/preview/launcher_examples.dart';
 
 class RemyaLauncherApp extends StatelessWidget {
   const RemyaLauncherApp({
-    this.example = .empty,
+    this.example,
     this.clipboardType = 'command',
+    this.startInClipboard = false,
+    this.clipboardClient = const ClipboardClient(),
+    this.clipboardPlatform = const ClipboardPlatform(),
     super.key,
   });
 
-  final LauncherExample example;
+  final LauncherExample? example;
   final String clipboardType;
+  final bool startInClipboard;
+  final ClipboardClient clipboardClient;
+  final ClipboardPlatform clipboardPlatform;
 
   @override
   Widget build(BuildContext context) {
@@ -18,17 +27,27 @@ class RemyaLauncherApp extends StatelessWidget {
       title: 'Remya Launcher',
       debugShowCheckedModeBanner: false,
       theme: _launcherTheme(),
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const .all(16),
-            child: LauncherExampleView(
-              example: example,
-              clipboardType: clipboardType,
+      home: switch (example) {
+        final LauncherExample example => Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const .all(16),
+              child: LauncherExampleView(
+                example: example,
+                clipboardType: clipboardType,
+              ),
             ),
           ),
         ),
-      ),
+        null => Scaffold(
+          backgroundColor: Colors.transparent,
+          body: ClipboardLauncher(
+            startInClipboard: startInClipboard,
+            client: clipboardClient,
+            platform: clipboardPlatform,
+          ),
+        ),
+      },
     );
   }
 }

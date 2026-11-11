@@ -1,8 +1,13 @@
 [Desktop Entry]
 Type=Application
 Name=Remya Launcher
-Comment=Preview the Remya Launcher interface
+Comment=Open Remya Launcher
 Exec=remya_launcher
 Icon=system-search
 Terminal=false
 Categories=Utility;
+Actions=Clipboard;
+
+[Desktop Action Clipboard]
+Name=Clipboard History
+Exec=remya_launcher --clipboard

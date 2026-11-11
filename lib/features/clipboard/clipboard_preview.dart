@@ -9,6 +9,7 @@ class ClipboardPreview extends StatelessWidget {
     required this.content,
     required this.metadata,
     required this.hints,
+    this.compact = false,
     super.key,
   });
 
@@ -17,13 +18,14 @@ class ClipboardPreview extends StatelessWidget {
   final Widget content;
   final Map<String, String> metadata;
   final List<LauncherKeyHint> hints;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Container(
-      padding: const .all(16),
+      padding: .all(compact ? 10 : 16),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest,
         borderRadius: .circular(20),
@@ -31,7 +33,7 @@ class ClipboardPreview extends StatelessWidget {
       child: Column(
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
-        spacing: 12,
+        spacing: compact ? 8 : 12,
         children: [
           Row(
             spacing: 6,

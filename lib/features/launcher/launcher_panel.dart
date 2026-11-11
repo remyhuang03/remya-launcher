@@ -10,6 +10,10 @@ class LauncherPanel extends StatelessWidget {
     required this.footer,
     this.width = 720,
     this.onScopeSelected,
+    this.enabledScopes,
+    this.scrollBody = true,
+    this.onOverlay = false,
+    this.compact = false,
     this.actions,
     super.key,
   });
@@ -20,69 +24,100 @@ class LauncherPanel extends StatelessWidget {
   final LauncherFooter footer;
   final double width;
   final ValueChanged<LauncherScope>? onScopeSelected;
+  final Set<LauncherScope>? enabledScopes;
+  final bool scrollBody;
+  final bool onOverlay;
+  final bool compact;
   final Widget? actions;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: colors.surfaceContainer,
-        shadowColor: Colors.black.withValues(alpha: .4),
-        elevation: 16,
-        clipBehavior: .antiAlias,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: colors.surfaceContainerHighest),
-          borderRadius: .circular(32),
+    final radius = BorderRadius.circular(compact ? 22 : 32);
+    final outline = BorderSide(color: colors.surfaceContainerHighest);
+    final shadow = Colors.black.withValues(alpha: .4);
+    final contents = Stack(
+      children: [
+        Padding(
+          padding: .all(compact ? 8 : 13),
+          child: Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .stretch,
+            spacing: compact ? 5 : 8,
+            children: [
+              search,
+              _ScopeStrip(
+                selected: scope,
+                onSelected: onScopeSelected,
+                enabledScopes: enabledScopes,
+                compact: compact,
+              ),
+              Flexible(
+                child: scrollBody ? SingleChildScrollView(child: body) : body,
+              ),
+              Divider(height: 1, thickness: 1, color: colors.outlineVariant),
+              footer,
+            ],
+          ),
         ),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const .all(13),
-              child: Column(
-                mainAxisSize: .min,
-                crossAxisAlignment: .stretch,
-                spacing: 8,
-                children: [
-                  search,
-                  _ScopeStrip(selected: scope, onSelected: onScopeSelected),
-                  Flexible(child: SingleChildScrollView(child: body)),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: colors.outlineVariant,
-                  ),
-                  footer,
-                ],
+        if (actions case final actions?)
+          PositionedDirectional(
+            top: 53,
+            start: 21,
+            end: 21,
+            bottom: 18,
+            child: Align(
+              alignment: AlignmentDirectional.topEnd,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: SingleChildScrollView(child: actions),
               ),
             ),
-            if (actions case final actions?)
-              PositionedDirectional(
-                top: 53,
-                start: 21,
-                end: 21,
-                bottom: 18,
-                child: Align(
-                  alignment: AlignmentDirectional.topEnd,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    child: SingleChildScrollView(child: actions),
-                  ),
-                ),
+          ),
+      ],
+    );
+    return SizedBox(
+      width: width,
+      child: onOverlay
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surfaceContainer,
+                border: Border.fromBorderSide(outline),
+                borderRadius: radius,
+                boxShadow: [BoxShadow(color: shadow, blurRadius: 24)],
               ),
-          ],
-        ),
-      ),
+              child: ClipRRect(
+                borderRadius: radius,
+                child: Material(type: .transparency, child: contents),
+              ),
+            )
+          : Material(
+              color: colors.surfaceContainer,
+              shadowColor: shadow,
+              elevation: 16,
+              clipBehavior: .antiAlias,
+              shape: RoundedRectangleBorder(
+                side: outline,
+                borderRadius: radius,
+              ),
+              child: contents,
+            ),
     );
   }
 }
 
 class _ScopeStrip extends StatelessWidget {
-  const _ScopeStrip({required this.selected, this.onSelected});
+  const _ScopeStrip({
+    required this.selected,
+    this.onSelected,
+    this.enabledScopes,
+    required this.compact,
+  });
 
   final LauncherScope selected;
   final ValueChanged<LauncherScope>? onSelected;
+  final Set<LauncherScope>? enabledScopes;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -92,11 +127,19 @@ class _ScopeStrip extends StatelessWidget {
       spacing: 6,
       children: [
         for (final scope in LauncherScope.values)
-          LauncherScopeChip(
-            scope: scope,
-            selected: scope == selected,
-            onPressed: onSelected == null ? null : () => onSelected!(scope),
-          ),
+          if (scope == selected ||
+              enabledScopes == null ||
+              (scope != .run && !compact) ||
+              enabledScopes!.contains(scope))
+            LauncherScopeChip(
+              scope: scope,
+              selected: scope == selected,
+              onPressed:
+                  onSelected == null ||
+                      !(enabledScopes?.contains(scope) ?? true)
+                  ? null
+                  : () => onSelected!(scope),
+            ),
       ],
     ),
   );
@@ -106,25 +149,32 @@ class LauncherFooter extends StatelessWidget {
   const LauncherFooter({
     required this.leading,
     this.trailing = const [],
+    this.singleLine = false,
     super.key,
   });
 
   final List<LauncherKeyHint> leading;
   final List<LauncherKeyHint> trailing;
+  final bool singleLine;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const .only(left: 12, right: 12, bottom: 2),
-    child: Wrap(
-      alignment: .spaceBetween,
-      spacing: 16,
-      runSpacing: 6,
-      children: [
-        Wrap(spacing: 16, runSpacing: 6, children: leading),
-        if (trailing.isNotEmpty)
-          Wrap(spacing: 16, runSpacing: 6, children: trailing),
-      ],
-    ),
+    child: singleLine
+        ? SingleChildScrollView(
+            scrollDirection: .horizontal,
+            child: Row(spacing: 10, children: [...leading, ...trailing]),
+          )
+        : Wrap(
+            alignment: .spaceBetween,
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              Wrap(spacing: 16, runSpacing: 6, children: leading),
+              if (trailing.isNotEmpty)
+                Wrap(spacing: 16, runSpacing: 6, children: trailing),
+            ],
+          ),
   );
 }
 
