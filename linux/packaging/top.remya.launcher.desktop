@@ -3,6 +3,6 @@ Type=Application
 Name=Remya Launcher
 Comment=Preview the Remya Launcher interface
 Exec=remya_launcher
-Icon=system-search
+Icon=top.remya.launcher
 Terminal=false
 Categories=Utility;
