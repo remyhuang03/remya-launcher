@@ -1,56 +1,33 @@
 use crate::content::{Content, Entry, Format, IMAGE_TYPES, PLAIN_TYPES, Summary};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, Transaction, params};
 use serde::Serialize;
-use serde_json::Value;
 use std::path::Path;
 
 const DAY_MS: i64 = 86_400_000;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Preferences {
     pub enabled: bool,
     pub max_items: u32,
     pub retention_days: u32,
 }
 
-impl Preferences {
-    pub fn update(mut self, key: &str, value: Value) -> Result<Self, &'static str> {
-        let number = |max| {
-            value
-                .as_u64()
-                .and_then(|n| u32::try_from(n).ok())
-                .filter(|n| (1..=max).contains(n))
-        };
-        match key {
-            "enabled" => self.enabled = value.as_bool().ok_or("Use a boolean for enabled")?,
-            "maxItems" => {
-                self.max_items = number(5000).ok_or("Use a whole number from 1 to 5000")?
-            }
-            "retentionDays" => {
-                self.retention_days = number(365).ok_or("Use a whole number from 1 to 365")?
-            }
-            _ => return Err("Unknown clipboard preference"),
-        }
-        Ok(self)
-    }
-}
-
 pub struct History {
     db: Connection,
-    pub preferences: Preferences,
+    preferences: Option<Preferences>,
+    policy_known: bool,
 }
 
 impl History {
-    pub fn open(path: &Path, now: i64) -> rusqlite::Result<Self> {
+    pub fn open(path: &Path) -> rusqlite::Result<Self> {
         let db = Connection::open_with_flags(
             path,
             OpenFlags::default() | OpenFlags::SQLITE_OPEN_NOFOLLOW,
         )?;
-        Self::initialize(db, now)
+        Self::initialize(db)
     }
 
-    fn initialize(mut db: Connection, now: i64) -> rusqlite::Result<Self> {
+    fn initialize(mut db: Connection) -> rusqlite::Result<Self> {
         db.execute_batch(
             "PRAGMA foreign_keys = ON;
              PRAGMA auto_vacuum = INCREMENTAL;
@@ -58,14 +35,7 @@ impl History {
         )?;
         let transaction = db.transaction()?;
         transaction.execute_batch(
-            "CREATE TABLE IF NOT EXISTS preferences (
-                 singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-                 enabled INTEGER NOT NULL,
-                 max_items INTEGER NOT NULL CHECK (max_items BETWEEN 1 AND 5000),
-                 retention_days INTEGER NOT NULL CHECK (retention_days BETWEEN 1 AND 365)
-             );
-             INSERT OR IGNORE INTO preferences VALUES (1, 1, 500, 30);
-             CREATE TABLE IF NOT EXISTS entries (
+            "CREATE TABLE IF NOT EXISTS entries (
                  id TEXT NOT NULL UNIQUE,
                  copied_at INTEGER NOT NULL,
                  times_copied INTEGER NOT NULL DEFAULT 1,
@@ -83,23 +53,27 @@ impl History {
                  PRIMARY KEY(entry_id, mime)
              ) WITHOUT ROWID;",
         )?;
-        let preferences = transaction.query_row(
-            "SELECT enabled, max_items, retention_days FROM preferences WHERE singleton = 1",
-            [],
-            |row| {
-                Ok(Preferences {
-                    enabled: row.get(0)?,
-                    max_items: row.get(1)?,
-                    retention_days: row.get(2)?,
-                })
-            },
-        )?;
-        prune(&transaction, preferences, now)?;
         transaction.commit()?;
-        Ok(Self { db, preferences })
+        Ok(Self {
+            db,
+            preferences: None,
+            policy_known: false,
+        })
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.policy().is_some_and(|policy| policy.enabled)
+    }
+
+    fn policy(&self) -> Option<Preferences> {
+        self.preferences.filter(|_| self.policy_known)
     }
 
     pub fn store(&mut self, content: Content, now: i64) -> rusqlite::Result<()> {
+        if !self.enabled() {
+            return Ok(());
+        }
+        let policy = self.policy().unwrap();
         let transaction = self.db.transaction()?;
         if !refresh_existing(&transaction, &content.id, now)? {
             // shortcut: search bounded previews; add a full-text index if users need deep matches.
@@ -134,13 +108,16 @@ impl History {
                 insert_format.execute(params![content.id, format.mime, format.data])?;
             }
         }
-        let removed = prune(&transaction, self.preferences, now)?;
+        let removed = prune(&transaction, policy, now)?;
         transaction.commit()?;
         self.reclaim(removed);
         Ok(())
     }
 
     pub fn refresh_existing(&self, id: &str, now: i64) -> rusqlite::Result<bool> {
+        if !self.enabled() {
+            return Ok(false);
+        }
         refresh_existing(&self.db, id, now)
     }
 
@@ -234,13 +211,14 @@ impl History {
     }
 
     pub fn set_pinned(&mut self, id: &str, pinned: bool, now: i64) -> rusqlite::Result<bool> {
+        let policy = self.policy();
         let transaction = self.db.transaction()?;
         let updated = transaction.execute(
             "UPDATE entries SET pinned = ?2 WHERE id = ?1",
             params![id, pinned],
         )?;
-        let removed = if !pinned {
-            prune(&transaction, self.preferences, now)?
+        let removed = if let Some(policy) = policy.filter(|_| !pinned) {
+            prune(&transaction, policy, now)?
         } else {
             0
         };
@@ -261,28 +239,35 @@ impl History {
         Ok(())
     }
 
-    pub fn set_preferences(&mut self, preferences: Preferences, now: i64) -> rusqlite::Result<()> {
+    pub fn set_policy(&mut self, policy: Option<Preferences>, now: i64) -> rusqlite::Result<()> {
+        let Some(policy) = policy else {
+            self.policy_known = false;
+            return Ok(());
+        };
         let transaction = self.db.transaction()?;
-        transaction.execute(
-            "UPDATE preferences SET enabled = ?1, max_items = ?2, retention_days = ?3 WHERE singleton = 1",
-            params![preferences.enabled, preferences.max_items, preferences.retention_days],
-        )?;
-        let removed = prune(&transaction, preferences, now)?;
+        let removed = prune(&transaction, policy, now)?;
         transaction.commit()?;
-        self.preferences = preferences;
+        self.preferences = Some(policy);
+        self.policy_known = true;
         self.reclaim(removed);
         Ok(())
     }
 
     pub fn prune(&mut self, now: i64) -> rusqlite::Result<bool> {
+        let Some(policy) = self.policy() else {
+            return Ok(false);
+        };
         let transaction = self.db.transaction()?;
-        let removed = prune(&transaction, self.preferences, now)?;
+        let removed = prune(&transaction, policy, now)?;
         transaction.commit()?;
         self.reclaim(removed);
         Ok(removed != 0)
     }
 
     pub fn next_expiry(&self) -> rusqlite::Result<Option<i64>> {
+        let Some(policy) = self.policy() else {
+            return Ok(None);
+        };
         self.db
             .query_row(
                 "SELECT copied_at FROM entries WHERE pinned = 0 ORDER BY copied_at LIMIT 1",
@@ -290,9 +275,7 @@ impl History {
                 |row| row.get::<_, i64>(0),
             )
             .optional()
-            .map(|copied| {
-                copied.map(|time| time + i64::from(self.preferences.retention_days) * DAY_MS)
-            })
+            .map(|copied| copied.map(|time| time + i64::from(policy.retention_days) * DAY_MS))
     }
 
     fn reclaim(&self, removed: usize) {
@@ -337,9 +320,40 @@ fn json_encode(value: &impl Serialize) -> rusqlite::Result<String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::content::{HTML, fixture, plain_format};
+
+    pub fn default_policy() -> Preferences {
+        Preferences {
+            enabled: true,
+            max_items: 500,
+            retention_days: 30,
+        }
+    }
+
+    #[test]
+    fn unknown_policy_never_records_prunes_or_expires() {
+        let mut history = History::initialize(Connection::open_in_memory().unwrap()).unwrap();
+        history.store(item("unknown"), 0).unwrap();
+        assert!(history.entries("").unwrap().is_empty());
+        history.set_policy(Some(default_policy()), 0).unwrap();
+        let old = item("keep");
+        let id = old.id.clone();
+        history.store(old, 0).unwrap();
+        history.set_policy(None, 40 * DAY_MS).unwrap();
+        history.store(item("skip"), 40 * DAY_MS).unwrap();
+        assert!(!history.refresh_existing(&id, 40 * DAY_MS).unwrap());
+        history.set_pinned(&id, false, 40 * DAY_MS).unwrap();
+        assert!(!history.prune(40 * DAY_MS).unwrap());
+        assert_eq!(history.next_expiry().unwrap(), None);
+        assert_eq!(history.entries("").unwrap().len(), 1);
+        assert_eq!(history.preferences, Some(default_policy()));
+        history
+            .set_policy(Some(default_policy()), 40 * DAY_MS)
+            .unwrap();
+        assert!(history.entries("").unwrap().is_empty());
+    }
 
     fn item(value: &str) -> Content {
         fixture(vec![plain_format(value.into())])
@@ -347,7 +361,8 @@ mod tests {
 
     #[test]
     fn persistence_round_trips_formats_and_deduplicates() {
-        let mut history = History::initialize(Connection::open_in_memory().unwrap(), 0).unwrap();
+        let mut history = History::initialize(Connection::open_in_memory().unwrap()).unwrap();
+        history.set_policy(Some(default_policy()), 0).unwrap();
         let rich = || {
             fixture(vec![
                 plain_format(" a plain value \nsecond searchable line".into()),
@@ -378,7 +393,8 @@ mod tests {
 
     #[test]
     fn tightening_policy_prunes_only_unpinned_entries() {
-        let mut history = History::initialize(Connection::open_in_memory().unwrap(), 0).unwrap();
+        let mut history = History::initialize(Connection::open_in_memory().unwrap()).unwrap();
+        history.set_policy(Some(default_policy()), 0).unwrap();
         let pinned = item("keep pinned");
         let id = pinned.id.clone();
         history.store(pinned, 0).unwrap();
@@ -391,8 +407,8 @@ mod tests {
             max_items: 1,
             retention_days: 1,
         };
-        history.set_preferences(policy, DAY_MS + 2).unwrap();
-        assert_eq!(history.preferences, policy);
+        history.set_policy(Some(policy), DAY_MS + 2).unwrap();
+        assert_eq!(history.preferences, Some(policy));
         assert_eq!(
             history
                 .entries("")

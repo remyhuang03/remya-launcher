@@ -1,5 +1,6 @@
 mod content;
 mod history;
+mod policy;
 mod service;
 mod wayland;
 
@@ -83,8 +84,12 @@ fn run() -> Result<(), Error> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
-    let service = Arc::new(Service::new(History::open(&db, service::now_ms())?));
+    let service = Arc::new(Service::new(History::open(&db)?));
     let listener = UnixListener::bind(socket)?;
+    let policy = Arc::clone(&service);
+    std::thread::Builder::new()
+        .name("clipboard-policy".into())
+        .spawn(move || policy::run(&policy))?;
     let capture = Arc::clone(&service);
     std::thread::Builder::new()
         .name("clipboard-capture".into())
