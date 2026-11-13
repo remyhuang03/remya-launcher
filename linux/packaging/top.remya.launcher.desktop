@@ -6,8 +6,12 @@ Exec=remya_launcher
 Icon=top.remya.launcher
 Terminal=false
 Categories=Utility;
-Actions=Clipboard;
+Actions=Clipboard;settings;
 
 [Desktop Action Clipboard]
 Name=Clipboard History
 Exec=remya_launcher --clipboard
+
+[Desktop Action settings]
+Name=Settings
+Exec=remya_launcher --settings

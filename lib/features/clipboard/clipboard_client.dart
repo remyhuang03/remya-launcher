@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:remya_client/remya_client.dart';
+
 enum ClipboardKind {
   text('Text'),
   command('Command'),
@@ -91,8 +93,22 @@ class ClipboardClient {
           )
           .toList(growable: false);
 
-  Future<bool> isEnabled() async =>
-      (await request('preferences') as Map<String, dynamic>)['enabled'] as bool;
+  Future<bool> isEnabled() async {
+    final preferences = AppPreferences('remya-launcher');
+    try {
+      final reply = await preferences.get('clipboard-history');
+      if (reply['id'] != 'remya-launcher.clipboard-history' ||
+          reply['availability'] != 'available' ||
+          reply['value'] is! bool) {
+        throw const ClipboardServiceException(
+          'Clipboard policy is unavailable.',
+        );
+      }
+      return reply['value'] as bool;
+    } finally {
+      await preferences.close();
+    }
+  }
 
   Future<ClipboardDetail> detail(String id) async => ClipboardDetail.fromJson(
     await request('detail', {'id': id}) as Map<String, dynamic>,

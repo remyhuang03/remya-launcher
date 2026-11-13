@@ -265,6 +265,9 @@ class _TestClipboard extends ClipboardClient {
   bool available = true;
 
   @override
+  Future<bool> isEnabled() async => true;
+
+  @override
   Stream<void> watch() => available
       ? StreamController<void>().stream
       : Stream<void>.error(const ClipboardServiceException('Unavailable'));
@@ -285,8 +288,6 @@ class _TestClipboard extends ClipboardClient {
                   .contains(query),
             )
             .toList();
-      case 'preferences':
-        return {'enabled': true};
       case 'detail':
         return {
           'text': entries.firstWhere(

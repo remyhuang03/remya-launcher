@@ -21,3 +21,6 @@ sha2 = "0.11"
 url = "2"
 wl-clipboard-rs = "=0.9.5"
 zeroize = "1"
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "std"] }
+tokio = { version = "1", features = ["rt", "time", "macros"] }
+zbus = { version = "5.19", default-features = false, features = ["tokio"] }

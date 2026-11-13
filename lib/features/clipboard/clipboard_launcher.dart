@@ -144,10 +144,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     unawaited(_refresh());
   }
 
-  void _setUnavailable() {
+  void _setUnavailable([String message = 'Clipboard service is unavailable.']) {
     if (!mounted || !(_inClipboard || _inActions)) return;
     _maskSecret();
-    setState(() => _error = 'Clipboard service is unavailable.');
+    setState(() => _error = message);
   }
 
   Future<void> _refresh() async {
@@ -177,6 +177,11 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       if (_inClipboard && _search.text.trim().isNotEmpty) {
         unawaited(_updateQuery(_search.text));
       }
+    } on ParallelWaitError<dynamic, dynamic> catch (error) {
+      final (AsyncError? history, AsyncError? _) = error.errors;
+      history == null
+          ? _setUnavailable('Remya Core cannot provide the clipboard policy.')
+          : _setUnavailable();
     } on Object {
       _setUnavailable();
     } finally {

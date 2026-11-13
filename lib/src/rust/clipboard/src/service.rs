@@ -1,5 +1,5 @@
 use crate::content::{self, Entry, Format, Kind, Summary, TEXT_LIMIT, classify};
-use crate::history::History;
+use crate::history::{History, Preferences};
 use crate::wayland::{self, Selection};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::{Deserialize, Serialize};
@@ -51,11 +51,6 @@ pub enum Request {
         id: String,
     },
     Clear,
-    Preferences,
-    SetPreference {
-        key: String,
-        value: Value,
-    },
     Publish {
         id: Option<String>,
         mode: Option<PasteMode>,
@@ -202,6 +197,23 @@ impl Service {
         }
     }
 
+    #[cfg(test)]
+    pub fn policy_enabled(&self) -> bool {
+        self.state.lock().unwrap().history.enabled()
+    }
+
+    pub fn apply_policy(&self, policy: Option<Preferences>) -> Result<(), Error> {
+        let mut state = self.state.lock().unwrap();
+        state.history.set_policy(policy, now_ms())?;
+        state.generation = state.generation.wrapping_add(1);
+        if !state.history.enabled() {
+            state.purge_secrets(|_| true);
+        }
+        state.notify();
+        self.changed.notify_all();
+        Ok(())
+    }
+
     pub fn watch_updates(&self, mut stream: UnixStream) -> Result<(), Error> {
         let mut state = self.state.lock().unwrap();
         state.watchers.retain(|peer| {
@@ -299,7 +311,7 @@ impl Service {
         let own_marker = mimes
             .iter()
             .any(|mime| mime.starts_with(&self.marker_prefix));
-        (!own_marker && !initial && state.history.preferences.enabled).then_some(state.generation)
+        (!own_marker && !initial && state.history.enabled()).then_some(state.generation)
     }
 
     fn store_capture(
@@ -314,7 +326,7 @@ impl Service {
         }
         if capture.sensitive {
             let mut state = self.state.lock().unwrap();
-            if generation != state.generation {
+            if generation != state.generation || !state.history.enabled() {
                 return;
             }
             if state.secrets.len() >= MAX_SECRETS {
@@ -336,7 +348,7 @@ impl Service {
         let id = content::content_id(&mut capture.formats);
         {
             let mut state = self.state.lock().unwrap();
-            if generation != state.generation {
+            if generation != state.generation || !state.history.enabled() {
                 return;
             }
             match state.history.refresh_existing(&id, copied_at) {
@@ -356,7 +368,7 @@ impl Service {
             return;
         };
         let mut state = self.state.lock().unwrap();
-        if generation != state.generation {
+        if generation != state.generation || !state.history.enabled() {
             return;
         }
         if state.history.store(content, copied_at).is_ok() {
@@ -411,16 +423,13 @@ impl Service {
             return Ok(Value::Null);
         }
 
-        let _publication = matches!(
-            request,
-            Request::Delete { .. } | Request::Clear | Request::SetPreference { .. }
-        )
-        .then(|| {
-            self.publishing
-                .try_lock()
-                .map_err(|_| "Clipboard publication is in progress")
-        })
-        .transpose()?;
+        let _publication = matches!(request, Request::Delete { .. } | Request::Clear)
+            .then(|| {
+                self.publishing
+                    .try_lock()
+                    .map_err(|_| "Clipboard publication is in progress")
+            })
+            .transpose()?;
         let mut state = self.state.lock().unwrap();
         match request {
             Request::List { query } => {
@@ -468,23 +477,6 @@ impl Service {
                     .text(&id)?
                     .ok_or("Plain text is unavailable")?
             )),
-            Request::Preferences => Ok(json!(state.history.preferences)),
-            Request::SetPreference { key, value } => {
-                let previous = state.history.preferences;
-                let next = previous.update(&key, value)?;
-                if next != previous {
-                    state.history.set_preferences(next, now_ms())?;
-                    if next.enabled != previous.enabled {
-                        state.generation = state.generation.wrapping_add(1);
-                        if !next.enabled {
-                            state.purge_secrets(|_| true);
-                        }
-                    }
-                    state.notify();
-                    self.changed.notify_all();
-                }
-                Ok(json!(next))
-            }
             Request::SetPinned { id, pinned } => {
                 if !state.history.set_pinned(&id, pinned, now_ms())? {
                     return Err("Clipboard item cannot be pinned".into());
@@ -677,8 +669,40 @@ mod tests {
     use crate::content::{HTML, plain_format};
 
     #[test]
+    fn unknown_policy_rejects_regular_sensitive_and_inflight_capture() {
+        let service = Service::new(History::open(std::path::Path::new(":memory:")).unwrap());
+        let capture = |sensitive| wayland::Capture {
+            sensitive,
+            formats: vec![plain_format("synthetic fixture".into())],
+        };
+        assert_eq!(service.begin_capture(&[HTML.into()], false), None);
+        service.store_capture(capture(false), 0, now_ms(), Instant::now());
+        service.store_capture(capture(true), 0, now_ms(), Instant::now());
+        service
+            .apply_policy(Some(crate::history::tests::default_policy()))
+            .unwrap();
+        let generation = service.begin_capture(&[HTML.into()], false).unwrap();
+        service.apply_policy(None).unwrap();
+        service.store_capture(capture(false), generation, now_ms(), Instant::now());
+        service.store_capture(capture(true), generation, now_ms(), Instant::now());
+        let state = service.state.lock().unwrap();
+        assert!(state.secrets.is_empty());
+        assert!(state.history.entries("").unwrap().is_empty());
+        assert!(serde_json::from_str::<Request>(r#"{"op":"preferences"}"#).is_err());
+        assert!(
+            serde_json::from_str::<Request>(
+                r#"{"op":"setPreference","key":"enabled","value":true}"#
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
     fn secrets_expire_and_never_enter_durable_history() {
-        let history = History::open(std::path::Path::new(":memory:"), 0).unwrap();
+        let mut history = History::open(std::path::Path::new(":memory:")).unwrap();
+        history
+            .set_policy(Some(crate::history::tests::default_policy()), 0)
+            .unwrap();
         let service = Service::new(history);
         let copied = Instant::now();
         let capture = || wayland::Capture {
@@ -704,7 +728,10 @@ mod tests {
 
     #[test]
     fn self_published_formats_do_not_capture_and_ack_requires_matching_marker() {
-        let history = History::open(std::path::Path::new(":memory:"), 0).unwrap();
+        let mut history = History::open(std::path::Path::new(":memory:")).unwrap();
+        history
+            .set_policy(Some(crate::history::tests::default_policy()), 0)
+            .unwrap();
         let service = Service::new(history);
         let marker = format!("{}fixture", service.marker_prefix);
         service.state.lock().unwrap().publishing = Some(Publishing {

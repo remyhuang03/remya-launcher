@@ -26,7 +26,7 @@
 Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
 
 - **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes, `Alt+1–9` quick pick, and contextual footer key hints.
-- **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Settings integration.
+- **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Core policy storage.
 - **Material Design 3 Expressive**: Smooth shape morphing, Inter and JetBrains Mono typography, and a `gtk-layer-shell` overlay anchored at 22% screen height.
 
 > [!CAUTION]
@@ -55,7 +55,7 @@ cd remya_launcher-0.1.0+1-linux-x86_64
 python tool/install.py
 ```
 
-For paired Remya desktop installations, install **Remya Settings** before **Remya Bar**. Clipboard retention and capture preferences are managed in **Remya Settings → System → Clipboard**.
+Install **Remya Core** before Remya Launcher. Clipboard capture and retention policy belongs to Launcher and is stored by Core through the `remya-launcher` app-preferences registration. `remya_launcher --settings [clipboard]` opens the settings route; its UI is pending.
 
 ## ✨ Features
 
@@ -66,7 +66,8 @@ For paired Remya desktop installations, install **Remya Settings** before **Remy
   - Persists up to 500 unpinned items for 30 days by default in `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3` (default `~/.local/state/remya/launcher/clipboard.sqlite3`); pinned items are exempt from automatic pruning.
   - Captures selections up to 64 MiB and decoded images up to 24 megapixels (PNG, JPEG, WebP, GIF, BMP); images larger than 20 MB within those limits retain a thumbnail.
   - Automatically masks entries marked sensitive by the source application in memory for up to 45 seconds without writing them to disk.
-  - Exposes a same-user JSON-over-Unix-socket IPC interface at `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` for Remya Settings (`preferences`, `setPreference` for `enabled`/`maxItems`/`retentionDays`, and `clear`).
+  - Exposes same-user history operations and `clear` at `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock`. Policy is read from `top.remya.Core1` and refreshed on `Changed`; while unavailable or invalid, capture and automatic history cleanup pause.
+  - Installs `remya/apps/remya-launcher.json` and a desktop `settings` action. The clipboard unit starts after and wants `top.remya.core.service`.
   - *Known Wayland limitation*: Wayland data-control does not identify which application provided a clipboard selection, so source app labels and per-application exclusion blacklists in the design cannot be implemented reliably.
 - **Interactive Design Previews (`--preview`)**:
   - Inspect all planned UI states from a built bundle using `--preview=<name>`:
