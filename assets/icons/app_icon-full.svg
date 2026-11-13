@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="167.782" height="167.782" viewBox="0 0 167.782 167.782">
+  <defs>
+    <linearGradient id="linear-gradient-1" x1="10.546" y1="2.142" x2="141.832" y2="109.885" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7dc7"/>
+      <stop offset="0.65" stop-color="#e3409e"/>
+      <stop offset="1" stop-color="#e3409e"/>
+    </linearGradient>
+    <mask id="mask-1" maskUnits="userSpaceOnUse" color-interpolation="sRGB" x="-2" y="-2" width="201.782" height="201.781">
+    <circle cx="68" cy="68" r="68" fill="#ffffff"/>
+    </mask>
+    <clipPath id="clip-path-1">
+      <path d="M63.699 63.699 L179.782 63.699 L179.782 179.781 L63.699 179.781 Z"/>
+    </clipPath>
+    <filter id="filter-1" filterUnits="userSpaceOnUse" x="55.699" y="55.698" width="132.083" height="132.083" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="6"/></filter>
+    <linearGradient id="linear-gradient-2" x1="82.143" y1="82.142" x2="161.338" y2="161.338" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c7a6ff" stop-opacity="0"/>
+      <stop offset="0.43" stop-color="#c7a6ff"/>
+      <stop offset="1" stop-color="#c7a6ff"/>
+    </linearGradient>
+  </defs>
+  <title>launcher-full.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M113.255 82.142 L161.339 130.225 C169.93 138.817 169.93 152.747 161.339 161.338 L161.339 161.338 C152.747 169.93 138.817 169.93 130.226 161.338 L82.143 113.255 C73.551 104.663 73.551 90.734 82.143 82.142 L82.143 82.142 C90.734 73.551 104.664 73.551 113.255 82.142 Z" fill="#ffc9e8"/>
+    <circle cx="68" cy="68" r="68" fill="url(#linear-gradient-1)"/>
+    <g mask="url(#mask-1)">
+      <g>
+        <g clip-path="url(#clip-path-1)">
+          <g filter="url(#filter-1)">
+            <path d="M113.255 82.142 L161.339 130.225 C169.93 138.817 169.93 152.747 161.339 161.338 L161.339 161.338 C152.747 169.93 138.817 169.93 130.226 161.338 L82.143 113.255 C73.551 104.663 73.551 90.734 82.143 82.142 L82.143 82.142 C90.734 73.551 104.664 73.551 113.255 82.142 Z" fill="url(#linear-gradient-2)"/>
+          </g>
+        </g>
+      </g>
+    </g>
+    <path d="M46 38 L54 38 C58.418 38 62 41.582 62 46 L62 54 C62 58.418 58.418 62 54 62 L46 62 C41.582 62 38 58.418 38 54 L38 46 C38 41.582 41.582 38 46 38 Z" fill="#ffffff"/>
+    <path d="M82 38 L90 38 C94.418 38 98 41.582 98 46 L98 54 C98 58.418 94.418 62 90 62 L82 62 C77.582 62 74 58.418 74 54 L74 46 C74 41.582 77.582 38 82 38 Z" fill="#ffffff"/>
+    <path d="M46 74 L54 74 C58.418 74 62 77.582 62 82 L62 90 C62 94.418 58.418 98 54 98 L46 98 C41.582 98 38 94.418 38 90 L38 82 C38 77.582 41.582 74 46 74 Z" fill="#ffffff"/>
+    <path d="M82 74 L90 74 C94.418 74 98 77.582 98 82 L98 90 C98 94.418 94.418 98 90 98 L82 98 C77.582 98 74 94.418 74 90 L74 82 C74 77.582 77.582 74 82 74 Z" fill="#ffffff"/>
+  </g>
+</svg>

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/icons/launcher.svg" width="128" alt="Remya Launcher">
+  <img src="assets/icons/app_icon-full.svg" width="128" alt="Remya Launcher">
 </p>
 
 <h1 align="center">Remya Launcher</h1>
