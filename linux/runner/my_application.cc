@@ -26,10 +26,12 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   gboolean preview = FALSE;
+  gboolean settings = FALSE;
   for (char** argument = self->dart_entrypoint_arguments; *argument; ++argument) {
+    if (g_strcmp0(*argument, "--settings") == 0) settings = TRUE;
     if (g_str_has_prefix(*argument, "--preview=")) preview = TRUE;
   }
-  const bool overlay = !preview && configure_launcher_overlay(window);
+  const bool overlay = !preview && !settings && configure_launcher_overlay(window);
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -38,6 +40,8 @@ static void my_application_activate(GApplication* application) {
   // in case the window manager does more exotic layout, e.g. tiling.
   // If running on Wayland assume the header bar will work (may need changing
   // if future cases occur).
+  // Settings is an ordinary xdg toplevel without the overlay's focus-out close.
+  const char* title = settings ? "Remya Launcher Settings" : "Remya Launcher";
   gboolean use_header_bar = TRUE;
 #ifdef GDK_WINDOWING_X11
   GdkScreen* screen = gtk_window_get_screen(window);
@@ -48,19 +52,21 @@ static void my_application_activate(GApplication* application) {
     }
   }
 #endif
-  if (overlay) {
-    gtk_window_set_title(window, "Remya Launcher");
-  } else if (use_header_bar) {
+  // The header bar title is only drawn; the compositor reads the window title.
+  gtk_window_set_title(window, title);
+  if (!overlay && use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "Remya Launcher");
+    gtk_header_bar_set_title(header_bar, title);
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-  } else {
-    gtk_window_set_title(window, "Remya Launcher");
   }
 
-  if (!overlay) gtk_window_set_default_size(window, 1000, 820);
+  if (settings) {
+    gtk_window_set_default_size(window, 760, 640);
+  } else if (!overlay) {
+    gtk_window_set_default_size(window, 1000, 820);
+  }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -81,7 +87,7 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
-  if (!preview) register_launcher_window(view, window);
+  if (!preview && !settings) register_launcher_window(view, window);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

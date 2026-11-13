@@ -3,10 +3,10 @@
 ## Project scope
 
 - Remya Launcher is a Linux desktop application for Hyprland, built with Flutter and Rust. Its application ID is `top.remya.launcher` and its executable is `remya_launcher`.
-- Clipboard history is implemented by Remya Launcher and managed through the Clipboard page in Remya Settings. Keep example data separate from reusable controls. Add system integrations only when requested. Never present examples as detected system state.
+- Clipboard history and its settings pages belong to Remya Launcher. Clipboard policy is registered with and read/written only through Remya Core app preferences. Keep example data separate from reusable controls. Add system integrations only when requested. Never present examples as detected system state.
 - Keep application composition in `lib/app.dart`, startup in `lib/main.dart`, and feature code under `lib/features/<feature>/`. Extract shared widgets only when multiple call sites need them.
 - Keep the Flutter project and Cargo workspace at the repository root. Place Rust crates in `lib/src/rust/<crate>/` and keep the core crate empty until it has a concrete responsibility. Keep any future generated bridge code separate from handwritten code.
-- Use the public Remya Settings client for future Settings integrations. Respect XDG paths and preserve user configuration. Do not modify Hyprland configuration.
+- Use the public remya_client and remya_ui packages from Remya Core for shared integrations. Respect XDG paths and preserve user configuration. Do not modify Hyprland configuration.
 - Write rule documents in English.
 
 ## UI and toolchains

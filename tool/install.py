@@ -37,7 +37,8 @@ def unit_quote(path):
 def clipboard_unit(executable):
     return (
         "[Unit]\nDescription=Remya Launcher clipboard history\n"
-        "PartOf=graphical-session.target\nAfter=graphical-session.target\n\n"
+        "PartOf=graphical-session.target\nWants=top.remya.core.service\n"
+        "After=graphical-session.target top.remya.core.service\n\n"
         f"[Service]\nExecStart={unit_quote(executable)}\n"
         "Restart=on-failure\nRestartSec=2\nUMask=0077\nLimitCORE=0\n\n"
         "[Install]\nWantedBy=graphical-session.target\n"
@@ -59,7 +60,15 @@ def require_inter_font():
         raise RuntimeError("Install the Inter system font first (Arch: sudo pacman -S inter-font)")
 
 
+def require_core(environment):
+    roots = [data_home(environment)]
+    roots.extend(Path(value) for value in (environment.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":") if value.startswith("/"))
+    if not any((root / "dbus-1/services/top.remya.Core1.service").is_file() for root in roots):
+        raise RuntimeError("Install Remya Core first (top.remya.Core1.service is required)")
+
+
 def install(root, environment):
+    require_core(environment)
     require_inter_font()
     data = data_home(environment).resolve()
     source = root / "build/linux/x64/release/bundle"
@@ -128,6 +137,10 @@ def install_bundle(root, source, destination, data, command):
     entry = (root / f"linux/packaging/{PACKAGE}.desktop").read_text()
     entry = entry.replace(f"Exec={APP_ID}", f"Exec=/usr/bin/env {desktop_quote(destination / APP_ID)}")
     (applications / f"{PACKAGE}.desktop").write_text(entry)
+    registrations = data / "remya/apps"
+    registrations.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(root / "linux/packaging/remya-launcher.json",
+                    registrations / "remya-launcher.json")
     icons = data / "icons/hicolor/scalable/apps"
     icons.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(root / "assets/icons/app_icon.svg", icons / f"{PACKAGE}.svg")

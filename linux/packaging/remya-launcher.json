@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "id": "remya-launcher",
+  "app": "top.remya.launcher",
+  "title": "Remya Launcher",
+  "icon": "top.remya.launcher",
+  "config": "launcher",
+  "pages": [
+    {
+      "id": "clipboard",
+      "title": "Clipboard",
+      "keywords": [
+        "history",
+        "retention"
+      ]
+    }
+  ],
+  "settings": {
+    "clipboard-history": {
+      "title": "Clipboard history",
+      "page": "clipboard",
+      "keywords": [],
+      "default": true,
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "boolean"
+      }
+    },
+    "clipboard-max-items": {
+      "title": "Maximum clipboard items",
+      "page": "clipboard",
+      "keywords": [],
+      "default": 500,
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 5000
+      }
+    },
+    "clipboard-retention-days": {
+      "title": "Clipboard retention days",
+      "page": "clipboard",
+      "keywords": [],
+      "default": 30,
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 365
+      }
+    }
+  }
+}
