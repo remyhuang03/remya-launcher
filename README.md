@@ -1,8 +1,116 @@
-# Remya Launcher
+<p align="center">
+  <img src="assets/icons/launcher.svg" width="128" alt="Remya Launcher">
+</p>
 
-Linux launcher for Hyprland, built with Flutter, Rust and Material Design 3 Expressive. Clipboard history is available in the live launcher. Other scopes are design previews.
+<h1 align="center">Remya Launcher</h1>
 
-## Run
+<h3 align="center">A Material Design 3 Expressive launcher and clipboard manager for Hyprland</h3>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Arch%20Linux%20%7C%20Hyprland-1793D1?style=flat-square&logo=archlinux&logoColor=white" alt="Platform: Arch Linux | Hyprland">
+  <img src="https://img.shields.io/badge/Flutter-3.47.8-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter 3.47.8">
+  <img src="https://img.shields.io/badge/Rust-2024-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 2024">
+  <img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-4C1?style=flat-square" alt="License: PolyForm Noncommercial 1.0.0">
+</p>
+
+<p align="center">
+  <strong>English</strong> ·
+  <a href="docs/README.zh-CN.md">简体中文</a> ·
+  <a href="docs/README.zh-TW.md">繁體中文</a> ·
+  <a href="docs/README.ru.md">Русский</a> ·
+  <a href="docs/README.de.md">Deutsch</a> ·
+  <a href="docs/README.es.md">Español</a> ·
+  <a href="docs/README.ja.md">日本語</a>
+</p>
+
+Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
+
+- **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes, `Alt+1–9` quick pick, and contextual footer key hints.
+- **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Settings integration.
+- **Material Design 3 Expressive**: Smooth shape morphing, Inter and JetBrains Mono typography, and a `gtk-layer-shell` overlay anchored at 22% screen height.
+
+> [!CAUTION]
+> **Early Development & Preview Only — Not Ready for Daily Use**
+>
+> Remya Launcher is in early active development. Currently, **live clipboard history** (the Rust clipboard daemon and live Clipboard view) and **interactive UI design previews** (`--preview`) are implemented. Most other launcher scopes, search backends, and Hyprland window/action integrations described below reflect the planned [Remya Launcher Figma specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) and are not yet implemented.
+
+## 🚀 Installation
+
+### AUR (`dev` channel)
+
+On Arch Linux, install the development package once available in the AUR:
+
+```bash
+paru -S remya-launcher-git || yay -S remya-launcher-git
+```
+
+### Release Archive
+
+Prebuilt release archives are not yet published. Once releases are available on [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases), verify the checksum, extract the archive, and run the local installer:
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+tar --zstd -xf remya_launcher-0.1.0+1-linux-x86_64.tar.zst
+cd remya_launcher-0.1.0+1-linux-x86_64
+python tool/install.py
+```
+
+For paired Remya desktop installations, install **Remya Settings** before **Remya Bar**. Clipboard retention and capture preferences are managed in **Remya Settings → System → Clipboard**.
+
+## ✨ Features
+
+### Currently Available
+
+- **Live Clipboard History (`remya_launcher --clipboard` / `Ctrl+6` / `;`)**:
+  - Background Rust watcher (`remya-launcher-clipboard`) running as the `top.remya.launcher.clipboard.service` systemd user unit with the graphical session.
+  - Persists up to 500 unpinned items for 30 days by default in `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3` (default `~/.local/state/remya/launcher/clipboard.sqlite3`); pinned items are exempt from automatic pruning.
+  - Captures selections up to 64 MiB and decoded images up to 24 megapixels (PNG, JPEG, WebP, GIF, BMP); images larger than 20 MB within those limits retain a thumbnail.
+  - Automatically masks entries marked sensitive by the source application in memory for up to 45 seconds without writing them to disk.
+  - Exposes a same-user JSON-over-Unix-socket IPC interface at `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` for Remya Settings (`preferences`, `setPreference` for `enabled`/`maxItems`/`retentionDays`, and `clear`).
+  - *Known Wayland limitation*: Wayland data-control does not identify which application provided a clipboard selection, so source app labels and per-application exclusion blacklists in the design cannot be implemented reliably.
+- **Interactive Design Previews (`--preview`)**:
+  - Inspect all planned UI states from a built bundle using `--preview=<name>`:
+    - Launcher states: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
+    - Clipboard type previews: `clipboard-text`, `clipboard-code`, `clipboard-image`, `clipboard-link`, `clipboard-color`, `clipboard-files`, `clipboard-hidden`
+
+### Planned Scopes & Capabilities (Design Spec)
+
+The following capabilities are planned according to the [Remya Launcher design specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher):
+
+- **Natural Prefix Scopes**:
+  - **All (`Ctrl+1`)**: Mixed results across apps, files, web history, and commands (up to 3 items per group, ordered dynamically by best score), automatic calculator answer cards for numeric/parenthesized expressions, and direct URL detection.
+  - **Apps (`Ctrl+2`)**: XDG `.desktop` fuzzy matching across name, `GenericName`, `Keywords`, and executable with frecency weighting and secondary desktop actions (e.g., new private window).
+  - **Files (`Ctrl+3`, `/` or `~` prefix)**: Native path completion (`Tab` segment-by-segment), fuzzy filename search (`fd` + recent files), and a right-hand preview pane (directory contents, text excerpts, image thumbnails) expanding the panel to 880 px.
+  - **Web (`Ctrl+4`, `?` prefix)**: Read-only local browser history (Firefox `places.sqlite` / Chromium `History`) ranked by frecency, with a fallback web search action (`Ctrl+Enter`).
+  - **Calc (`Ctrl+5`, `=` prefix)**: `libqalculate`-powered math, unit and currency conversions, base conversions, percentages, and date arithmetic (`Tab` to cycle units, `↑` to recall previous expressions).
+  - **Clipboard (`Ctrl+6`, `;` prefix)**: Full 960 px split view with type filters (`All · Text · Images · Links · Files · Colors` via `Ctrl+F`), `Pinned → Today → Yesterday → Earlier` grouping, duplicate merging with copy counts, type-aware previews (syntax-highlighted code with line numbers, color swatches in HEX/RGB/HSL/OKLCH, checkerboard image previews), and direct paste-back to the previous focused window (`Enter`, or `Ctrl+Enter` for type-specific secondary actions).
+  - **Windows (`Ctrl+7`, `#` prefix)**: `hyprctl clients` matching by title and class with workspace badges; `Enter` focuses the window and switches workspace, `Ctrl+Enter` moves it to the current workspace.
+  - **Emoji (`:` prefix)** & **Run (`$` / `>` prefix)**: Emoji/symbol search by name or alias and direct shell/terminal command execution.
+- **Keyboard-First Navigation**:
+  - `↑`/`↓` or `Ctrl+N`/`Ctrl+P` to navigate across groups; `Ctrl+↑`/`Ctrl+↓` to jump between group heads.
+  - Hold `Alt` to reveal row numbers and press `Alt+1–9` to execute the primary action directly (`Alt+1–6` for Pinned items in the empty state), or `Ctrl+Alt+1–9` for the secondary action.
+  - `→` or `Ctrl+K` to open the filterable Actions menu; `Ctrl+C` to copy the selected value; `Ctrl+D` to pin/unpin; `Shift+Del` to forget from Recent or delete from history.
+  - `Ctrl+W` / `Ctrl+Backspace` to delete a word or path segment; `Ctrl+U` to clear the query; `Esc` to step back through menu → query → scope → close; `?` on empty input for the full shortcut cheat sheet.
+- **Hyprland Overlay & Visual System**:
+  - `gtk-layer-shell` overlay with exclusive keyboard interactivity, 720 px default width, downward-only height transitions (250 ms), and dismiss on click-outside or focus loss.
+  - Material Design 3 Expressive shape morphing (`20 px → 12 px` on selected rows and pinned tiles, `16 px → 10 px` on scope chips) and dynamic theme tokens synced with the Remya desktop seed color.
+
+## ⌨️ Development
+
+### Tech Stack & Architecture
+
+- **Frontend**: Flutter & Dart (pinned via `.fvmrc` to `3.47.8`) with `material_ui` (Material Design 3 Expressive) and `flutter_svg`.
+  - `lib/app.dart` & `lib/main.dart`: Application composition, CLI flag handling (`--clipboard`, `--preview=...`), and license registration.
+  - `lib/features/launcher/`: Launcher panel, search field, scope chips, result/pinned rows, keycap hints, calculator card, file preview, and action menu.
+  - `lib/features/clipboard/`: Live clipboard page, Unix socket client, type previews, and clipboard actions.
+  - `lib/features/preview/`: Interactive design examples assembled from reusable controls.
+- **Backend**: Rust (`edition = "2024"`, `resolver = "3"`) workspace at the repository root:
+  - `lib/src/rust/clipboard/`: Wayland clipboard watcher daemon (`remya-launcher-clipboard`), SQLite persistence, and IPC server.
+  - `lib/src/rust/core/`: Core Rust crate (reserved for shared launcher backend logic).
+
+### Prerequisites & Setup
+
+Ensure GTK 3, `gtk-layer-shell`, Python 3, `inter-font` (`sudo pacman -S inter-font` on Arch), FVM, and the Rust toolchain defined in `rust-toolchain.toml` are installed.
 
 ```bash
 fvm install
@@ -10,49 +118,36 @@ fvm flutter pub get
 fvm flutter run -d linux
 ```
 
-The default view opens the launcher. Select Clipboard, type `;`, or press `Ctrl+6` to open history. Run `remya_launcher --clipboard` to go directly to history. Use that command for a Hyprland `Super+V` binding. To open a design example from a built bundle, pass `--preview`.
+To inspect a design preview from a debug build:
 
 ```bash
 build/linux/x64/debug/bundle/remya_launcher --preview=files
 ```
 
-Available examples are `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, and `clipboard`. Clipboard detail variants are `clipboard-text`, `clipboard-code`, `clipboard-image`, `clipboard-link`, `clipboard-color`, `clipboard-files`, and `clipboard-hidden`.
+### Validation & Local Installation
 
-The design uses the Inter and JetBrains Mono font families. The preview accepts the JetBrainsMono Nerd Font Mono family and falls back to system fonts where needed.
-
-## Layout
-
-- `lib/features/launcher/` contains the panel, search field, scope chips, result and pin rows, key hints, calculator card, file preview, and action menu.
-- `lib/features/clipboard/` contains the live clipboard page, its service client, and the clipboard preview controls.
-- `lib/features/preview/` assembles the design examples using the reusable controls.
-- `lib/src/rust/clipboard/` builds the clipboard service.
-
-The Material Symbols and example app icons come from the [Remya Launcher design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher?node-id=2005-24). App logos belong to their respective owners and identify the sample apps.
-
-## Install locally
-
-The Linux build needs GTK 3, gtk-layer-shell, Python 3, the pinned Flutter and Rust toolchains, and the Inter font. The clipboard service runs under the systemd user manager in a Hyprland graphical session.
+Run formatting, static analysis, tests, and sequential debug/release builds:
 
 ```bash
+fvm dart format --output=none --set-exit-if-changed .
+fvm flutter analyze
+fvm flutter test
+cargo fmt --check
+cargo clippy --workspace --all-targets
+cargo test --workspace
+fvm flutter build linux --debug
 fvm flutter build linux --release
+```
+
+Install the release bundle, desktop entry, and `top.remya.launcher.clipboard.service` systemd user unit under `$XDG_DATA_HOME`:
+
+```bash
 python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-The installer puts the bundle, desktop entry and `top.remya.launcher.clipboard.service` user unit under the user's XDG data directory. The clipboard service runs with the graphical session. The Launcher window runs on demand.
+Use `~/.local/bin/remya_launcher --clipboard` for a Hyprland `Super+V` keybinding.
 
-## Clipboard history
+## 📜 License
 
-Manage capture, maximum history count, retention days, and clearing in **Remya Settings → System → Clipboard**. History defaults to 500 unpinned items for up to 30 days. Pinned items are exempt from automatic pruning. The service stores ordinary items and settings in `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3` (default `~/.local/state/remya/launcher/clipboard.sqlite3`).
-
-Wayland data-control does not identify which application provided a clipboard selection. Source labels and per-application exclusions in the design therefore cannot be implemented reliably. Link previews show the copied URL. For data marked sensitive by the source application, Launcher keeps a masked entry in memory for up to 45 seconds. These controls apply only to Launcher history.
-
-History search uses titles, previews and local paths. The watcher caps each selection at 64 MiB and each decoded image at 24 megapixels. Images above 20 MB within those limits retain a thumbnail. Captured image formats are PNG, JPEG, WebP, GIF and BMP.
-
-The same-user service interface lives at `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock`. Settings sends one UTF-8 JSON object terminated by a newline and receives one JSON response, with either `{"ok":true,"value":...}` or `{"ok":false,"error":"..."}`.
-
-| Request | Successful value |
-| --- | --- |
-| `{"op":"preferences"}` | An object with `enabled`, `maxItems`, and `retentionDays` |
-| `{"op":"setPreference","key":"maxItems","value":500}` | The effective preferences. Also accepts `enabled` and `retentionDays` as keys |
-| `{"op":"clear"}` | `null` after clearing Launcher history |
+Remya Launcher is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Material Symbols and third-party notices are included in `assets/licenses/`.
