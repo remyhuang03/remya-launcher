@@ -128,6 +128,11 @@ def install_bundle(root, source, destination, data, command):
     entry = (root / f"linux/packaging/{PACKAGE}.desktop").read_text()
     entry = entry.replace(f"Exec={APP_ID}", f"Exec=/usr/bin/env {desktop_quote(destination / APP_ID)}")
     (applications / f"{PACKAGE}.desktop").write_text(entry)
+    icons = data / "icons/hicolor/scalable/apps"
+    icons.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(root / "assets/icons/launcher.svg", icons / f"{PACKAGE}.svg")
+    if shutil.which("gtk-update-icon-cache"):
+        subprocess.run(["gtk-update-icon-cache", "-f", "-t", str(data / "icons/hicolor")], check=True)
     command.parent.mkdir(parents=True, exist_ok=True)
     if not command.is_symlink():
         command.symlink_to(destination / APP_ID)
