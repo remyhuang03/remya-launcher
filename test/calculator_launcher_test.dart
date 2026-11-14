@@ -411,15 +411,75 @@ void main() {
       await tester.pump(const Duration(milliseconds: 40));
       await tester.pumpAndSettle();
 
-      expect(find.text('CALCULATOR'), findsOneWidget);
-      expect(find.text('2073600'), findsOneWidget);
+      expect(find.text('Open in Calc'), findsWidgets);
+      expect(find.text('2,073,600', findRichText: true), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
 
-      expect(find.text('CALCULATOR'), findsNothing);
-      expect(find.text('2073600'), findsOneWidget);
+      expect(find.text('Open in Calc'), findsNothing);
+      expect(find.text('2,073,600', findRichText: true), findsWidgets);
     });
+
+    testWidgets(
+      'float format selection updates bits and copies the selected value',
+      (tester) async {
+        final calcClient = _FakeCalculatorClient((op, fields) async {
+          if (op != 'preview') return _envelope({'entries': const []});
+          return _envelope({
+            'status': 'ready',
+            'candidates': [
+              {
+                'id': 'float',
+                'kind': 'float_format',
+                'normalized': '0.1 as bf16',
+                'value': {
+                  'tag': 'float_bits',
+                  'format': 'bf16',
+                  'inputDecimal': '0.1',
+                  'bitsHex': '0x3DCD',
+                  'storedDecimal': '0.10009765625',
+                  'signBit': '0',
+                  'exponentBits': '01111011',
+                  'fractionBits': '1001101',
+                  'alternatives': [
+                    {
+                      'format': 'fp32',
+                      'bitsHex': '0x3DCCCCCD',
+                      'storedDecimal': '0.10000000149',
+                      'signBit': '0',
+                      'exponentBits': '01111011',
+                      'fractionBits': '10011001100110011001101',
+                    },
+                  ],
+                },
+                'formats': [
+                  {'id': 'bf16', 'label': 'BF16', 'copyText': '0x3DCD'},
+                  {'id': 'fp32', 'label': 'FP32', 'copyText': '0x3DCCCCCD'},
+                ],
+              },
+            ],
+          }, revision: fields['revision'] as int?);
+        });
+        final clipboard = _FakeClipboardClient();
+        await tester.pumpWidget(
+          buildApp(
+            calcClient: calcClient,
+            clipClient: clipboard,
+            platform: _FakeClipboardPlatform(),
+          ),
+        );
+        await tester.enterText(find.byType(TextFormField), '=0.1 as bf16');
+        await tester.pumpAndSettle();
+        expect(find.text('1 · 8 · 7 bits'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(find.text('1 · 8 · 23 bits'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(clipboard.publishedTexts, ['0.10000000149']);
+      },
+    );
 
     testWidgets('Ctrl+B cycles programmer bit width and sends settings', (
       tester,
@@ -471,7 +531,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(widths, [32, 64]);
-      expect(find.text('64-bit'), findsOneWidget);
+      expect(find.text('bitwise · u64'), findsOneWidget);
     });
   });
 }

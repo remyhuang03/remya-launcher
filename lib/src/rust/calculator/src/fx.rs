@@ -658,8 +658,25 @@ fn build_candidate(
     );
 
     let is_stale = freshness == Freshness::StaleUsable;
+    let source_rate = parse_positive_rate(src_rate_str);
+    let favourites: Vec<_> = ["EUR", "JPY", "HKD"]
+        .into_iter()
+        .filter(|code| *code != dst && *code != src)
+        .filter_map(|code| {
+            let rate = parse_positive_rate(snap.rates.get(code)?)?;
+            let source_rate = source_rate.as_ref()?;
+            let meta = currency_meta(code)?;
+            let amount = format_rational_decimal(
+                &(&parsed.amount * rate / source_rate),
+                meta.minor_units,
+                false,
+            );
+            Some(json!({"currency":code, "name":meta.name, "display":format!("{amount} {code}")}))
+        })
+        .collect();
     let value = json!({
         "tag": "currency",
+        "favourites": favourites,
         "amount": precise_num,
         "display": display_with_code,
         "source": src,

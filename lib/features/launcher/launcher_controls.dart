@@ -28,6 +28,14 @@ enum LauncherIconName {
   lock,
   text,
   palette,
+  pi,
+  dataObject,
+  warning,
+  memory,
+  money,
+  schedule,
+  straighten,
+  functions,
 }
 
 class LauncherIcon extends StatelessWidget {

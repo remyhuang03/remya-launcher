@@ -217,6 +217,13 @@ class CalculatorDiagnostic {
         (final src?, final dst?) => 'Cannot convert $src to $dst',
         _ => 'Incompatible unit dimensions',
       },
+      'unit_corrected' => switch ((
+        parameters['originalToken'],
+        parameters['correctedToken'],
+      )) {
+        (final original?, final corrected?) => 'Read “$original” as $corrected',
+        _ => 'Unit spelling corrected',
+      },
       'ambiguous_unit' => 'Ambiguous unit',
       'ambiguous_currency' => 'Ambiguous currency symbol',
       'ambiguous_timezone' => 'Ambiguous timezone',
@@ -329,7 +336,32 @@ class CalculatorCandidate {
     return null;
   }
 
+  List<CalculatorValue> get floatValues => [
+    if (value case final primary? when primary.tag == 'float_bits') ...[
+      primary,
+      if (primary.raw['alternatives'] case final List alternatives)
+        ...alternatives
+            .map(CalculatorValue.fromJson)
+            .whereType<CalculatorValue>(),
+    ],
+  ];
+
+  List<CalculatorFormat> get numberedFormats => floatValues.isEmpty
+      ? formats
+      : [
+          for (final id in ['fp32', 'fp16', 'bf16']) ?formatById(id),
+        ];
+
+  CalculatorValue? floatValue(String? formatId) {
+    final values = floatValues;
+    return values.where((v) => v.str('format') == formatId).firstOrNull ??
+        values.firstOrNull;
+  }
+
   String primaryDisplay([String? formatId]) {
+    if (floatValue(formatId)?.str('storedDecimal') case final stored?) {
+      return stored;
+    }
     if (formatById(formatId) case final format?) return format.label;
     final val = value?.display ?? '';
     if (val.isNotEmpty) return val;
@@ -436,6 +468,7 @@ class CalculatorCatalogEntry {
     required this.name,
     required this.description,
     this.example,
+    this.definition,
   });
 
   final String id;
@@ -444,6 +477,7 @@ class CalculatorCatalogEntry {
   final String name;
   final String description;
   final String? example;
+  final String? definition;
 
   String get insertText => symbol.isNotEmpty ? symbol : name;
 
@@ -481,6 +515,7 @@ class CalculatorCatalogEntry {
       name: name,
       description: description,
       example: example,
+      definition: raw['exactDefinition']?.toString(),
     );
   }
 }
@@ -503,8 +538,14 @@ class CalculatorHistoryEntry {
   final String? committedAt;
   final bool isPinned;
 
-  String get retainedResult => candidate?.primaryDisplay(formatId) ?? query;
-  String get copyText => candidate?.copyText(formatId) ?? query;
+  String get retainedResult =>
+      candidate?.floatValue(formatId)?.str('storedDecimal') ??
+      candidate?.primaryDisplay(formatId) ??
+      query;
+  String get copyText =>
+      candidate?.floatValue(formatId)?.str('storedDecimal') ??
+      candidate?.copyText(formatId) ??
+      query;
 
   static CalculatorHistoryEntry? fromJson(Object? raw) {
     if (raw is! Map) return null;
@@ -686,6 +727,37 @@ class CalculatorController extends ChangeNotifier {
   String? _selectedFormatId;
   String? _selectedHistoryId;
   int _selectedCompletionIndex = 0;
+  int selectedSuggestionIndex = 0;
+
+  List<CalculatorSuggestion> get suggestions => [
+    for (final diagnostic in errorDiagnostics) ...diagnostic.suggestions,
+  ];
+
+  void moveSuggestion(int delta) {
+    if (suggestions.isEmpty) return;
+    selectedSuggestionIndex = (selectedSuggestionIndex + delta).clamp(
+      0,
+      suggestions.length - 1,
+    );
+    notifyListeners();
+  }
+
+  String? get searchHint => switch (selectedCandidate?.kind) {
+    'programmer' =>
+      'bitwise · ${_settings.signed ? 'i' : 'u'}${_settings.bitWidth}',
+    'time_conversion' => 'time zones',
+    'currency' => 'reference rates',
+    'unit_conversion' => selectedCandidate?.value?.str('unitSymbol'),
+    'float_format' => switch (selectedCandidate?.floatValue(selectedFormatId)) {
+      final value? =>
+        '1 · ${value.str('exponentBits')?.length ?? 0} · ${value.str('fractionBits')?.length ?? 0} bits',
+      _ => null,
+    },
+    _ when hasPendingCompletionOrCorrection => 'Tab to complete',
+    _ when catalogEntries.isNotEmpty => 'catalog',
+    _ when query.isEmpty => 'units · bases · time · fx',
+    _ => null,
+  };
   int _selectedCatalogIndex = 0;
 
   bool _loadingPreview = false;
@@ -730,7 +802,6 @@ class CalculatorController extends ChangeNotifier {
     r'\d\s*(?:pi|π|sqrt)\b',
     caseSensitive: false,
   );
-  static final _hasLetterPattern = RegExp(r'[a-zA-Z]');
 
   /// Lightweight local classifier gating All-scope inline calculation requests.
   static bool isHighConfidenceAllQuery(String raw) {
@@ -866,7 +937,9 @@ class CalculatorController extends ChangeNotifier {
         return completion.edit;
       }
     }
-    for (final diag in warningDiagnostics) {
+    for (final diag in warningDiagnostics.where(
+      (diagnostic) => diagnostic.code == 'unit_corrected',
+    )) {
       for (final suggestion in diag.suggestions) {
         if (suggestion.replacement != null &&
             suggestion.replacement!.wouldChange(_query)) {
@@ -963,6 +1036,7 @@ class CalculatorController extends ChangeNotifier {
         unawaited(loadHistory());
         unawaited(loadVariables());
       } else {
+        unawaited(loadHistory());
         unawaited(
           _runPreview(rev, query, cursorUtf16: _cursorUtf16, scope: 'calc'),
         );
@@ -1083,6 +1157,11 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void dismissError() {
+    _errorVisible = false;
+    notifyListeners();
+  }
+
   void revealErrorNow() {
     _errorTimer?.cancel();
     if (!_errorVisible) {
@@ -1118,7 +1197,12 @@ class CalculatorController extends ChangeNotifier {
   }
 
   void cycleFormat(int delta) {
-    final formats = selectedCandidate?.formats ?? const [];
+    final candidate = selectedCandidate;
+    final formats =
+        candidate?.numberedFormats
+            .where((format) => !format.id.startsWith('pinned:'))
+            .toList() ??
+        const [];
     if (formats.length <= 1) return;
     final current = formats.indexWhere((f) => f.id == _selectedFormatId);
     final base = current < 0 ? 0 : current;
@@ -1165,6 +1249,12 @@ class CalculatorController extends ChangeNotifier {
       _catalogEntries.length - 1,
     );
     notifyListeners();
+  }
+
+  void setProgrammerMode(int width, {required bool signed}) {
+    _settings = _settings.copyWith(bitWidth: width, signed: signed);
+    unawaited(setPreference('programmer', _settings.toJson()));
+    _reevaluateCurrent();
   }
 
   void cycleBitWidth() {
@@ -1248,7 +1338,7 @@ class CalculatorController extends ChangeNotifier {
       final envelope = await _ensureClient().request('historyList', {
         'limit': 20,
       });
-      if (_disposed || _scope != .calculator || _query.trim().isNotEmpty) {
+      if (_disposed || _scope != .calculator) {
         return;
       }
       if (envelope['ok'] == true && envelope['data'] is Map) {
@@ -1442,21 +1532,30 @@ class CalculatorController extends ChangeNotifier {
   }
 
   /// Commits the current or specified candidate/format and returns text to copy.
-  Future<String?> commitSelected({String? formatIdOverride}) async {
+  Future<String?> commitSelected({
+    String? formatIdOverride,
+    bool copyFloatBits = false,
+  }) async {
     final candidate = selectedCandidate;
     if (candidate == null || !isCopyableResult) return null;
     final formatId = formatIdOverride ?? _selectedFormatId;
-    final copyText = candidate.copyText(formatId);
+    final copyText = copyFloatBits
+        ? candidate.copyText(formatId)
+        : candidate.floatValue(formatId)?.str('storedDecimal') ??
+              candidate.copyText(formatId);
     final commitRevision = _preview?.revision ?? _revision;
     final idempotencyKey = _mutationKey();
     try {
-      await _ensureClient().request('commit', {
+      final envelope = await _ensureClient().request('commit', {
         'candidateId': candidate.id,
         'revision': commitRevision,
         'idempotencyKey': idempotencyKey,
         'formatId': ?formatId,
         if (_rememberChoice) 'rememberChoice': true,
       });
+      if (envelope['ok'] == true && _scope == .calculator) {
+        unawaited(loadHistory());
+      }
     } on Object {
       // Copy text remains valid even if persistence commit fails.
     }
@@ -1497,6 +1596,7 @@ class CalculatorController extends ChangeNotifier {
     required Future<void> Function() onCommitAndCopy,
     required void Function(String query) onEditQuery,
     Future<void> Function(String expression)? onSaveVariable,
+    Future<void> Function()? onPasteResult,
     Future<void> Function()? onClearHistory,
   }) {
     final candidate = selectedCandidate;
@@ -1526,7 +1626,7 @@ class CalculatorController extends ChangeNotifier {
           id: 'toggle_pin_history',
           label: history.isPinned ? 'Unpin history item' : 'Pin history item',
           icon: .star,
-          keys: const ['Ctrl', 'P'],
+          keys: const ['Ctrl', 'D'],
           run: () =>
               setHistoryPinned(history.historyId, pinned: !history.isPinned),
         ),
@@ -1553,7 +1653,7 @@ class CalculatorController extends ChangeNotifier {
       if (candidate != null && isCopyableResult)
         CalculatorMenuAction(
           id: 'copy_selected_format',
-          label: 'Copy result (${candidate.primaryDisplay(_selectedFormatId)})',
+          label: 'Copy result',
           icon: .copy,
           keys: const ['↵'],
           run: onCommitAndCopy,
@@ -1563,18 +1663,27 @@ class CalculatorController extends ChangeNotifier {
           id: 'copy_expression',
           label: 'Copy expression',
           icon: .code,
-          keys: const ['Ctrl', '⇧', 'C'],
+          keys: const ['Ctrl', '↵'],
           run: () => onCopyText(candidate.normalized),
+        ),
+      if (onPasteResult != null && isCopyableResult)
+        CalculatorMenuAction(
+          id: 'paste_result',
+          label: 'Paste to last window',
+          icon: .clipboard,
+          keys: const ['Alt', '↵'],
+          run: onPasteResult,
         ),
       if (onSaveVariable != null && saveExpr != null && saveExpr.isNotEmpty)
         CalculatorMenuAction(
           id: 'save_variable',
           label: 'Save as variable…',
-          icon: .star,
+          icon: .dataObject,
+          keys: const ['Ctrl', 'S'],
           run: () => onSaveVariable(saveExpr),
         ),
       if (candidate != null)
-        for (final (index, format) in candidate.formats.take(4).indexed)
+        for (final (index, format) in candidate.numberedFormats.take(4).indexed)
           CalculatorMenuAction(
             id: 'copy_format_${format.id}',
             label: 'Copy as ${format.label}',
@@ -1582,7 +1691,10 @@ class CalculatorController extends ChangeNotifier {
             keys: ['Alt', '${index + 1}'],
             run: () async {
               selectFormat(format.id);
-              final text = await commitSelected(formatIdOverride: format.id);
+              final text = await commitSelected(
+                formatIdOverride: format.id,
+                copyFloatBits: true,
+              );
               if (text != null) await onCopyText(text);
             },
           ),
@@ -1595,7 +1707,7 @@ class CalculatorController extends ChangeNotifier {
             icon: .tune,
             run: () async => selectCandidate(alt.id),
           ),
-      if (_scope == .calculator && _query.trim().isNotEmpty) ...[
+      if (candidate?.kind == 'programmer') ...[
         CalculatorMenuAction(
           id: 'cycle_bit_width',
           label: 'Cycle bit width (${_settings.bitWidth}-bit)',
@@ -1709,6 +1821,7 @@ class CalculatorController extends ChangeNotifier {
       } else {
         _errorTimer?.cancel();
         _errorVisible = false;
+        selectedSuggestionIndex = 0;
       }
 
       final catalog = data['catalogEntries'];
@@ -1718,12 +1831,6 @@ class CalculatorController extends ChangeNotifier {
                 .whereType<CalculatorCatalogEntry>()
                 .toList(growable: false)
           : const [];
-      if (scope == 'calc' &&
-          catalog == null &&
-          parsed.candidates.isEmpty &&
-          _hasLetterPattern.hasMatch(query)) {
-        unawaited(_fetchCatalog(rev, query));
-      }
     } on Object {
       if (!_disposed && rev == _revision && scope == 'calc') {
         _backendError = 'Calculator service is unavailable.';
@@ -1751,7 +1858,16 @@ class CalculatorController extends ChangeNotifier {
     _selectedCandidateId = nextCandidate.id;
     _rememberChoice = false;
     if (nextCandidate.formatById(_selectedFormatId) == null) {
-      _selectedFormatId = nextCandidate.formats.firstOrNull?.id;
+      final base = nextCandidate.kind == 'programmer'
+          ? switch (nextCandidate.value?.raw['radix']) {
+              2 => 'binary',
+              8 => 'octal',
+              10 => 'decimal',
+              16 => 'hex',
+              _ => null,
+            }
+          : null;
+      _selectedFormatId = base ?? nextCandidate.formats.firstOrNull?.id;
     }
   }
 
@@ -1818,34 +1934,6 @@ class CalculatorController extends ChangeNotifier {
       notifyListeners();
     } on Object {
       // Ignore supplemental completion errors.
-    }
-  }
-
-  Future<void> _fetchCatalog(int rev, String query) async {
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) return;
-    try {
-      final envelope = await _ensureClient().request('catalogSearch', {
-        'query': trimmed,
-        'limit': 12,
-        'revision': rev,
-      });
-      if (_disposed || rev != _revision || _scope != .calculator) return;
-      if (envelope['ok'] != true || envelope['data'] is! Map) return;
-      final data = (envelope['data'] as Map).map(
-        (k, v) => MapEntry(k.toString(), v),
-      );
-      final raw = data['entries'];
-      if (raw is! List) return;
-      _catalogEntries = raw
-          .map(CalculatorCatalogEntry.fromJson)
-          .whereType<CalculatorCatalogEntry>()
-          .take(12)
-          .toList(growable: false);
-      _selectedCatalogIndex = 0;
-      notifyListeners();
-    } on Object {
-      // Ignore supplemental catalog errors.
     }
   }
 

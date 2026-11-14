@@ -169,15 +169,17 @@ pub(crate) fn preview(
                 "tzdbVersion": TZDB_VERSION,
             });
 
-            let mut formats = vec![Format::new(
-                "target",
-                format!(
-                    "{tgt_hm} {} ({})",
-                    target_zone.id(),
-                    format_offset(zoned_tgt.offset())
+            let iso = zoned_tgt.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string();
+            let unix = instant.as_second().to_string();
+            let mut formats = vec![
+                Format::new(
+                    "target",
+                    format!("{tgt_hm} {}", target_zone.id()),
+                    format!("{} {}", tgt_civil_str.replace('T', " "), target_zone.id()),
                 ),
-                format!("{tgt_hm} {}", target_zone.id()),
-            )];
+                Format::new("iso", &iso, &iso),
+                Format::new("unix", format!("Unix {unix}"), unix),
+            ];
             for p in pinned {
                 if let Some(pz) = resolve_single_zone(p) {
                     let zp = instant.to_zoned(pz.time_zone());
@@ -185,7 +187,11 @@ pub(crate) fn preview(
                     formats.push(Format::new(
                         &format!("pinned:{}", pz.id()),
                         format!("{p_hm} {} ({})", pz.id(), format_offset(zp.offset())),
-                        format!("{p_hm} {}", pz.id()),
+                        format!(
+                            "{} {}",
+                            format_civil(zp.datetime()).replace('T', " "),
+                            pz.id()
+                        ),
                     ));
                 }
             }
@@ -626,10 +632,15 @@ mod tests {
         assert_eq!(c.value["targetCivil"], "2026-11-15T07:00:00");
         assert_eq!(c.value["dateAssumption"], "explicit");
         assert_eq!(c.value["tzdbVersion"], "2026e");
-        assert_eq!(c.formats.len(), 4);
-        assert_eq!(c.formats[1].id, "pinned:Asia/Tokyo");
-        assert!(c.formats[1].copy_text.contains("2026-11-15 08:00"));
-        assert!(c.formats[3].copy_text.contains("2026-11-14 23:00"));
+        let format = |id| c.formats.iter().find(|format| format.id == id).unwrap();
+        assert_eq!(format("iso").copy_text, "2026-11-15T07:00:00+08:00");
+        assert_eq!(format("unix").copy_text, "1794697200");
+        assert!(
+            format("pinned:Asia/Tokyo")
+                .copy_text
+                .contains("2026-11-15 08:00")
+        );
+        assert!(format("pinned:UTC").copy_text.contains("2026-11-14 23:00"));
     }
 
     #[test]

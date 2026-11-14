@@ -53,7 +53,18 @@ class LauncherPanel extends StatelessWidget {
                 compact: compact,
               ),
               Flexible(
-                child: scrollBody ? SingleChildScrollView(child: body) : body,
+                child: scrollBody
+                    ? SingleChildScrollView(
+                        child: actions == null
+                            ? body
+                            : ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 286,
+                                ),
+                                child: body,
+                              ),
+                      )
+                    : body,
               ),
               Divider(height: 1, thickness: 1, color: colors.outlineVariant),
               footer,

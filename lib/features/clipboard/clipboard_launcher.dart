@@ -381,6 +381,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         _closeCalculatorActions();
         return .handled;
       }
+      if (_inCalculator && _calculator.shouldShowError) {
+        _calculator.dismissError();
+        return .handled;
+      }
       if (_search.text.isNotEmpty) {
         _search.clear();
         _searchChanged('');
@@ -591,9 +595,45 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _calculator.cycleBitWidth();
       return .handled;
     }
-    if (ctrl && shift && key == LogicalKeyboardKey.keyC && !alt) {
+    if (ctrl &&
+        !shift &&
+        !alt &&
+        key == LogicalKeyboardKey.keyR &&
+        (_calculator.selectedCandidate?.kind == 'currency' ||
+            _calculator.hasRateDiagnostic)) {
+      unawaited(_calculator.refreshRates());
+      return .handled;
+    }
+    if (ctrl &&
+        !shift &&
+        !alt &&
+        key == LogicalKeyboardKey.keyI &&
+        _calculator.candidates.length > 1) {
+      _calculator.cycleCandidate(1);
+      return .handled;
+    }
+    if (ctrl &&
+        !alt &&
+        (shift && key == LogicalKeyboardKey.keyC ||
+            !shift && key == LogicalKeyboardKey.enter)) {
       final expr = _calculator.selectedCandidate?.normalized ?? _search.text;
       if (expr.isNotEmpty) unawaited(_copyPlainText(expr));
+      return .handled;
+    }
+    if (alt &&
+        !ctrl &&
+        !shift &&
+        key == LogicalKeyboardKey.enter &&
+        _calculator.isCopyableResult) {
+      unawaited(_pasteCalculatorResult());
+      return .handled;
+    }
+    if (ctrl &&
+        !alt &&
+        !shift &&
+        key == LogicalKeyboardKey.keyS &&
+        _calculator.isCopyableResult) {
+      unawaited(_promptSaveVariable(_search.text));
       return .handled;
     }
     if (alt && !ctrl && !shift) {
@@ -605,11 +645,33 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         LogicalKeyboardKey.digit5,
       ];
       final index = formatKeys.indexOf(key);
-      final formats = _calculator.selectedCandidate?.formats ?? const [];
-      if (index >= 0 && index < formats.length) {
-        final format = formats[index];
+      final candidate = _calculator.selectedCandidate;
+      if (index >= 0 &&
+          _calculator.completions.isNotEmpty &&
+          index < _calculator.completions.length) {
+        if (_calculator.completions[index].edit case final edit?) {
+          _applyCalculatorEdit(edit);
+          return .handled;
+        }
+      }
+      if (index >= 0 &&
+          _calculator.candidates.length > 1 &&
+          index < _calculator.candidates.length) {
+        _calculator.selectCandidate(_calculator.candidates[index].id);
+        return .handled;
+      }
+      final formats = candidate?.numberedFormats ?? const [];
+      final format = index >= 0 && index < formats.length
+          ? formats[index]
+          : null;
+      if (format != null) {
         _calculator.selectFormat(format.id);
-        unawaited(_copyCalculatorResult(formatIdOverride: format.id));
+        unawaited(
+          _copyCalculatorResult(
+            formatIdOverride: format.id,
+            copyFloatBits: true,
+          ),
+        );
         return .handled;
       }
     }
@@ -621,6 +683,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         !ctrl &&
         !alt) {
       final delta = key == LogicalKeyboardKey.arrowUp ? -1 : 1;
+      if (_calculator.shouldShowError && _calculator.suggestions.isNotEmpty) {
+        _calculator.moveSuggestion(delta);
+        return .handled;
+      }
       if (_search.text.trim().isEmpty &&
           _calculator.historyEntries.isNotEmpty) {
         _calculator.moveHistorySelection(delta);
@@ -646,6 +712,20 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         _calculator.revealErrorNow();
         return .handled;
       }
+      if (_calculator.shouldShowError && _calculator.suggestions.isNotEmpty) {
+        final suggestion =
+            _calculator.suggestions[_calculator.selectedSuggestionIndex];
+        if (suggestion.replacement case final edit?) {
+          _applyCalculatorEdit(edit);
+        } else {
+          _fillCalculatorQuery(suggestion.label);
+        }
+        return .handled;
+      }
+      if (_calculator.selectedCompletion?.edit case final edit?) {
+        _applyCalculatorEdit(edit);
+        return .handled;
+      }
       if (_search.text.trim().isEmpty && _calculator.selectedHistory != null) {
         unawaited(_copyPlainText(_calculator.selectedHistory!.copyText));
         return .handled;
@@ -655,7 +735,11 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         return .handled;
       }
       if (_calculator.selectedCatalogEntry case final entry?) {
-        _fillCalculatorQuery(entry.insertText);
+        if (entry.definition case final definition?) {
+          unawaited(_copyPlainText(definition));
+        } else {
+          _fillCalculatorQuery(entry.insertText);
+        }
         return .handled;
       }
       return .ignored;
@@ -672,7 +756,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       return .handled;
     }
     if (ctrl &&
-        key == LogicalKeyboardKey.keyP &&
+        key == LogicalKeyboardKey.keyD &&
         !shift &&
         !alt &&
         _search.text.trim().isEmpty &&
@@ -750,9 +834,19 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
   }
 
-  Future<void> _copyCalculatorResult({String? formatIdOverride}) async {
+  Future<void> _pasteCalculatorResult() async {
+    final result = await _calculator.commitSelected();
+    if (result == null || result.isEmpty || !mounted) return;
+    await _perform(() => _clipboardActions.pasteText(result));
+  }
+
+  Future<void> _copyCalculatorResult({
+    String? formatIdOverride,
+    bool copyFloatBits = false,
+  }) async {
     final text = await _calculator.commitSelected(
       formatIdOverride: formatIdOverride,
+      copyFloatBits: copyFloatBits,
     );
     if (text == null || text.isEmpty) return;
     await _copyPlainText(text);
@@ -777,6 +871,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         onCommitAndCopy: _copyCalculatorResult,
         onEditQuery: _fillCalculatorQuery,
         onSaveVariable: _promptSaveVariable,
+        onPasteResult: _pasteCalculatorResult,
         onClearHistory: _confirmClearCalculatorHistory,
       );
 
@@ -963,7 +1058,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                           placeholder: _inClipboard
                               ? 'Filter clipboard…'
                               : _inCalculator
-                              ? 'Calculate, convert units, bases, time, currency…'
+                              ? 'Expression, conversion, or search functions & units'
                               : _inActions
                               ? 'Filter actions…'
                               : 'Search launcher…',
@@ -973,9 +1068,9 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                                   '${_visibleEntries.length} items',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 )
-                              : _inCalculator
+                              : _inCalculator && _calculator.searchHint != null
                               ? Text(
-                                  _calculator.settings.shortLabel,
+                                  _calculator.searchHint!,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 )
                               : null,
@@ -1027,7 +1122,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       onKeyEvent: _onActionsKey,
       child: LauncherActionsMenu(
         title: _calculator.actionFilter.isEmpty
-            ? 'Calculator actions'
+            ? (_calculator.selectedCandidate?.primaryDisplay(
+                    _calculator.selectedFormatId,
+                  ) ??
+                  'Calculator actions')
             : 'Filter: ${_calculator.actionFilter}',
         actions: [
           for (final action in actions)
@@ -1251,7 +1349,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
               const LauncherKeyHint(['Tab'], label: 'Edit query'),
               LauncherKeyHint(const [
                 'Ctrl',
-                'P',
+                'D',
               ], label: selectedHistory.isPinned ? 'Unpin' : 'Pin'),
               const LauncherKeyHint(['⇧', 'Del'], label: 'Delete'),
             ] else
@@ -1265,6 +1363,18 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
           ],
         );
       }
+      if (_calculator.shouldShowError && _calculator.suggestions.isNotEmpty) {
+        return LauncherFooter(
+          singleLine: singleLine,
+          leading: const [
+            LauncherKeyHint(['↵'], label: 'Use suggestion'),
+            LauncherKeyHint(['↑', '↓'], label: 'Choose'),
+          ],
+          trailing: const [
+            LauncherKeyHint(['Esc'], label: 'Keep editing'),
+          ],
+        );
+      }
       final formatCount = _calculator.selectedCandidate?.formats.length ?? 0;
       return LauncherFooter(
         singleLine: singleLine,
@@ -1275,8 +1385,18 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
             const LauncherKeyHint(['Tab'], label: 'Next format'),
           if (_calculator.isCopyableResult)
             const LauncherKeyHint(['↵'], label: 'Copy'),
-          if (_calculator.selectedCandidate?.kind == 'programmer')
-            const LauncherKeyHint(['Ctrl', 'B'], label: 'Bit width'),
+          if (_calculator.selectedCandidate?.kind == 'programmer') ...const [
+            LauncherKeyHint(['Alt', '1–4'], label: 'Copy format'),
+            LauncherKeyHint(['Ctrl', 'B'], label: 'Bit width'),
+          ],
+          if (_calculator.selectedCandidate?.kind == 'float_format')
+            const LauncherKeyHint(['Alt', '1–3'], label: 'Copy bits'),
+          if (_calculator.selectedCandidate?.kind == 'currency')
+            const LauncherKeyHint(['Ctrl', 'R'], label: 'Refresh rates'),
+          if (_calculator.candidates.length > 1)
+            const LauncherKeyHint(['Ctrl', 'I'], label: 'Next reading'),
+          if (_calculator.selectedCatalogEntry != null)
+            const LauncherKeyHint(['Tab'], label: 'Insert symbol'),
         ],
         trailing: [
           if (_calculator.canOpenActions)

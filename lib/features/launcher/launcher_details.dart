@@ -11,6 +11,7 @@ class LauncherAnswerCard extends StatelessWidget {
     this.selectedAlternative = 0,
     this.onAlternativeSelected,
     this.onCopy,
+    this.details = const [],
     super.key,
   });
 
@@ -21,6 +22,7 @@ class LauncherAnswerCard extends StatelessWidget {
   final int selectedAlternative;
   final ValueChanged<int>? onAlternativeSelected;
   final VoidCallback? onCopy;
+  final List<Widget> details;
 
   @override
   Widget build(BuildContext context) {
@@ -44,17 +46,18 @@ class LauncherAnswerCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
-                  InkWell(
-                    onTap: onCopy,
-                    borderRadius: .circular(6),
-                    child: const Row(
-                      spacing: 6,
-                      children: [
-                        Text('Copy', style: TextStyle(fontSize: 12)),
-                        LauncherKeycap('↵'),
-                      ],
+                  if (onCopy != null)
+                    InkWell(
+                      onTap: onCopy,
+                      borderRadius: .circular(6),
+                      child: const Row(
+                        spacing: 6,
+                        children: [
+                          Text('Copy', style: TextStyle(fontSize: 12)),
+                          LauncherKeycap('↵'),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
               Text.rich(
@@ -62,7 +65,7 @@ class LauncherAnswerCard extends StatelessWidget {
                   text: value,
                   children: [
                     TextSpan(
-                      text: ' $unit',
+                      text: unit.isEmpty ? '' : ' $unit',
                       style: const TextStyle(fontSize: 18, fontWeight: .w500),
                     ),
                   ],
@@ -73,20 +76,22 @@ class LauncherAnswerCard extends StatelessWidget {
                   fontWeight: .w700,
                 ),
               ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  for (final (index, label) in alternatives.indexed)
-                    _AnswerOption(
-                      label: label,
-                      selected: index == selectedAlternative,
-                      onPressed: onAlternativeSelected == null
-                          ? null
-                          : () => onAlternativeSelected!(index),
-                    ),
-                ],
-              ),
+              ...details,
+              if (alternatives.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    for (final (index, label) in alternatives.indexed)
+                      _AnswerOption(
+                        label: label,
+                        selected: index == selectedAlternative,
+                        onPressed: onAlternativeSelected == null
+                            ? null
+                            : () => onAlternativeSelected!(index),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),

@@ -61,6 +61,7 @@ class CalculatorResults extends StatelessWidget {
         if (showError)
           _ErrorPanel(
             diagnostics: controller.errorDiagnostics,
+            selectedIndex: controller.selectedSuggestionIndex,
             fxStatusMessage: controller.fxStatusMessage,
             onRefreshRates: refreshRates,
             onSuggestionSelected: (suggestion) {
@@ -72,28 +73,69 @@ class CalculatorResults extends StatelessWidget {
             },
           ),
         if (!showError &&
-            (correctionEdit != null ||
-                controller.warningDiagnostics.isNotEmpty))
-          _NoticeBanner(
-            warnings: controller.warningDiagnostics,
-            correctionEdit: correctionEdit,
-            fxStatusMessage: controller.fxStatusMessage,
-            onRefreshRates: refreshRates,
-            onApplyCorrection: correctionEdit == null
-                ? null
-                : () => onApplyEdit(correctionEdit),
-          ),
-        if (!showError &&
             candidate != null &&
             candidate.kind != 'catalog_search') ...[
           _HeroSection(
             candidate: candidate,
-            selectedFormatId: controller.selectedFormatId,
-            onFormatSelected: controller.selectFormat,
+            controller: controller,
             onCopy: controller.isCopyableResult ? onCopyResult : null,
+            onApplyCorrection: correctionEdit == null
+                ? null
+                : () => onApplyEdit(correctionEdit),
           ),
-          _CandidateDetails(candidate: candidate, controller: controller),
+          if (candidate.floatValues.isNotEmpty)
+            _FormatTable(
+              title: 'ALL FORMATS',
+              rows: [
+                for (final id in ['fp32', 'fp16', 'bf16'])
+                  for (final value in candidate.floatValues.where(
+                    (v) => v.str('format') == id,
+                  ))
+                    (
+                      id,
+                      '${value.str('bitsHex')}   ${_shortDecimal(value.str('storedDecimal'))}   ${_shortDecimal(value.str('absoluteError'))}',
+                    ),
+              ],
+              selected: controller.selectedFormatId,
+              onSelect: controller.selectFormat,
+            ),
+          if (candidate.value?.tag == 'currency')
+            _FavouriteCurrencies(candidate: candidate),
+          if (candidate.value?.tag == 'time')
+            _PinnedZones(
+              candidate: candidate,
+              onSelect: controller.selectFormat,
+            ),
+          if (candidate.kind == 'math')
+            _ExpressionReferences(expression: candidate.normalized),
+          if (controller.candidates.length == 1 &&
+              correctionEdit == null &&
+              (candidate.kind == 'math' || candidate.kind == 'unit_conversion'))
+            _HistoryView(
+              controller: controller,
+              compact: compact,
+              onCopy: onCopyText,
+              onEdit: onFillQuery,
+              relatedKind: candidate.kind,
+            ),
         ],
+        if (!showError && candidate == null && completions.isNotEmpty)
+          _CompletionPreview(
+            query: controller.query,
+            completion: completions[controller.selectedCompletionIndex],
+          ),
+        if ((candidate == null, controller.selectedCatalogEntry?.definition)
+            case (true, final definition?))
+          LauncherAnswerCard(
+            expression:
+                '${catalog[controller.selectedCatalogIndex].symbol} · ${catalog[controller.selectedCatalogIndex].name}',
+            value: _groupInteger(definition.split(' ').first),
+            unit: definition.contains(' ')
+                ? definition.substring(definition.indexOf(' ') + 1)
+                : '',
+            alternatives: const [],
+            onCopy: () => onCopyText(definition),
+          ),
         if (!showError && controller.candidates.length > 1)
           _CandidateList(
             candidates: controller.candidates,
@@ -151,161 +193,275 @@ class CalculatorInlineResult extends StatelessWidget {
     final candidate = controller.selectedCandidate;
     if (candidate == null) return const SizedBox.shrink();
     final value = candidate.primaryDisplay(controller.selectedFormatId);
-    final subtitleParts = [
-      if (candidate.normalized.isNotEmpty) candidate.normalized,
-      if (candidate.interpretation.isNotEmpty &&
-          candidate.interpretation != candidate.normalized)
-        candidate.interpretation,
-    ];
-    return Column(
-      mainAxisSize: .min,
-      crossAxisAlignment: .stretch,
-      children: [
-        const LauncherSectionHeader(
-          'CALCULATOR',
-          trailing: LauncherKeyHint(['Tab'], label: 'Open in Calc'),
-        ),
-        LauncherResultRow(
-          title: TextSpan(text: value),
-          subtitle: subtitleParts.isEmpty
-              ? candidate.kind
-              : subtitleParts.join(' · '),
-          leading: const LauncherSymbolTile(.calculate, selected: true),
-          monospaced: candidate.kind == 'programmer',
-          selected: true,
-          trailing: Row(
-            mainAxisSize: .min,
-            spacing: 8,
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: colors.primaryContainer,
+      borderRadius: .circular(20),
+      clipBehavior: .antiAlias,
+      child: InkWell(
+        onTap: onOpenInCalc,
+        child: Padding(
+          padding: const .symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            spacing: 14,
             children: [
-              TextButton(onPressed: onCopy, child: const Text('Copy  ↵')),
+              const SizedBox.square(
+                dimension: 40,
+                child: LauncherSymbolTile(.calculate, selected: true),
+              ),
+              Expanded(
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(color: colors.onPrimaryContainer),
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    children: [
+                      Text(
+                        candidate.normalized,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      Text(
+                        _groupInteger(value),
+                        style: const TextStyle(fontSize: 24, fontWeight: .w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onCopy,
+                child: const LauncherKeyHint(['↵'], label: 'Copy'),
+              ),
+              if (MediaQuery.sizeOf(context).width >= 540)
+                const LauncherKeyHint(['Tab'], label: 'Open in Calc'),
             ],
           ),
-          onPressed: onOpenInCalc,
         ),
+      ),
+    );
+  }
+}
+
+String _groupInteger(String value) => RegExp(r'^-?\d+$').hasMatch(value)
+    ? value.replaceAllMapped(
+        RegExp(r'\d(?=(\d{3})+$)'),
+        (match) => '${match[0]},',
+      )
+    : value;
+
+class _HeroSection extends StatelessWidget {
+  const _HeroSection({
+    required this.candidate,
+    required this.controller,
+    this.onCopy,
+    this.onApplyCorrection,
+  });
+
+  final CalculatorCandidate candidate;
+  final CalculatorController controller;
+  final VoidCallback? onCopy;
+  final VoidCallback? onApplyCorrection;
+
+  static final _quantity = RegExp(
+    r'^([+-]?[\d,]+(?:\.\d+)?(?:[eE][+-]?\d+)?) (.+)$',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = controller.selectedFormatId;
+    final chipFormats = candidate.formats
+        .where((f) => !f.id.startsWith('pinned:'))
+        .toList();
+    final float = candidate.floatValue(selected);
+    final programmer = candidate.kind == 'programmer';
+    final time = candidate.value?.tag == 'time' ? candidate.value : null;
+    final currency = candidate.value?.tag == 'currency';
+    final pinned = selected?.startsWith('pinned:') == true;
+    final display =
+        float?.str('storedDecimal') ?? candidate.primaryDisplay(selected);
+    final quantity = _quantity.firstMatch(display);
+    final approximate = display.startsWith('approx. ');
+    final expression = programmer || approximate
+        ? (approximate ? candidate.interpretation : candidate.normalized)
+        : float != null
+        ? '${candidate.value?.str('inputDecimal')} → ${float.str('format')}'
+        : candidate.interpretation.isEmpty
+        ? candidate.normalized
+        : candidate.interpretation;
+    return LauncherAnswerCard(
+      expression: programmer
+          ? '$expression · ${controller.settings.shortLabel}'
+          : expression,
+      value: time == null
+          ? _groupInteger(
+              quantity?[1] ?? (approximate ? display.substring(8) : display),
+            )
+          : (selected == 'iso' || selected == 'unix')
+          ? display
+          : _clockText(pinned ? display : time.str('targetCivil') ?? display),
+      unit: time == null
+          ? (quantity?[2] ?? '')
+          : pinned
+          ? selected!.substring(7)
+          : _timeDate(time),
+      alternatives: programmer || float != null
+          ? const []
+          : [for (final format in chipFormats) format.label],
+      selectedAlternative: chipFormats.indexWhere(
+        (format) => format.id == selected,
+      ),
+      onAlternativeSelected: (index) =>
+          controller.selectFormat(chipFormats[index].id),
+      onCopy: onCopy,
+      details: [
+        if (approximate)
+          const Text('Approximate', style: TextStyle(fontSize: 12)),
+        if (programmer) ...[
+          _FormatTable(
+            inset: true,
+            rows: [
+              for (final format in candidate.formats) (format.id, format.label),
+            ],
+            selected: selected,
+            onSelect: controller.selectFormat,
+          ),
+          if (candidate.formatById('binary') case final binary?)
+            _BitsPanel(
+              groups: [
+                (
+                  '${candidate.value?.str('bitWidth') ?? ''} bits',
+                  binary.copyText
+                      .replaceFirst('0b', '')
+                      .replaceAll('_', '')
+                      .padLeft(controller.settings.bitWidth, '0'),
+                ),
+              ],
+            ),
+          _ProgrammerBar(controller: controller),
+        ],
+        if (float != null) _FloatBitsStrip(value: float),
+        if (currency)
+          _CurrencyProvenance(
+            candidate: candidate,
+            statusMessage: controller.fxStatusMessage,
+            onRefresh: controller.refreshRates,
+          ),
+        if (onApplyCorrection != null ||
+            (controller.warningDiagnostics.isNotEmpty && !currency))
+          _NoticeBanner(
+            warnings: controller.warningDiagnostics,
+            correctionEdit: controller.pendingCorrectionEdit,
+            onApplyCorrection: onApplyCorrection,
+          ),
+        if (candidate.kind == 'unit_conversion' &&
+            controller.candidates.length > 1)
+          Text(
+            'Read as · ${candidate.assumptions.join(' · ')}',
+            style: const TextStyle(fontSize: 12),
+          ),
       ],
     );
   }
 }
 
-class _HeroSection extends StatelessWidget {
-  const _HeroSection({
-    required this.candidate,
-    required this.selectedFormatId,
-    required this.onFormatSelected,
-    this.onCopy,
-  });
+String _clockText(String civil) =>
+    RegExp(r'\d{2}:\d{2}').firstMatch(civil)?.group(0) ?? civil;
 
-  final CalculatorCandidate candidate;
-  final String? selectedFormatId;
-  final ValueChanged<String> onFormatSelected;
-  final VoidCallback? onCopy;
-
-  static final _numericPrefix = RegExp(
-    r'^[+-]?[\d,]+(?:\.\d+)?(?:[eE][+-]?\d+)?$',
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final display = candidate.primaryDisplay(selectedFormatId);
-    final (value, unit) = _splitDisplay(display);
-    final expression = candidate.normalized.isNotEmpty
-        ? candidate.normalized
-        : candidate.interpretation;
-    return LauncherAnswerCard(
-      expression: expression,
-      value: value,
-      unit: unit,
-      alternatives: [for (final format in candidate.formats) format.label],
-      selectedAlternative: _selectedFormatIndex(),
-      onAlternativeSelected: candidate.formats.isEmpty
-          ? null
-          : (index) => onFormatSelected(candidate.formats[index].id),
-      onCopy: onCopy,
-    );
-  }
-
-  int _selectedFormatIndex() {
-    if (candidate.formats.isEmpty) return 0;
-    final idx = candidate.formats.indexWhere((f) => f.id == selectedFormatId);
-    return idx < 0 ? 0 : idx;
-  }
-
-  (String, String) _splitDisplay(String display) {
-    final parts = display.trim().split(' ');
-    if (parts.length == 2 && _numericPrefix.hasMatch(parts.first)) {
-      return (parts[0], parts[1]);
-    }
-    return (display, '');
-  }
+String _timeDate(CalculatorValue value) {
+  final target = DateTime.tryParse(value.str('targetCivil') ?? '');
+  final source = DateTime.tryParse(value.str('sourceCivil') ?? '');
+  if (target == null) return value.str('targetZoneId') ?? '';
+  final rollover = source == null
+      ? 0
+      : DateTime.utc(target.year, target.month, target.day)
+            .difference(DateTime.utc(source.year, source.month, source.day))
+            .inDays;
+  return [
+    '${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][target.weekday - 1]}, ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][target.month - 1]} ${target.day}',
+    if (rollover == 1) 'next day' else if (rollover == -1) 'previous day',
+  ].join(' · ');
 }
 
-class _CandidateDetails extends StatelessWidget {
-  const _CandidateDetails({required this.candidate, required this.controller});
+String _shortDecimal(String? decimal) {
+  if (decimal == null) return '';
+  if (decimal.length <= 15) return decimal;
+  final value = double.tryParse(decimal);
+  return value == null || !value.isFinite
+      ? decimal
+      : value.toStringAsPrecision(11);
+}
 
-  final CalculatorCandidate candidate;
-  final CalculatorController controller;
+class _FormatTable extends StatelessWidget {
+  const _FormatTable({
+    required this.rows,
+    required this.selected,
+    required this.onSelect,
+    this.title,
+    this.inset = false,
+  });
+  final List<(String, String)> rows;
+  final String? selected;
+  final ValueChanged<String> onSelect;
+  final String? title;
+  final bool inset;
 
   @override
   Widget build(BuildContext context) {
-    final value = candidate.value;
-    final showProgrammer = candidate.kind == 'programmer';
-    final showFloat = value?.tag == 'float_bits';
-    final showTime = value?.tag == 'time';
-    final showCurrency =
-        value?.tag == 'currency' || candidate.kind == 'currency';
-    final showInterpretation =
-        candidate.interpretation.isNotEmpty &&
-        candidate.interpretation != candidate.normalized;
-    final hasAny =
-        showProgrammer ||
-        showFloat ||
-        showTime ||
-        showCurrency ||
-        showInterpretation ||
-        candidate.assumptions.isNotEmpty;
-    if (!hasAny) return const SizedBox.shrink();
-
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      padding: const .all(12),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: .circular(16),
-      ),
-      child: Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        spacing: 8,
-        children: [
-          if (showInterpretation)
-            Text(candidate.interpretation, style: theme.textTheme.bodySmall),
-          if (showProgrammer) _ProgrammerBar(controller: controller),
-          if (showFloat && value != null) _FloatBitsStrip(value: value),
-          if (showTime && value != null) _TimeDetails(value: value),
-          if (showCurrency)
-            _CurrencyProvenance(
-              candidate: candidate,
-              statusMessage: controller.fxStatusMessage,
-              onRefresh: controller.refreshRates,
-            ),
-          if (candidate.assumptions.isNotEmpty)
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                for (final assumption in candidate.assumptions)
-                  Container(
-                    padding: const .symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainer,
-                      borderRadius: .circular(8),
-                    ),
-                    child: Text(assumption, style: theme.textTheme.bodySmall),
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: inset ? colors.surfaceContainer : Colors.transparent,
+      borderRadius: .circular(16),
+      child: Padding(
+        padding: .all(inset ? 6 : 0),
+        child: Column(
+          crossAxisAlignment: .stretch,
+          children: [
+            if (title case final title?) LauncherSectionHeader(title),
+            for (final (index, (id, label)) in rows.indexed)
+              InkWell(
+                borderRadius: .circular(10),
+                onTap: () => onSelect(id),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    color: selected == id ? colors.secondaryContainer : null,
+                    borderRadius: .circular(10),
                   ),
-              ],
-            ),
-        ],
+                  child: Padding(
+                    padding: const .symmetric(horizontal: 12, vertical: 6),
+                    child: Row(
+                      spacing: 8,
+                      children: [
+                        SizedBox(
+                          width: 54,
+                          child: Text(
+                            switch (id) {
+                              'decimal' => 'DEC',
+                              'octal' => 'OCT',
+                              'binary' => 'BIN',
+                              _ => id.toUpperCase(),
+                            },
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                        LauncherKeycap('${index + 1}', compact: true),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -324,30 +480,38 @@ class _ProgrammerBar extends StatelessWidget {
       runSpacing: 6,
       crossAxisAlignment: .center,
       children: [
-        _SettingPill(
-          label: '${settings.bitWidth}-bit',
-          onPressed: controller.cycleBitWidth,
-        ),
-        _SettingPill(
-          label: settings.signed ? 'Signed' : 'Unsigned',
-          onPressed: controller.toggleSigned,
-        ),
-        _SettingPill(
-          label: 'Overflow: ${settings.overflow}',
-          onPressed: controller.toggleOverflow,
-        ),
+        for (final (width, signed) in [
+          (8, false),
+          (16, false),
+          (32, false),
+          (64, false),
+          (32, true),
+          if (settings.bitWidth == 128 ||
+              settings.signed && settings.bitWidth != 32)
+            (settings.bitWidth, settings.signed),
+        ])
+          _SettingPill(
+            label: '${signed ? 'i' : 'u'}$width',
+            selected: settings.bitWidth == width && settings.signed == signed,
+            onPressed: () =>
+                controller.setProgrammerMode(width, signed: signed),
+          ),
         const LauncherKeyHint(['Ctrl', 'B'], label: 'Bit width'),
-        const LauncherKeyHint(['Alt', '1–4'], label: 'Copy format'),
       ],
     );
   }
 }
 
 class _SettingPill extends StatelessWidget {
-  const _SettingPill({required this.label, required this.onPressed});
+  const _SettingPill({
+    required this.label,
+    required this.onPressed,
+    this.selected = false,
+  });
 
   final String label;
   final VoidCallback onPressed;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +521,7 @@ class _SettingPill extends StatelessWidget {
       side: BorderSide(color: colors.outlineVariant),
     );
     return Material(
-      color: colors.surfaceContainer,
+      color: selected ? colors.onPrimaryContainer : colors.primaryContainer,
       shape: shape,
       child: InkWell(
         customBorder: shape,
@@ -369,7 +533,9 @@ class _SettingPill extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: .w500,
-              color: colors.onSurface,
+              color: selected
+                  ? colors.primaryContainer
+                  : colors.onPrimaryContainer,
             ),
           ),
         ),
@@ -385,140 +551,212 @@ class _FloatBitsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final format = value.str('format') ?? 'Float';
-    final bitsHex = value.str('bitsHex', 'bits_hex');
-    final signBit = value.str('signBit', 'sign_bit');
-    final expBits = value.str('exponentBits', 'exponent_bits');
-    final fracBits = value.str('fractionBits', 'fraction_bits');
-    final absError = value.str('absoluteError', 'error');
-    final relError = value.str(
-      'relativeErrorPercent',
-      'relative_error_percent',
-    );
-    final classification = value.str('classification');
-    final rounding = value.str('roundingMode', 'rounding_mode');
-
     return Column(
-      mainAxisSize: .min,
       crossAxisAlignment: .stretch,
-      spacing: 6,
+      spacing: 8,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 4,
-          children: [
-            Text(
-              format.toUpperCase(),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colors.onSurface,
-              ),
-            ),
-            if (bitsHex != null)
-              Text(bitsHex, style: theme.textTheme.bodySmall),
-            if (classification != null)
-              Text(classification, style: theme.textTheme.bodySmall),
-            if (rounding != null)
-              Text(rounding, style: theme.textTheme.bodySmall),
+        Text(
+          [
+            if (value.str('bitsHex') case final bits?) 'stored as $bits',
+            if (value.str('absoluteError') case final error?) 'error $error',
+            if (value.str('relativeErrorPercent') case final percent?)
+              '($percent%)',
+          ].join(' · '),
+          style: const TextStyle(fontSize: 12),
+        ),
+        _BitsPanel(
+          groups: [
+            if (value.str('signBit') case final bits?) ('sign', bits),
+            if (value.str('exponentBits') case final bits?) ('exponent', bits),
+            if (value.str('fractionBits') case final bits?) ('mantissa', bits),
           ],
         ),
-        if (signBit != null || expBits != null || fracBits != null)
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              if (signBit != null)
-                _BitSegment(
-                  label: 'S',
-                  bits: signBit,
-                  background: colors.tertiaryContainer,
-                  foreground: colors.onTertiaryContainer,
+      ],
+    );
+  }
+}
+
+class _BitsPanel extends StatelessWidget {
+  const _BitsPanel({required this.groups});
+  final List<(String, String)> groups;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const .all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainer,
+        borderRadius: .circular(16),
+      ),
+      child: Wrap(
+        alignment: .center,
+        spacing: 18,
+        runSpacing: 6,
+        children: [
+          for (final (label, bits) in groups)
+            Column(
+              mainAxisSize: .min,
+              spacing: 4,
+              children: [
+                Wrap(
+                  alignment: .center,
+                  spacing: 2,
+                  runSpacing: 3,
+                  children: [
+                    for (final bit in bits.split(''))
+                      Container(
+                        padding: const .symmetric(horizontal: 3, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: bit == '1'
+                              ? (label == 'exponent'
+                                    ? colors.tertiaryContainer
+                                    : colors.primaryContainer)
+                              : null,
+                          border: Border.all(color: colors.outlineVariant),
+                          borderRadius: .circular(3),
+                        ),
+                        child: Text(
+                          bit,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            color: bit == '1'
+                                ? (label == 'exponent'
+                                      ? colors.onTertiaryContainer
+                                      : colors.onPrimaryContainer)
+                                : colors.onSurface,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              if (expBits != null)
-                _BitSegment(
-                  label: 'E',
-                  bits: expBits,
-                  background: colors.primaryContainer,
-                  foreground: colors.onPrimaryContainer,
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
-              if (fracBits != null)
-                _BitSegment(
-                  label: 'F',
-                  bits: fracBits,
-                  background: colors.secondaryContainer,
-                  foreground: colors.onSecondaryContainer,
-                ),
-            ],
-          ),
-        if (absError != null || relError != null)
-          Text(
-            [
-              if (absError != null) 'Error: $absError',
-              if (relError != null) '($relError%)',
-            ].join(' '),
-            style: theme.textTheme.bodySmall,
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinnedZones extends StatelessWidget {
+  const _PinnedZones({required this.candidate, required this.onSelect});
+  final CalculatorCandidate candidate;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final pinned = candidate.formats.where(
+      (format) => format.id.startsWith('pinned:'),
+    );
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        if (pinned.isNotEmpty) const LauncherSectionHeader('PINNED ZONES'),
+        for (final format in pinned)
+          LauncherResultRow(
+            title: TextSpan(
+              text:
+                  '${format.id.substring(7).split('/').last.replaceAll('_', ' ')} · ${_clockText(format.label)}',
+            ),
+            subtitle: format.label
+                .substring(_clockText(format.label).length)
+                .trim(),
+            leading: const LauncherSymbolTile(.schedule),
+            onPressed: () => onSelect(format.id),
           ),
       ],
     );
   }
 }
 
-class _BitSegment extends StatelessWidget {
-  const _BitSegment({
-    required this.label,
-    required this.bits,
-    required this.background,
-    required this.foreground,
-  });
-
-  final String label;
-  final String bits;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const .symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: background, borderRadius: .circular(8)),
-    child: Text(
-      '$label $bits',
-      style: TextStyle(
-        fontSize: 12,
-        fontFamily: 'JetBrains Mono',
-        fontFamilyFallback: const ['monospace'],
-        color: foreground,
-      ),
-    ),
-  );
-}
-
-class _TimeDetails extends StatelessWidget {
-  const _TimeDetails({required this.value});
-
-  final CalculatorValue value;
+class _ExpressionReferences extends StatelessWidget {
+  const _ExpressionReferences({required this.expression});
+  final String expression;
 
   @override
   Widget build(BuildContext context) {
-    final sourceZone = value.str('sourceZoneId', 'sourceZone');
-    final targetZone = value.str('targetZoneId', 'targetZone');
-    final sourceCivil = value.str('sourceCivil');
-    final targetCivil = value.str('targetCivil', 'localDateTime');
-    final dst = value.str('dstResolution', 'dst_resolution');
-    final dateNote = value.str('dateAssumption', 'date_assumption');
+    final hasRoot = RegExp(r'\bsqrt\b').hasMatch(expression);
+    final hasPi =
+        expression.contains('π') ||
+        RegExp(r'(?<![a-zA-Z_])pi\b').hasMatch(expression);
+    if (!hasRoot && !hasPi) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        const LauncherSectionHeader('IN THIS EXPRESSION'),
+        if (hasRoot)
+          const LauncherResultRow(
+            title: TextSpan(text: 'sqrt(x)'),
+            subtitle: 'Square root',
+            leading: LauncherSymbolTile(.functions),
+          ),
+        if (hasPi)
+          const LauncherResultRow(
+            title: TextSpan(text: 'π'),
+            subtitle: 'Pi · 3.141592653589793…',
+            leading: LauncherSymbolTile(.pi),
+          ),
+      ],
+    );
+  }
+}
 
-    final lines = [
-      if (sourceCivil != null && sourceZone != null)
-        'Source: $sourceCivil ($sourceZone)',
-      if (targetCivil != null && targetZone != null)
-        'Target: $targetCivil ($targetZone)',
-      if (dst != null) 'DST: $dst',
-      ?dateNote,
-    ];
-    if (lines.isEmpty) return const SizedBox.shrink();
-    return Text(
-      lines.join(' · '),
-      style: Theme.of(context).textTheme.bodySmall,
+class _CompletionPreview extends StatelessWidget {
+  const _CompletionPreview({required this.query, required this.completion});
+  final String query;
+  final CalculatorCompletion completion;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = completion.edit?.applyTo(TextEditingValue(text: query));
+    if (value == null) return const SizedBox.shrink();
+    return Container(
+      padding: const .symmetric(horizontal: 24, vertical: 18),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: .circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: .start,
+        spacing: 6,
+        children: [
+          const Text('Preview with the selected completion'),
+          Text(value.text, style: Theme.of(context).textTheme.headlineSmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _FavouriteCurrencies extends StatelessWidget {
+  const _FavouriteCurrencies({required this.candidate});
+  final CalculatorCandidate candidate;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = candidate.value?.raw['favourites'];
+    if (rows is! List || rows.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        const LauncherSectionHeader('FAVOURITE CURRENCIES'),
+        for (final row in rows.whereType<Map>())
+          LauncherResultRow(
+            title: TextSpan(text: row['display']?.toString()),
+            subtitle: row['name']?.toString() ?? '',
+            leading: const LauncherSymbolTile(.money),
+            trailing: Text(row['currency']?.toString() ?? ''),
+          ),
+      ],
     );
   }
 }
@@ -541,7 +779,11 @@ class _CurrencyProvenance extends StatelessWidget {
     final val = candidate.value;
     final prov = candidate.provenance ?? const {};
     final source =
-        (prov['source'] ?? prov['sourceId'] ?? prov['provider'])?.toString() ??
+        (prov['providerName'] ??
+                prov['source'] ??
+                prov['sourceId'] ??
+                prov['provider'])
+            ?.toString() ??
         val?.str('rateId');
     final asOf =
         (val?.str('asOf') ??
@@ -564,6 +806,8 @@ class _CurrencyProvenance extends StatelessWidget {
         Expanded(
           child: Text(
             [
+              if (val?.str('rateDecimal') case final rate?)
+                '1 ${val?.str('source')} = $rate ${val?.str('target')}',
               if (source != null && source.isNotEmpty) 'Source: $source',
               if (asOf != null && asOf.isNotEmpty) 'As of: $asOf',
               if (stale) 'Stale cached rate',
@@ -596,7 +840,7 @@ class _CandidateList extends StatelessWidget {
     mainAxisSize: .min,
     crossAxisAlignment: .stretch,
     children: [
-      const LauncherSectionHeader('INTERPRETATIONS'),
+      const LauncherSectionHeader('OTHER READINGS'),
       for (final candidate in candidates)
         LauncherResultRow(
           title: TextSpan(text: candidate.primaryDisplay()),
@@ -638,13 +882,9 @@ class _CompletionList extends StatelessWidget {
       for (final (index, completion) in completions.indexed)
         LauncherResultRow(
           title: TextSpan(text: completion.label),
-          subtitle: [
-            completion.kind,
-            ?completion.scoreTier,
-            ?completion.subtitle,
-          ].join(' · '),
+          subtitle: [completion.kind, ?completion.subtitle].join(' · '),
           leading: LauncherSymbolTile(
-            completion.kind == 'correction' ? .swap : .calculate,
+            completion.kind == 'correction' ? .swap : .straighten,
             selected: index == selectedIndex,
           ),
           trailing: index == selectedIndex
@@ -689,10 +929,11 @@ class _CatalogList extends StatelessWidget {
             if (entry.description.isNotEmpty) entry.description,
             if (entry.example case final ex?) 'e.g. $ex',
           ].join(' · '),
-          leading: LauncherSymbolTile(
-            .calculate,
-            selected: index == selectedIndex,
-          ),
+          leading: LauncherSymbolTile(switch (entry.kind) {
+            'constant' => .pi,
+            'function' => .functions,
+            _ => .straighten,
+          }, selected: index == selectedIndex),
           trailing: index == selectedIndex
               ? const LauncherKeyHint(['Tab'])
               : null,
@@ -710,6 +951,7 @@ class _HistoryView extends StatelessWidget {
     required this.onCopy,
     required this.onEdit,
     this.onClearHistory,
+    this.relatedKind,
   });
 
   final CalculatorController controller;
@@ -717,11 +959,20 @@ class _HistoryView extends StatelessWidget {
   final ValueChanged<String> onCopy;
   final ValueChanged<String> onEdit;
   final VoidCallback? onClearHistory;
+  final String? relatedKind;
 
   @override
   Widget build(BuildContext context) {
-    final entries = controller.historyEntries;
-    final variables = controller.variableEntries;
+    final entries = relatedKind == null
+        ? controller.historyEntries
+        : controller.historyEntries
+              .where((entry) => entry.candidate?.kind == relatedKind)
+              .take(3)
+              .toList();
+    final variables = relatedKind == null
+        ? controller.variableEntries
+        : const <CalculatorVariableEntry>[];
+    if (relatedKind != null && entries.isEmpty) return const SizedBox.shrink();
     if (controller.loadingHistory && entries.isEmpty && variables.isEmpty) {
       return const LinearProgressIndicator(
         semanticsLabel: 'Loading calculator history',
@@ -738,23 +989,20 @@ class _HistoryView extends StatelessWidget {
       children: [
         if (variables.isNotEmpty) ...[
           const LauncherSectionHeader('VARIABLES'),
-          Padding(
-            padding: const .only(bottom: 8),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final variable in variables)
-                  InputChip(
-                    label: Text('${variable.name} = ${variable.expression}'),
-                    visualDensity: .compact,
-                    onPressed: () => onEdit(variable.name),
-                    onDeleted: () => controller.deleteVariable(variable.name),
-                    deleteButtonTooltipMessage: 'Delete ${variable.name}',
-                  ),
-              ],
+          for (final variable in variables)
+            LauncherResultRow(
+              title: TextSpan(
+                text: '${variable.name} = ${variable.expression}',
+              ),
+              subtitle: 'Variable',
+              leading: const LauncherSymbolTile(.dataObject),
+              trailing: IconButton(
+                icon: const LauncherIcon(.trash),
+                tooltip: 'Delete ${variable.name}',
+                onPressed: () => controller.deleteVariable(variable.name),
+              ),
+              onPressed: () => onEdit(variable.name),
             ),
-          ),
         ],
         if (entries.isNotEmpty) ...[
           LauncherSectionHeader(
@@ -842,53 +1090,38 @@ class _NoticeBanner extends StatelessWidget {
   const _NoticeBanner({
     required this.warnings,
     required this.correctionEdit,
-    this.fxStatusMessage,
-    this.onRefreshRates,
     this.onApplyCorrection,
   });
 
   final List<CalculatorDiagnostic> warnings;
   final CalculatorTextEdit? correctionEdit;
-  final String? fxStatusMessage;
-  final VoidCallback? onRefreshRates;
   final VoidCallback? onApplyCorrection;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final parts = [
       if (warnings.isNotEmpty)
         warnings.map((w) => w.displayMessage).join(' · ')
       else if (correctionEdit != null)
         'Suggested fix: ${correctionEdit!.text}',
-      ?fxStatusMessage,
     ];
     final message = parts.join(' · ');
     if (message.isEmpty) return const SizedBox.shrink();
-    return Container(
-      padding: const .symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        borderRadius: .circular(14),
-      ),
-      child: Row(
-        spacing: 8,
-        children: [
-          Expanded(child: Text(message, style: theme.textTheme.bodySmall)),
-          if (onRefreshRates != null)
-            TextButton(onPressed: onRefreshRates, child: const Text('Refresh')),
-          if (onApplyCorrection != null)
-            InkWell(
-              onTap: onApplyCorrection,
-              borderRadius: .circular(8),
-              child: const Padding(
-                padding: .symmetric(horizontal: 6, vertical: 2),
-                child: LauncherKeyHint(['Tab'], label: 'Apply fix'),
-              ),
+    return Row(
+      spacing: 8,
+      children: [
+        const LauncherIcon(.bolt, size: 14),
+        Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
+        if (onApplyCorrection != null)
+          InkWell(
+            onTap: onApplyCorrection,
+            borderRadius: .circular(8),
+            child: const Padding(
+              padding: .symmetric(horizontal: 6, vertical: 2),
+              child: LauncherKeyHint(['Tab'], label: 'Apply fix'),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -896,12 +1129,14 @@ class _NoticeBanner extends StatelessWidget {
 class _ErrorPanel extends StatelessWidget {
   const _ErrorPanel({
     required this.diagnostics,
+    required this.selectedIndex,
     required this.onSuggestionSelected,
     this.fxStatusMessage,
     this.onRefreshRates,
   });
 
   final List<CalculatorDiagnostic> diagnostics;
+  final int selectedIndex;
   final ValueChanged<CalculatorSuggestion> onSuggestionSelected;
   final String? fxStatusMessage;
   final VoidCallback? onRefreshRates;
@@ -912,98 +1147,68 @@ class _ErrorPanel extends StatelessWidget {
     final colors = theme.colorScheme;
     final primary = diagnostics.firstOrNull;
     final suggestions = [for (final diag in diagnostics) ...diag.suggestions];
-    return Container(
-      padding: const .all(14),
-      decoration: BoxDecoration(
-        color: colors.errorContainer,
-        borderRadius: .circular(20),
-      ),
-      child: Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        spacing: 8,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: .stretch,
+      spacing: 8,
+      children: [
+        Container(
+          padding: const .symmetric(horizontal: 24, vertical: 18),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: .circular(28),
+          ),
+          child: Column(
+            crossAxisAlignment: .start,
             spacing: 8,
             children: [
-              Icon(
-                Icons.error_outline_rounded,
-                size: 18,
-                color: colors.onErrorContainer,
-              ),
-              Expanded(
-                child: Text(
-                  primary?.displayMessage ?? 'Unable to evaluate expression',
-                  style: TextStyle(
-                    color: colors.onErrorContainer,
-                    fontWeight: .w600,
-                    fontSize: 14,
+              Row(
+                spacing: 8,
+                children: [
+                  LauncherIcon(.warning, size: 18, color: colors.error),
+                  Expanded(
+                    child: Text(
+                      primary?.displayMessage ??
+                          'Unable to evaluate expression',
+                      style: TextStyle(color: colors.error, fontWeight: .w600),
+                    ),
                   ),
-                ),
+                  if (onRefreshRates != null)
+                    TextButton(
+                      onPressed: onRefreshRates,
+                      child: const Text('Refresh rates'),
+                    ),
+                ],
               ),
-              if (onRefreshRates != null)
-                TextButton(
-                  onPressed: onRefreshRates,
-                  child: const Text('Refresh rates'),
+              if (primary?.code == 'dimension_mismatch')
+                Text(
+                  'Choose a unit with the same dimension, or change the operation.',
+                  style: theme.textTheme.bodySmall,
                 ),
+              if (fxStatusMessage case final status?) Text(status),
             ],
           ),
-          if (fxStatusMessage case final status?)
-            Text(
-              status,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onErrorContainer,
+        ),
+        if (suggestions.isNotEmpty) ...[
+          const LauncherSectionHeader('TRY INSTEAD'),
+          for (final (index, suggestion) in suggestions.indexed)
+            LauncherResultRow(
+              title: TextSpan(text: suggestion.label),
+              subtitle: primary?.code == 'dimension_mismatch'
+                  ? (suggestion.label.contains('×')
+                        ? 'Weight under standard gravity'
+                        : 'Same dimension')
+                  : '',
+              leading: LauncherSymbolTile(
+                suggestion.label.contains('×') ? .functions : .straighten,
               ),
-            ),
-          if (suggestions.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final suggestion in suggestions)
-                  _SuggestionChip(
-                    label: suggestion.label,
-                    onPressed: () => onSuggestionSelected(suggestion),
-                  ),
-              ],
+              selected: index == selectedIndex,
+              trailing: index == selectedIndex
+                  ? const LauncherKeyHint(['↵'], label: 'Use')
+                  : null,
+              onPressed: () => onSuggestionSelected(suggestion),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final shape = RoundedRectangleBorder(
-      borderRadius: .circular(10),
-      side: BorderSide(color: colors.onErrorContainer.withValues(alpha: .35)),
-    );
-    return Material(
-      color: colors.surfaceContainer,
-      shape: shape,
-      child: InkWell(
-        customBorder: shape,
-        onTap: onPressed,
-        child: Padding(
-          padding: const .symmetric(horizontal: 10, vertical: 6),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: .w500,
-              color: colors.onSurface,
-            ),
-          ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -1040,9 +1245,9 @@ class _EmptyHint extends StatelessWidget {
 }
 
 LauncherIconName _iconForKind(String kind) => switch (kind) {
-  'programmer' => .code,
-  'time_conversion' => .history,
-  'currency' => .swap,
-  'unit_conversion' => .tune,
+  'programmer' => .memory,
+  'time_conversion' => .schedule,
+  'currency' => .money,
+  'unit_conversion' => .straighten,
   _ => .calculate,
 };
