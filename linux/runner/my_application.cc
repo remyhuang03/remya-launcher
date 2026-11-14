@@ -54,7 +54,10 @@ static void my_application_activate(GApplication* application) {
 #endif
   // The header bar title is only drawn; the compositor reads the window title.
   gtk_window_set_title(window, title);
-  if (!overlay && use_header_bar) {
+  // Settings draws its own title bar, so it stays undecorated.
+  if (settings) {
+    configure_settings_window(window);
+  } else if (!overlay && use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
     gtk_header_bar_set_title(header_bar, title);
@@ -87,7 +90,7 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
-  if (!preview && !settings) register_launcher_window(view, window);
+  if (!preview) register_launcher_window(view, window);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

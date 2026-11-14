@@ -44,8 +44,13 @@ class RemyaLauncherApp extends StatelessWidget {
             ? 'Remya Launcher'
             : 'Remya Launcher Settings',
         debugShowCheckedModeBanner: false,
-        theme: _launcherTheme(shared.theme(.light)),
-        darkTheme: _launcherTheme(shared.theme(.dark)),
+        // The settings window uses the shared theme unchanged, like Remya Settings.
+        theme: settingsPage == null
+            ? _launcherTheme(shared.theme(.light))
+            : shared.theme(.light),
+        darkTheme: settingsPage == null
+            ? _launcherTheme(shared.theme(.dark))
+            : shared.theme(.dark),
         themeMode: shared.mode,
         home: _home(),
       );

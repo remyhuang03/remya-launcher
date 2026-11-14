@@ -6,6 +6,32 @@
 namespace {
 
 const char kHiding[] = "remya-launcher-hiding";
+const char kPress[] = "remya-launcher-press";
+
+// The last primary press, which a later beginMove turns into a move drag.
+struct Press {
+  guint32 time = GDK_CURRENT_TIME;
+  int x = 0;
+  int y = 0;
+};
+
+void remember_press(GtkGestureMultiPress *, int, double, double,
+                    gpointer data) {
+  auto *press = static_cast<Press *>(data);
+  g_autoptr(GdkEvent) event = gtk_get_current_event();
+  double x, y;
+  if (event == nullptr || !gdk_event_get_root_coords(event, &x, &y)) return;
+  press->time = gdk_event_get_time(event);
+  press->x = static_cast<int>(x);
+  press->y = static_cast<int>(y);
+}
+
+void begin_move(GtkWindow *window) {
+  auto *press = static_cast<Press *>(g_object_get_data(G_OBJECT(window), kPress));
+  if (press == nullptr || press->time == GDK_CURRENT_TIME) return;
+  gtk_window_begin_move_drag(window, 1, press->x, press->y, press->time);
+  press->time = GDK_CURRENT_TIME;
+}
 
 gboolean close_window(gpointer data) {
   gtk_widget_destroy(GTK_WIDGET(data));
@@ -105,6 +131,8 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
     show_launcher(window);
   } else if (g_str_equal(method, "close")) {
     schedule_close(widget);
+  } else if (g_str_equal(method, "beginMove")) {
+    begin_move(window);
   } else if (g_str_equal(method, "saveFile") ||
              g_str_equal(method, "openWith")) {
     if (fl_value_get_type(args) != FL_VALUE_TYPE_STRING) {
@@ -147,6 +175,21 @@ bool configure_launcher_overlay(GtkWindow *window) {
   g_signal_connect(window, "focus-out-event", G_CALLBACK(on_focus_out),
                    nullptr);
   return true;
+}
+
+void configure_settings_window(GtkWindow *window) {
+  auto *widget = GTK_WIDGET(window);
+  gtk_window_set_decorated(window, FALSE);
+  auto *press = new Press();
+  g_object_set_data_full(G_OBJECT(window), kPress, press,
+                         [](gpointer data) { delete static_cast<Press *>(data); });
+  auto *gesture = gtk_gesture_multi_press_new(widget);
+  g_object_set_data_full(G_OBJECT(window), "remya-launcher-move-gesture",
+                         gesture, g_object_unref);
+  gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(gesture),
+                                             GTK_PHASE_CAPTURE);
+  gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(gesture), 1);
+  g_signal_connect(gesture, "pressed", G_CALLBACK(remember_press), press);
 }
 
 void register_launcher_window(FlView *view, GtkWindow *window) {
