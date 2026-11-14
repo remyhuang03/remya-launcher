@@ -1,0 +1,25 @@
+[package]
+name = "remya_launcher_calculator"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "remya-launcher-calculator"
+path = "src/main.rs"
+
+[dependencies]
+fend-core = "=1.5.9"
+half = "=2.7.1"
+jiff = { version = "=0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"] }
+num-bigint = "0.4"
+num-rational = "0.4"
+num-traits = "0.2"
+rusqlite = { version = "0.41", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rustix = { version = "1", features = ["fs", "process"] }
+sha2 = "0.11"
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+quick-xml = "0.41"
