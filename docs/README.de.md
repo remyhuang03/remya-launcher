@@ -32,7 +32,7 @@ Remya Launcher (`top.remya.launcher`) ist ein tastaturorientierter Anwendungssta
 > [!CAUTION]
 > **Early Development & Preview Only — Not Ready for Daily Use (Frühe Entwicklung & nur Vorschau — noch nicht alltagstauglich)**
 >
-> Remya Launcher befindet sich in einem frühen Stadium aktiver Entwicklung. Derzeit sind lediglich der **Live-Zwischenablageverlauf** (Rust-Clipboard-Daemon und Live-Clipboard-Ansicht) sowie **interaktive UI-Design-Vorschauen** (`--preview`) implementiert. Die meisten weiteren unten beschriebenen Suchbereiche, Such-Backends sowie Hyprland-Fenster- und Aktionsintegrationen stammen aus der geplanten [Remya Launcher Figma-Spezifikation](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) und sind noch nicht umgesetzt.
+> Remya Launcher befindet sich in einem frühen Stadium aktiver Entwicklung. Derzeit sind der **Taschenrechner**, der **Live-Zwischenablageverlauf** (Rust-Clipboard-Daemon und Live-Clipboard-Ansicht) sowie **interaktive UI-Design-Vorschauen** (`--preview`) implementiert. Die meisten weiteren unten beschriebenen Suchbereiche, Such-Backends sowie Hyprland-Fenster- und Aktionsintegrationen stammen aus der geplanten [Remya Launcher Figma-Spezifikation](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) und sind noch nicht umgesetzt.
 
 ## 🚀 Installation
 
@@ -68,6 +68,9 @@ Bei kombinierten Remya-Desktop-Installationen installieren Sie bitte **Remya Set
   - Als sensibel markierte Einträge werden höchstens 45 Sekunden lang maskiert im Arbeitsspeicher gehalten und nicht auf den Datenträger geschrieben.
   - Stellt eine JSON-IPC-Schnittstelle über Unix-Socket unter `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` für denselben Benutzer und Remya Settings bereit (`preferences`, `setPreference` für `enabled`/`maxItems`/`retentionDays` sowie `clear`).
   - *Bekannte Wayland-Einschränkung*: Wayland data-control identifiziert nicht, welche Anwendung eine Auswahl bereitgestellt hat; Quell-App-Labels und App-Ausschlusslisten aus dem Design lassen sich daher nicht zuverlässig umsetzen.
+- **Rechner (`Ctrl+5` / `=`)**:
+  - Wertet grundlegende Ausdrücke inline in `All` sowie vollständige Abfragen in `Calc` (`Ctrl+5` oder `=`) lokal aus — mit `fend-core`-Mathematik, typisierten Einheiten, Zahlensystemen mit Bitbreite und Vorzeichen, FP32/FP16/BF16, Zeitzonen, nur auf explizite Aktualisierung abgerufenen EZB-Referenzkurs-Snapshots, Katalogvervollständigungen und Verlauf.
+  - Optionales FP8 und allgemeine Kalenderarithmetik bleiben zurückgestellt.
 - **Interaktive Design-Vorschauen (`--preview`)**:
   - Prüfen Sie alle geplanten UI-Zustände aus einem gebauten Bundle mit `--preview=<name>`:
     - Launcher-Zustände: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
@@ -78,11 +81,10 @@ Bei kombinierten Remya-Desktop-Installationen installieren Sie bitte **Remya Set
 Folgende Funktionen sind gemäß der [Remya Launcher Design-Spezifikation](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) geplant:
 
 - **Natürliche Präfix-Bereiche (Scopes)**:
-  - **All (`Ctrl+1`)**: Gemischte Ergebnisse aus Apps, Dateien, Webverlauf und Befehlen (max. 3 pro Gruppe, dynamisch nach bestem Treffer sortiert), automatische Rechner-Antwortkarte bei Zahlen-/Klammerausdrücken sowie direkte URL-Erkennung.
+  - **All (`Ctrl+1`)**: Gemischte Ergebnisse aus Apps, Dateien, Webverlauf und Befehlen (max. 3 pro Gruppe, dynamisch nach bestem Treffer sortiert) sowie direkte URL-Erkennung.
   - **Apps (`Ctrl+2`)**: Unscharfe Suche über XDG-`.desktop`-Einträge (Name, `GenericName`, `Keywords`, ausführbare Datei) mit Frecency-Gewichtung und sekundären Desktop-Aktionen (z. B. neues privates Fenster).
   - **Files (`Ctrl+3`, Präfix `/` oder `~`)**: Native Pfadvervollständigung (`Tab` segmentweise), unscharfe Dateinamensuche (`fd` + zuletzt verwendet) und rechte Vorschauspalte (Ordnerinhalt, Textauszüge, Bild-Miniaturansichten) bei Erweiterung auf 880 px.
   - **Web (`Ctrl+4`, Präfix `?`)**: Schreibgeschützter lokaler Browserverlauf (Firefox `places.sqlite` / Chromium `History`) nach Frecency sortiert, mit Fallback-Websuche (`Ctrl+Enter`).
-  - **Calc (`Ctrl+5`, Präfix `=`)**: Berechnungen via `libqalculate`, Einheiten- und Währungsumrechnung, Zahlensysteme, Prozente und Datumsarithmetik (`Tab` zum Wechseln von Einheiten, `↑` zum Zurückholen früherer Ausdrücke).
   - **Clipboard (`Ctrl+6`, Präfix `;`)**: 960 px geteilte Ansicht mit Typfiltern (`All · Text · Images · Links · Files · Colors` per `Ctrl+F`), Gruppierung `Pinned → Today → Yesterday → Earlier`, Duplikat-Zusammenführung mit Kopierzähler, typgerechten Vorschauen (Syntax-Highlighting mit Zeilennummern, Farbfelder in HEX/RGB/HSL/OKLCH, Schachbrett-Vorschau für Bilder) und direktem Einfügen in das zuletzt fokussierte Fenster (`Enter` oder `Ctrl+Enter` für typspezifische Sekundäraktionen).
   - **Windows (`Ctrl+7`, Präfix `#`)**: Abgleich über `hyprctl clients` nach Titel und Klasse mit Arbeitsbereichs-Badge; `Enter` fokussiert und wechselt den Arbeitsbereich, `Ctrl+Enter` verschiebt das Fenster auf den aktuellen Arbeitsbereich.
   - **Emoji (Präfix `:`)** & **Run (Präfix `$` / `>`)**: Suche nach Emojis und Symbolen per Name/Alias sowie direkte Shell-/Terminal-Befehlsausführung.

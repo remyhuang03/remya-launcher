@@ -32,7 +32,7 @@ Remya Launcher (`top.remya.launcher`) es un lanzador de aplicaciones, selector r
 > [!CAUTION]
 > **Early Development & Preview Only — Not Ready for Daily Use (Desarrollo temprano y solo vista previa — No apto para uso diario)**
 >
-> Remya Launcher se encuentra en desarrollo activo temprano. Actualmente solo están implementados el **historial del portapapeles en vivo** (el demonio en Rust y la vista Clipboard en vivo) y las **vistas previas interactivas de diseño** (`--preview`). La mayoría de los demás ámbitos del lanzador, motores de búsqueda e integraciones de ventanas y acciones de Hyprland descritos a continuación corresponden a la [especificación de diseño en Figma de Remya Launcher](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) y aún no están implementados.
+> Remya Launcher se encuentra en desarrollo activo temprano. Actualmente están implementados la **calculadora**, el **historial del portapapeles en vivo** (el demonio en Rust y la vista Clipboard en vivo) y las **vistas previas interactivas de diseño** (`--preview`). La mayoría de los demás ámbitos del lanzador, motores de búsqueda e integraciones de ventanas y acciones de Hyprland descritos a continuación corresponden a la [especificación de diseño en Figma de Remya Launcher](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) y aún no están implementados.
 
 ## 🚀 Instalación
 
@@ -68,6 +68,9 @@ Para instalaciones combinadas del escritorio Remya, instala **Remya Settings** a
   - Enmascara automáticamente en memoria durante hasta 45 segundos los elementos marcados como sensibles por la aplicación de origen sin escribirlos en disco.
   - Expone una interfaz IPC JSON sobre socket Unix para el mismo usuario en `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` para Remya Settings (`preferences`, `setPreference` para `enabled`/`maxItems`/`retentionDays` y `clear`).
   - *Limitación conocida de Wayland*: Wayland data-control no identifica qué aplicación proporcionó el contenido del portapapeles, por lo que las etiquetas de aplicación de origen y las listas de exclusión por aplicación del diseño no pueden implementarse de forma fiable.
+- **Calculadora (`Ctrl+5` / `=`)**:
+  - Evalúa expresiones básicas en línea en `All` y consultas completas en `Calc` (`Ctrl+5` o `=`) localmente mediante cálculo con `fend-core`, unidades tipadas, bases con ancho de bits y signo, FP32/FP16/BF16, zonas horarias e instantáneas de referencia del BCE obtenidas solo bajo actualización explícita, con autocompletado de catálogo e historial.
+  - El soporte opcional de FP8 y la aritmética general de calendario siguen pospuestos.
 - **Vistas previas interactivas de diseño (`--preview`)**:
   - Inspecciona todos los estados de interfaz planeados desde un paquete compilado usando `--preview=<name>`:
     - Estados del lanzador: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
@@ -78,11 +81,10 @@ Para instalaciones combinadas del escritorio Remya, instala **Remya Settings** a
 Las siguientes capacidades están planificadas según la [especificación de diseño de Remya Launcher](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher):
 
 - **Ámbitos con prefijos naturales**:
-  - **All (`Ctrl+1`)**: resultados mixtos entre aplicaciones, archivos, historial web y comandos (hasta 3 por grupo, ordenados dinámicamente por mejor puntuación), tarjeta automática de calculadora para expresiones numéricas o entre paréntesis y detección directa de URL.
+  - **All (`Ctrl+1`)**: resultados mixtos entre aplicaciones, archivos, historial web y comandos (hasta 3 por grupo, ordenados dinámicamente por mejor puntuación) y detección directa de URL.
   - **Apps (`Ctrl+2`)**: búsqueda difusa de entradas `.desktop` XDG por nombre, `GenericName`, `Keywords` y ejecutable con ponderación frecency y acciones secundarias de escritorio (p. ej., nueva ventana privada).
   - **Files (`Ctrl+3`, prefijo `/` o `~`)**: autocompletado nativo de rutas (`Tab` segmento a segmento), búsqueda difusa de nombres de archivo (`fd` + recientes) y panel derecho de vista previa (contenido de carpetas, fragmentos de texto, miniaturas) ampliando el panel a 880 px.
   - **Web (`Ctrl+4`, prefijo `?`)**: historial local de navegador en modo solo lectura (Firefox `places.sqlite` / Chromium `History`) ordenado por frecency, con búsqueda web de respaldo (`Ctrl+Enter`).
-  - **Calc (`Ctrl+5`, prefijo `=`)**: cálculos con `libqalculate`, conversión de unidades y divisas, bases numéricas, porcentajes y aritmética de fechas (`Tab` para rotar unidades, `↑` para recuperar expresiones anteriores).
   - **Clipboard (`Ctrl+6`, prefijo `;`)**: vista dividida de 960 px con filtros por tipo (`All · Text · Images · Links · Files · Colors` mediante `Ctrl+F`), agrupación `Pinned → Today → Yesterday → Earlier`, fusión de duplicados con contador de copias, vistas previas por tipo (código con resaltado y números de línea, muestras HEX/RGB/HSL/OKLCH, fondo ajedrezado en imágenes) y pegado directo en la ventana enfocada anterior (`Enter` o `Ctrl+Enter` para acciones secundarias por tipo).
   - **Windows (`Ctrl+7`, prefijo `#`)**: coincidencia mediante `hyprctl clients` por título y clase con insignia de espacio de trabajo; `Enter` enfoca y cambia de espacio de trabajo, `Ctrl+Enter` mueve la ventana al espacio actual.
   - **Emoji (prefijo `:`)** y **Run (prefijo `$` / `>`)**: búsqueda de emojis y símbolos por nombre o alias, y ejecución directa de comandos en shell o terminal.

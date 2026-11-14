@@ -32,7 +32,7 @@ Remya Launcher（`top.remya.launcher`）は、Flutter、Rust、Material Design 3
 > [!CAUTION]
 > **Early Development & Preview Only — Not Ready for Daily Use（初期開発・プレビュー版 — 日常利用には未対応）**
 >
-> Remya Launcher は現在初期の活発な開発段階にあります。現時点で実装されているのは、**ライブクリップボード履歴**（Rust クリップボードデーモンとライブ Clipboard ビュー）および **インタラクティブ UI デザインプレビュー**（`--preview`）のみです。以下に記載されているその他のランチャースコープ、検索バックエンド、Hyprland ウィンドウ／アクション連携の大部分は、計画中の [Remya Launcher Figma 仕様](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) に基づくものであり、まだ実装されていません。
+> Remya Launcher は現在初期の活発な開発段階にあります。現時点では、**計算機**、**ライブクリップボード履歴**（Rust クリップボードデーモンとライブ Clipboard ビュー）および **インタラクティブ UI デザインプレビュー**（`--preview`）が実装されています。以下に記載されているその他のランチャースコープ、検索バックエンド、Hyprland ウィンドウ／アクション連携の大部分は、計画中の [Remya Launcher Figma 仕様](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) に基づくものであり、まだ実装されていません。
 
 ## 🚀 インストール
 
@@ -68,6 +68,9 @@ Remya デスクトップスイートをペアでインストールする場合�
   - ソースアプリによって機密指定されたデータはディスクに書き込まず、メモリ上で最大 45 秒間マスクして保持します。
   - Remya Settings 向けに同一ユーザー用の Unix ソケット JSON IPC インターフェースを `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` に公開しています（`preferences`、`enabled`/`maxItems`/`retentionDays` 用の `setPreference`、`clear`）。
   - *既知の Wayland 制限*：Wayland data-control はクリップボードの提供元アプリケーションを識別できないため、設計にあるソースアプリラベルやアプリごとの除外ブラックリストは確実に実装できません。
+- **電卓（`Ctrl+5` / `=`）**：
+  - `All` での基本式のインライン評価および `Calc`（`Ctrl+5` または `=`）でのフルクエリを、ローカルの `fend-core` 演算、型付き単位、ビット幅・符号付き対応の進数、FP32/FP16/BF16、タイムゾーン、明示的な更新時のみ取得する ECB 参照レートスナップショット、カタログ補完、履歴とともに処理します。
+  - オプションの FP8 および一般的なカレンダー演算は引き続き延期されています。
 - **インタラクティブデザインプレビュー（`--preview`）**：
   - ビルド済みバンドルから `--preview=<name>` を指定して、計画中の全 UI 状態を確認できます：
     - ランチャー状態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
@@ -78,11 +81,10 @@ Remya デスクトップスイートをペアでインストールする場合�
 以下の機能は [Remya Launcher デザイン仕様](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) に基づいて計画されています：
 
 - **自然なプレフィックススコープ**：
-  - **All（`Ctrl+1`）**：アプリ、ファイル、Web 履歴、コマンドを混在表示（各グループ最大 3 件、最高スコア順で動的配置）。数値や括弧式には計算カードが自動表示され、URL らしい入力にはリンクを開くアクションが提示されます。
+  - **All（`Ctrl+1`）**：アプリ、ファイル、Web 履歴、コマンドを混在表示（各グループ最大 3 件、最高スコア順で動的配置）。URL らしい入力にはリンクを開くアクションが提示されます。
   - **Apps（`Ctrl+2`）**：XDG `.desktop` エントリのあいまい検索（名前、`GenericName`、`Keywords`、実行ファイル）と frecency 重み付け、セカンダリデスクトップアクション（新しいプライベートウィンドウ等）に対応。
   - **Files（`Ctrl+3`、`/` または `~` プレフィックス）**：ネイティブパス補完（`Tab` でセグメント単位）、ファイル名あいまい検索（`fd` + 最近使用）、880 px に拡張される右側のプレビューペイン（ディレクトリ内容、テキスト抜粋、画像サムネイル）。
   - **Web（`Ctrl+4`、`?` プレフィックス）**：読み取り専用のローカルブラウザ履歴（Firefox `places.sqlite` / Chromium `History`）を frecency 順に表示し、末尾に Web 検索アクション（`Ctrl+Enter`）を配置。
-  - **Calc（`Ctrl+5`、`=` プレフィックス）**：`libqalculate` による計算、単位・通貨換算、進数変換、パーセンテージ、日付演算（`Tab` で候補単位を切り替え、`↑` で履歴式を呼び出し）。
   - **Clipboard（`Ctrl+6`、`;` プレフィックス）**：960 px の分割ビュー、種別フィルター（`Ctrl+F` で `All · Text · Images · Links · Files · Colors` を切り替え）、`Pinned → Today → Yesterday → Earlier` グループ化、重複統合とコピー回数カウント、種別ごとのプレビュー（行番号付きシンタックスハイライトコード、HEX/RGB/HSL/OKLCH カラースウォッチ、市松模様背景の画像プレビュー）、直前にフォーカスしていたウィンドウへの直接ペースト（`Enter`、種別ごとのセカンダリアクションは `Ctrl+Enter`）。
   - **Windows（`Ctrl+7`、`#` プレフィックス）**：`hyprctl clients` によるタイトル／クラス一致とワークスペースバッジ表示。`Enter` でフォーカス＆ワークスペース切替、`Ctrl+Enter` で現在のワークスペースへ移動。
   - **Emoji（`:` プレフィックス）** ＆ **Run（`$` / `>` プレフィックス）**：名前やエイリアスによる絵文字・記号検索と、シェル／ターミナルコマンドの直接実行。

@@ -32,7 +32,7 @@ Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, 
 > [!CAUTION]
 > **Early Development & Preview Only — Not Ready for Daily Use**
 >
-> Remya Launcher is in early active development. Currently, **live clipboard history** (the Rust clipboard daemon and live Clipboard view) and **interactive UI design previews** (`--preview`) are implemented. Most other launcher scopes, search backends, and Hyprland window/action integrations described below reflect the planned [Remya Launcher Figma specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) and are not yet implemented.
+> Remya Launcher is in early active development. Currently, **the calculator**, **live clipboard history** (the Rust clipboard daemon and live Clipboard view) and **interactive UI design previews** (`--preview`) are implemented. Most other launcher scopes, search backends, and Hyprland window/action integrations described below reflect the planned [Remya Launcher Figma specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) and are not yet implemented.
 
 ## 🚀 Installation
 
@@ -69,6 +69,9 @@ Install **Remya Core** before Remya Launcher. Clipboard capture and retention po
   - Exposes same-user history operations and `clear` at `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock`. Policy is read from `top.remya.Core1` and refreshed on `Changed`; while unavailable or invalid, capture and automatic history cleanup pause.
   - Installs `remya/apps/remya-launcher.json` and a desktop `settings` action. The clipboard unit starts after and wants `top.remya.core.service`.
   - *Known Wayland limitation*: Wayland data-control does not identify which application provided a clipboard selection, so source app labels and per-application exclusion blacklists in the design cannot be implemented reliably.
+- **Calculator (`Ctrl+5` / `=`)**:
+  - Evaluates inline basic expressions in `All` and full queries in `Calc` (`Ctrl+5` or `=`) locally via `fend-core` math, typed units, bases with width and signedness, FP32/FP16/BF16, time zones, and ECB reference snapshots fetched only on explicit refresh, with catalog completions and history.
+  - Optional FP8 and general calendar arithmetic remain deferred.
 - **Interactive Design Previews (`--preview`)**:
   - Inspect all planned UI states from a built bundle using `--preview=<name>`:
     - Launcher states: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
@@ -79,11 +82,10 @@ Install **Remya Core** before Remya Launcher. Clipboard capture and retention po
 The following capabilities are planned according to the [Remya Launcher design specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher):
 
 - **Natural Prefix Scopes**:
-  - **All (`Ctrl+1`)**: Mixed results across apps, files, web history, and commands (up to 3 items per group, ordered dynamically by best score), automatic calculator answer cards for numeric/parenthesized expressions, and direct URL detection.
+  - **All (`Ctrl+1`)**: Mixed results across apps, files, web history, and commands (up to 3 items per group, ordered dynamically by best score) and direct URL detection.
   - **Apps (`Ctrl+2`)**: XDG `.desktop` fuzzy matching across name, `GenericName`, `Keywords`, and executable with frecency weighting and secondary desktop actions (e.g., new private window).
   - **Files (`Ctrl+3`, `/` or `~` prefix)**: Native path completion (`Tab` segment-by-segment), fuzzy filename search (`fd` + recent files), and a right-hand preview pane (directory contents, text excerpts, image thumbnails) expanding the panel to 880 px.
   - **Web (`Ctrl+4`, `?` prefix)**: Read-only local browser history (Firefox `places.sqlite` / Chromium `History`) ranked by frecency, with a fallback web search action (`Ctrl+Enter`).
-  - **Calc (`Ctrl+5`, `=` prefix)**: `libqalculate`-powered math, unit and currency conversions, base conversions, percentages, and date arithmetic (`Tab` to cycle units, `↑` to recall previous expressions).
   - **Clipboard (`Ctrl+6`, `;` prefix)**: Full 960 px split view with type filters (`All · Text · Images · Links · Files · Colors` via `Ctrl+F`), `Pinned → Today → Yesterday → Earlier` grouping, duplicate merging with copy counts, type-aware previews (syntax-highlighted code with line numbers, color swatches in HEX/RGB/HSL/OKLCH, checkerboard image previews), and direct paste-back to the previous focused window (`Enter`, or `Ctrl+Enter` for type-specific secondary actions).
   - **Windows (`Ctrl+7`, `#` prefix)**: `hyprctl clients` matching by title and class with workspace badges; `Enter` focuses the window and switches workspace, `Ctrl+Enter` moves it to the current workspace.
   - **Emoji (`:` prefix)** & **Run (`$` / `>` prefix)**: Emoji/symbol search by name or alias and direct shell/terminal command execution.

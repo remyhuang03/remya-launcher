@@ -32,7 +32,7 @@ Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤
 > [!CAUTION]
 > **Early Development & Preview Only — Not Ready for Daily Use（早期開發與預覽階段 — 尚未適合日常使用）**
 >
-> Remya Launcher 目前處於早期積極開發階段。現階段僅實作了**即時剪貼簿歷史**（Rust 剪貼簿常駐程式與即時 Clipboard 檢視）以及**互動式 UI 設計預覽**（`--preview`）。以下所述的其餘多數啟動器範圍、搜尋後端與 Hyprland 視窗／動作整合皆屬於規劃中的 [Remya Launcher Figma 設計規範](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)，尚未實作。
+> Remya Launcher 目前處於早期積極開發階段。現階段已實作**計算機**、**即時剪貼簿歷史**（Rust 剪貼簿常駐程式與即時 Clipboard 檢視）以及**互動式 UI 設計預覽**（`--preview`）。以下所述的其餘多數啟動器範圍、搜尋後端與 Hyprland 視窗／動作整合皆屬於規劃中的 [Remya Launcher Figma 設計規範](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)，尚未實作。
 
 ## 🚀 安裝
 
@@ -68,6 +68,9 @@ python tool/install.py
   - 由來源應用程式標記為敏感的資料僅於記憶體中保留最多 45 秒並自動遮罩，不會寫入磁碟。
   - 於 `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` 提供同使用者 Unix socket JSON IPC 介面供 Remya Settings 使用（`preferences`、針對 `enabled`/`maxItems`/`retentionDays` 的 `setPreference` 與 `clear`）。
   - *已知 Wayland 限制*：Wayland data-control 無法辨識剪貼簿內容來自哪個應用程式，因此設計中的來源應用程式標籤與依應用程式排除黑名單無法可靠實作。
+- **計算機（`Ctrl+5` / `=`）**：
+  - 在 `All` 中內嵌求值基本算式並在 `Calc`（`Ctrl+5` 或 `=`）中處理完整查詢，基於本機 `fend-core` 數學運算、具型別單位、含位寬與正負號的進位制、FP32/FP16/BF16、時區，以及僅於明確重新整理時擷取的 ECB 參考匯率快照，並提供目錄補全與歷史紀錄。
+  - 選用的 FP8 與一般行事曆算術仍處於延後狀態。
 - **互動式設計預覽（`--preview`）**：
   - 可從建置完成的 bundle 傳入 `--preview=<name>` 檢視所有設計狀態：
     - 啟動器狀態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
@@ -78,11 +81,10 @@ python tool/install.py
 以下能力依據 [Remya Launcher 設計規範](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) 規劃：
 
 - **自然前綴範圍（Scopes）**：
-  - **All（`Ctrl+1`）**：混合呈現應用程式、檔案、Web 歷史與指令（每組最多 3 筆，依各組最佳分數動態排序），輸入數字或括號算式時自動顯示計算答案卡，輸入類 URL 字串時直接提供開啟連結動作。
+  - **All（`Ctrl+1`）**：混合呈現應用程式、檔案、Web 歷史與指令（每組最多 3 筆，依各組最佳分數動態排序），輸入類 URL 字串時直接提供開啟連結動作。
   - **Apps（`Ctrl+2`）**：XDG `.desktop` 模糊比對（名稱、`GenericName`、`Keywords`、執行檔），結合 frecency 權重與次要 desktop actions（例如開啟無痕視窗）。
   - **Files（`Ctrl+3`，`/` 或 `~` 前綴）**：原生路徑補全（`Tab` 逐段補全）、檔名模糊搜尋（`fd` + 最近使用），以及將面板擴展至 880 px 的右側預覽窗格（資料夾內容、文字摘要、圖片縮圖）。
   - **Web（`Ctrl+4`，`?` 前綴）**：唯讀本機瀏覽器歷史（Firefox `places.sqlite` / Chromium `History`）依 frecency 排序，並於末端提供網頁搜尋動作（`Ctrl+Enter`）。
-  - **Calc（`Ctrl+5`，`=` 前綴）**：由 `libqalculate` 驅動的算式計算、單位與貨幣換算、進位制轉換、百分比與日期差計算（`Tab` 輪換候選單位，`↑` 喚回歷史算式）。
   - **Clipboard（`Ctrl+6`，`;` 前綴）**：960 px 左右雙欄檢視，支援類型篩選（透過 `Ctrl+F` 於 `All · Text · Images · Links · Files · Colors` 切換）、`Pinned → Today → Yesterday → Earlier` 分組、重複項目合併與複製次數統計、依類型客製化預覽（含行號的語法高亮程式碼、HEX/RGB/HSL/OKLCH 色塊、棋盤格透明圖片預覽），以及直接寫回並貼上至上一個聚焦視窗（`Enter`，或 `Ctrl+Enter` 執行該類型的次要動作）。
   - **Windows（`Ctrl+7`，`#` 前綴）**：透過 `hyprctl clients` 依標題與類別比對視窗並顯示工作區徽標；`Enter` 聚焦並切換工作區，`Ctrl+Enter` 將視窗移至目前工作區。
   - **Emoji（`:` 前綴）** 與 **Run（`$` / `>` 前綴）**：依名稱與別名搜尋 Emoji／符號，以及直接執行 Shell／終端機指令。
