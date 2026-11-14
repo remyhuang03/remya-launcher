@@ -1,12 +1,21 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:remya_client/remya_client.dart';
+import 'package:remya_ui/settings_ui.dart';
 
 import 'clipboard_client.dart';
 import 'clipboard_policy.dart';
 
-/// The Launcher settings window; Clipboard is its only page.
+const _repository = 'https://github.com/remyhuang03/remya-launcher';
+const _appIcon = 'assets/icons/app_icon.svg';
+
+/// The undecorated settings window's native close and move requests.
+const _window = MethodChannel('top.remya.launcher/window');
+
+/// The Launcher settings window: Clipboard, then About in the footer.
 class ClipboardSettingsWindow extends StatefulWidget {
   const ClipboardSettingsWindow({
     super.key,
@@ -29,6 +38,8 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
     client: _client,
     clipboard: widget.clipboard,
   )..start();
+  final _version = remyaAppVersion();
+  String _selected = 'clipboard';
 
   @override
   void dispose() {
@@ -37,38 +48,94 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
     super.dispose();
   }
 
+  void _select(String id) => setState(() => _selected = id);
+
   @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const .new(maxWidth: 840),
-            child: ListView(
-              padding: const .fromLTRB(24, 32, 24, 32),
-              children: [
-                Text('Clipboard', style: text.headlineMedium),
-                const SizedBox(height: 4),
-                Text(
-                  'Remya Launcher clipboard history and retention',
-                  style: text.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget build(BuildContext context) => Column(
+    children: [
+      RemyaTitleBar(
+        icon: SvgPicture.asset(_appIcon),
+        title: 'Remya Launcher Settings',
+        dragArea: (child) => GestureDetector(
+          behavior: .opaque,
+          onPanStart: (_) => unawaited(_window.invokeMethod<void>('beginMove')),
+          child: child,
+        ),
+        onClose: () => unawaited(_window.invokeMethod<void>('close')),
+      ),
+      Expanded(
+        child: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) => RemyaSettingsScaffold(
+            selected: _selected,
+            onSelected: _select,
+            loading: _controller.busy && _controller.policy == null,
+            onBack: _selected == 'licenses' ? () => _select('about') : null,
+            pages: [
+              RemyaSettingsPage(
+                id: 'clipboard',
+                title: 'Clipboard',
+                icon: Icons.content_paste_rounded,
+                builder: (_) => _ClipboardPage(controller: _controller),
+              ),
+            ],
+            footerPages: [
+              RemyaSettingsPage(
+                id: 'about',
+                title: 'About',
+                icon: Icons.info_outline_rounded,
+                tabs: false,
+                children: [
+                  RemyaSettingsPage(
+                    id: 'about',
+                    title: 'About',
+                    icon: Icons.info_outline_rounded,
+                    builder: (_) => _AboutPage(
+                      version: _version,
+                      onLicenses: () => _select('licenses'),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                ListenableBuilder(
-                  listenable: _controller,
-                  builder: (context, _) =>
-                      _ClipboardPage(controller: _controller),
-                ),
-              ],
-            ),
+                  RemyaSettingsPage(
+                    id: 'licenses',
+                    title: 'Licenses',
+                    icon: Icons.description_outlined,
+                    fill: true,
+                    builder: (_) => const RemyaLicensesView(),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ],
+  );
+}
+
+class _AboutPage extends StatelessWidget {
+  const _AboutPage({required this.version, required this.onLicenses});
+
+  final Future<String?> version;
+  final VoidCallback onLicenses;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: .stretch,
+    children: [
+      FutureBuilder(
+        future: version,
+        builder: (context, snapshot) => RemyaAboutHeader(
+          icon: SvgPicture.asset(
+            _appIcon,
+            semanticsLabel: 'Remya Launcher application icon',
+          ),
+          name: 'Remya Launcher',
+          version: snapshot.data,
+        ),
+      ),
+      RemyaAboutLinks(repository: _repository, onLicenses: onLicenses),
+    ],
+  );
 }
 
 class _ClipboardPage extends StatelessWidget {
@@ -97,7 +164,6 @@ class _ClipboardPage extends StatelessWidget {
   }
 
   Future<void> _clearHistory(BuildContext context) async {
-    final colors = Theme.of(context).colorScheme;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,10 +180,7 @@ class _ClipboardPage extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.error,
-              foregroundColor: colors.onError,
-            ),
+            style: destructiveFilledButtonStyle(context),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Clear history'),
           ),
@@ -143,94 +206,80 @@ class _ClipboardPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final policy = controller.policy;
-    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: .stretch,
       children: [
         if (controller.policyError case final error?)
-          _ErrorCard(
-            icon: Icons.sync_problem_rounded,
-            title: 'Remya Core cannot provide the clipboard policy',
+          SettingsErrorCard(
             message: policy == null
-                ? error
-                : '$error\nShowing the last values read.',
-            retryable: true,
+                ? 'Remya Core cannot provide the clipboard policy.\n$error'
+                : 'Remya Core cannot provide the clipboard policy.\n$error\n'
+                      'Showing the last values read.',
             onRetry: controller.busy ? null : controller.refresh,
           ),
         if (controller.historyError case final error?)
-          _ErrorCard(
-            icon: Icons.content_paste_off_rounded,
-            title: 'Clipboard history service error',
-            message: error,
+          SettingsErrorCard(
+            message: 'Clipboard history service error.\n$error',
+            actionLabel: null,
           ),
-        if (controller.busy && policy == null) const LinearProgressIndicator(),
-        Padding(
-          padding: const .only(top: 16, bottom: 12),
-          child: Text(
-            'History',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        Material(
-          color: colors.surfaceContainerLow,
-          borderRadius: .circular(24),
-          clipBehavior: .antiAlias,
-          child: Column(
-            children: [
-              _SettingRow(
-                title: 'Clipboard history',
+        SettingsGroup(
+          title: 'History',
+          children: [
+            SettingRow(
+              id: clipboardHistoryKey,
+              label: const SettingLabel(
+                'Clipboard history',
                 description:
                     'Record new items in Remya Launcher. Turning this off '
                     'keeps the existing history.',
-                control: policy == null
-                    ? const Text('Unavailable')
-                    : Switch(
-                        value: policy.enabled,
-                        onChanged: _canChange ? controller.setEnabled : null,
-                      ),
               ),
-              // Limits only apply while history records new items.
-              if (policy?.enabled ?? true) ...[
-                const Divider(height: 1, indent: 20, endIndent: 20),
-                _SettingRow(
-                  title: _Limit.maxItems.title,
+              control: policy == null
+                  ? const Text('Unavailable')
+                  : Switch(
+                      value: policy.enabled,
+                      onChanged: _canChange ? controller.setEnabled : null,
+                    ),
+            ),
+            // Limits only apply while history records new items.
+            if (policy?.enabled ?? true) ...[
+              SettingRow(
+                id: clipboardMaxItemsKey,
+                label: SettingLabel(
+                  _Limit.maxItems.title,
                   description:
                       'A lower limit immediately removes the oldest unpinned '
                       'items above the limit.',
-                  control: _limit(context, .maxItems, policy?.maxItems),
                 ),
-                const Divider(height: 1, indent: 20, endIndent: 20),
-                _SettingRow(
-                  title: _Limit.retentionDays.title,
+                control: _limit(context, .maxItems, policy?.maxItems),
+              ),
+              SettingRow(
+                id: clipboardRetentionDaysKey,
+                label: SettingLabel(
+                  _Limit.retentionDays.title,
                   description:
                       'A shorter period immediately removes unpinned items '
                       'older than the new limit.',
-                  control: _limit(
-                    context,
-                    .retentionDays,
-                    policy?.retentionDays,
-                  ),
                 ),
-              ],
-              const Divider(height: 1, indent: 20, endIndent: 20),
-              _SettingRow(
-                title: 'Clear clipboard history',
+                control: _limit(context, .retentionDays, policy?.retentionDays),
+              ),
+            ],
+            SettingRow(
+              id: 'clear-history',
+              label: const SettingLabel(
+                'Clear clipboard history',
                 description:
                     'Remove every saved item, including pinned items, from '
                     'Remya Launcher.',
-                control: FilledButton.tonal(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.errorContainer,
-                    foregroundColor: colors.onErrorContainer,
-                  ),
-                  onPressed: controller.busy
-                      ? null
-                      : () => _clearHistory(context),
-                  child: const Text('Clear history'),
-                ),
               ),
-            ],
-          ),
+              control: FilledButton.tonal(
+                style: destructiveTonalButtonStyle(context),
+                onPressed: controller.busy
+                    ? null
+                    : () => _clearHistory(context),
+                child: const Text('Clear history'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -246,124 +295,6 @@ enum _Limit {
   final String title;
   final String unit;
   final int max;
-}
-
-/// Information on the left and the control on the right; stacked when narrow.
-class _SettingRow extends StatelessWidget {
-  const _SettingRow({
-    required this.title,
-    required this.description,
-    required this.control,
-  });
-
-  final String title;
-  final String description;
-  final Widget control;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final label = Column(
-      crossAxisAlignment: .start,
-      spacing: 6,
-      children: [
-        Text(title, style: text.bodyLarge),
-        Text(description, style: text.bodySmall),
-      ],
-    );
-    return Padding(
-      padding: const .symmetric(horizontal: 20, vertical: 18),
-      child: MergeSemantics(
-        child: LayoutBuilder(
-          builder: (context, constraints) => constraints.maxWidth < 480
-              ? Column(
-                  crossAxisAlignment: .start,
-                  spacing: 12,
-                  children: [label, control],
-                )
-              : Row(
-                  spacing: 24,
-                  children: [
-                    Expanded(child: label),
-                    control,
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.retryable = false,
-    this.onRetry,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-  final bool retryable;
-
-  /// Null keeps Retry visible but disabled while another operation runs.
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const .only(bottom: 12),
-      child: Material(
-        color: colors.errorContainer,
-        borderRadius: .circular(24),
-        child: Padding(
-          padding: const .fromLTRB(20, 16, 12, 16),
-          child: Row(
-            spacing: 16,
-            children: [
-              Icon(icon, color: colors.onErrorContainer),
-              Expanded(
-                child: Semantics(
-                  liveRegion: true,
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    spacing: 4,
-                    children: [
-                      Text(
-                        title,
-                        style: text.titleSmall?.copyWith(
-                          color: colors.onErrorContainer,
-                        ),
-                      ),
-                      Text(
-                        message,
-                        style: text.bodyMedium?.copyWith(
-                          color: colors.onErrorContainer,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (retryable)
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    foregroundColor: colors.onErrorContainer,
-                  ),
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry'),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _LimitDialog extends StatefulWidget {

@@ -77,7 +77,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.text('Remya Core cannot provide the clipboard policy'),
+      find.textContaining('Remya Core cannot provide the clipboard policy'),
       findsOne,
     );
     expect(find.byType(Switch), findsNothing);
@@ -89,7 +89,7 @@ void main() {
     core.owners.add(true);
     await tester.pumpAndSettle();
     expect(
-      find.text('Remya Core cannot provide the clipboard policy'),
+      find.textContaining('Remya Core cannot provide the clipboard policy'),
       findsNothing,
     );
 
@@ -125,7 +125,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Clipboard history service error'), findsOne);
+    expect(find.textContaining('Clipboard history service error'), findsOne);
     expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);
     clipboard.available = true;
     await tester.tap(find.text('Clear history'));
@@ -143,7 +143,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(clipboard.clears, 1);
-    expect(find.text('Clipboard history service error'), findsNothing);
+    expect(
+      find.textContaining('Clipboard history service error'),
+      findsNothing,
+    );
 
     // Core failures and invalid replies keep the last valid policy read-only.
     core.values['clipboard-retention-days'] = 900;
