@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../clipboard/clipboard_examples.dart';
 import '../clipboard/clipboard_preview.dart';
+import '../files/file_icon_tile.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
@@ -75,10 +76,10 @@ class LauncherExampleView extends StatelessWidget {
         ),
         _Sections(
           children: [
-            _row(
+            _fileRow(
               'launcher-spec.md',
               '~/proj/remya-bar/docs',
-              .description,
+              isDirectory: false,
               meta: 'File · 12 min ago',
             ),
             _row(
@@ -143,18 +144,18 @@ class LauncherExampleView extends StatelessWidget {
           pick: quickPick ? 2 : null,
         ),
         _group('FILES', '3', quickPick),
-        _row(
+        _fileRow(
           'code',
           '~/code',
-          .folder,
+          isDirectory: true,
           meta: 'Folder · 41 items',
           match: 'code',
           pick: quickPick ? 3 : null,
         ),
-        _row(
+        _fileRow(
           'code-review.md',
           '~/proj/notes',
-          .description,
+          isDirectory: false,
           meta: '2 days ago',
           match: 'code',
           pick: quickPick ? 4 : null,
@@ -265,40 +266,64 @@ class LauncherExampleView extends StatelessWidget {
       results: _Sections(
         children: [
           const LauncherSectionHeader(
-            '~/proj/remya-bar',
+            '~/proj/remya-bar (sample)',
             height: 26,
-            trailing: _Meta('3 of 41', size: 11),
+            trailing: _Meta('4 items', size: 11),
           ),
-          _row(
+          _fileRow(
             'docs/',
             '~/proj/remya-bar/docs',
-            .folder,
+            isDirectory: true,
             match: 'do',
             action: 'Open',
           ),
-          _row(
+          _fileRow(
             'dock-layout.qml',
             '~/proj/remya-bar/src/bar',
-            .code,
+            isDirectory: false,
             match: 'do',
             meta: '6.2 KB · 3 h ago',
           ),
-          _row(
+          _fileRow(
             'docker-compose.yml',
             '~/proj/remya-bar',
-            .description,
+            isDirectory: false,
             match: 'do',
             meta: '812 B · last week',
           ),
-          const LauncherSectionHeader(
-            'ALSO MATCHING',
-            height: 26,
-            trailing: _Meta('fd + recent', size: 11),
+          _fileRow(
+            'file_icon_tile.dart',
+            '~/proj/remya-launcher/lib/features/files',
+            isDirectory: false,
+            meta: '4.8 KB · 1 h ago',
           ),
-          _row(
+          const LauncherSectionHeader(
+            'ALSO MATCHING (SAMPLE)',
+            height: 26,
+            trailing: _Meta('static preview', size: 11),
+          ),
+          _fileRow(
+            'lib.rs',
+            '~/proj/remya-core/crates/service/src',
+            isDirectory: false,
+            meta: '3.1 KB · yesterday',
+          ),
+          _fileRow(
+            'fuse_attention.py',
+            '~/proj/ml/kernels',
+            isDirectory: false,
+            meta: '1.9 KB · 2 days ago',
+          ),
+          _fileRow(
+            '.editorconfig',
+            '~/proj/remya-bar',
+            isDirectory: false,
+            meta: '268 B · last month',
+          ),
+          _fileRow(
             'dock-preview.png',
             '~/Pictures/Screenshots',
-            .image,
+            isDirectory: false,
             match: 'do',
             meta: '1.4 MB · today',
           ),
@@ -548,6 +573,29 @@ Widget _group(String title, String shortcut, bool quickPick) =>
         child: LauncherKeyHint(['Ctrl', shortcut]),
       ),
     );
+
+Widget _fileRow(
+  String title,
+  String subtitle, {
+  required bool isDirectory,
+  String? meta,
+  String? action,
+  String? match,
+  int? pick,
+}) => _row(
+  title,
+  subtitle,
+  isDirectory ? .folder : .description,
+  leading: FileIconTile(
+    basename: title,
+    isDirectory: isDirectory,
+    selected: action != null,
+  ),
+  meta: meta,
+  action: action,
+  match: match,
+  pick: pick,
+);
 
 Widget _row(
   String title,

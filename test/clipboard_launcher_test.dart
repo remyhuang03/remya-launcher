@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_client.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_color.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_platform.dart';
+import 'package:remya_launcher/features/files/file_icon_tile.dart';
 import 'package:remya_launcher/features/launcher/launcher_panel.dart';
 
 void main() {
@@ -241,6 +243,37 @@ void main() {
       expect(tester.getTopLeft(find.byType(LauncherPanel)).dy, 70.0);
     }
   });
+
+  testWidgets('clipboard file entries render Material Icon Theme tiles', (
+    tester,
+  ) async {
+    await FileIconAssets.ensureLoaded();
+    await tester.binding.setSurfaceSize(const Size(1000, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final clipboard = _TestClipboard(
+      [
+        {..._entry('file-1', 'files', 'demo.mp4'), 'summary': '1 file'},
+      ],
+      filesById: {
+        'file-1': ['/home/remy/demo.mp4'],
+      },
+    );
+    await tester.pumpWidget(
+      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FileIconTile), findsNWidgets(2));
+    final videoSvgs = tester
+        .widgetList<SvgPicture>(find.byType(SvgPicture))
+        .where(
+          (svg) =>
+              svg.bytesLoader is SvgAssetLoader &&
+              (svg.bytesLoader as SvgAssetLoader).assetName ==
+                  'assets/material_icon_theme/icons/video.svg',
+        );
+    expect(videoSvgs, hasLength(2));
+  });
 }
 
 Future<void> _modifiedKey(
@@ -276,9 +309,10 @@ Map<String, dynamic> _entry(
 }
 
 class _TestClipboard extends ClipboardClient {
-  _TestClipboard(this.entries);
+  _TestClipboard(this.entries, {this.filesById = const {}});
 
   final List<Map<String, dynamic>> entries;
+  final Map<String, List<String>> filesById;
   final requests = <Map<String, Object?>>[];
   bool available = true;
 
@@ -307,10 +341,10 @@ class _TestClipboard extends ClipboardClient {
             )
             .toList();
       case 'detail':
+        final id = arguments['id'] as String;
         return {
-          'text': entries.firstWhere(
-            (entry) => entry['id'] == arguments['id'],
-          )['title'],
+          'text': entries.firstWhere((entry) => entry['id'] == id)['title'],
+          if (filesById.containsKey(id)) 'files': filesById[id],
         };
       case 'reveal':
         return 'test secret';
