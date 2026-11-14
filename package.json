@@ -1,0 +1,13 @@
+{
+  "name": "remya-launcher-assets",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-icons": "node tool/sync_material_icons.mjs"
+  },
+  "devDependencies": {
+    "@material/material-color-utilities": "0.3.0",
+    "@resvg/resvg-js": "2.6.2",
+    "material-icon-theme": "5.40.0"
+  }
+}

@@ -4,6 +4,7 @@
 /build/
 /coverage/
 /target/
+/node_modules/
 .flutter-plugins-dependencies
 *.iml
 __pycache__/

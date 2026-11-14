@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "overrides": {
+    "python": {
+      "seed": "#0288D1",
+      "reason": "Prefer Python blue over equal-area yellow for calmer container harmonization."
+    }
+  }
+}
