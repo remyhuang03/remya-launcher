@@ -4,7 +4,11 @@ import 'dart:io' show ProcessException;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../calculator/calculator_client.dart';
+import '../calculator/calculator_controller.dart';
+import '../calculator/calculator_results.dart';
 import '../launcher/launcher_controls.dart';
+import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
 import '../launcher/launcher_results.dart';
 import 'clipboard_actions.dart';
@@ -20,12 +24,14 @@ class ClipboardLauncher extends StatefulWidget {
     required this.startInClipboard,
     required this.client,
     required this.platform,
+    this.calculatorClient,
     super.key,
   });
 
   final bool startInClipboard;
   final ClipboardClient client;
   final ClipboardPlatform platform;
+  final CalculatorClient? calculatorClient;
 
   @override
   State<ClipboardLauncher> createState() => _ClipboardLauncherState();
@@ -72,8 +78,12 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     },
     editText: _editText,
   );
+  late final _calculator = CalculatorController(
+    client: widget.calculatorClient,
+  );
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
+  final _actionsFocus = FocusNode();
   final _historyScroll = ScrollController();
   StreamSubscription<void>? _subscription;
   Timer? _refreshDelay;
@@ -96,6 +106,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
 
   bool get _inClipboard => _scope == .clipboard;
   bool get _inActions => _scope == .run;
+  bool get _inCalculator => _scope == .calculator;
 
   List<ClipboardEntry> get _visibleEntries => _entries
       .where((entry) => _matchesQuery(entry) && _filter.accepts(entry.kind))
@@ -108,6 +119,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _search.addListener(_onSearchSelectionChanged);
     if (widget.startInClipboard) {
       _scope = .clipboard;
       _startWatch();
@@ -117,11 +129,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _search.removeListener(_onSearchSelectionChanged);
     _subscription?.cancel();
     _refreshDelay?.cancel();
     _queryDelay?.cancel();
+    _calculator.dispose();
     _search.dispose();
     _searchFocus.dispose();
+    _actionsFocus.dispose();
     _historyScroll.dispose();
     super.dispose();
   }
@@ -200,12 +215,32 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
             '${entry.title} ${entry.summary}'.toLowerCase().contains(query));
   }
 
-  void _setScope(LauncherScope scope) {
-    if (_scope == scope) return;
+  int _cursorUtf16() {
+    final offset = _search.selection.extentOffset;
+    if (offset < 0) return _search.text.length;
+    return offset.clamp(0, _search.text.length);
+  }
+
+  void _onSearchSelectionChanged() {
+    if (!_inCalculator || _calculator.actionsOpen) return;
+    if (_search.text == _calculator.query) {
+      _calculator.updateCursor(_cursorUtf16());
+    }
+  }
+
+  void _setScope(LauncherScope scope, {String initialQuery = ''}) {
+    if (_scope == scope && initialQuery.isEmpty) return;
     final wasWatching = _inClipboard || _inActions;
     setState(() {
       _scope = scope;
-      _search.clear();
+      if (initialQuery.isEmpty) {
+        _search.clear();
+      } else {
+        _search.value = TextEditingValue(
+          text: initialQuery,
+          selection: TextSelection.collapsed(offset: initialQuery.length),
+        );
+      }
       _queryIds = null;
       _status = null;
       _filter = .all;
@@ -213,6 +248,11 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       if (scope == .clipboard) _preserveSelection(0);
     });
     _searchFocus.requestFocus();
+    _calculator.setScope(
+      scope,
+      query: _search.text,
+      cursorUtf16: _cursorUtf16(),
+    );
     if (_inClipboard || _inActions) {
       if (!wasWatching) _startWatch();
     } else {
@@ -229,11 +269,29 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         _setScope(value == ';' ? .clipboard : .run);
         return;
       }
+      if (value.startsWith('=')) {
+        _setScope(.calculator, initialQuery: value.substring(1));
+        return;
+      }
+    }
+    if (_inCalculator && value.startsWith('=')) {
+      final stripped = value.substring(1);
+      _search.value = TextEditingValue(
+        text: stripped,
+        selection: TextSelection.collapsed(offset: stripped.length),
+      );
+      setState(() => _status = null);
+      _calculator.updateQuery(stripped, cursorUtf16: stripped.length);
+      return;
     }
     setState(() {
       _queryIds = null;
+      if (_inCalculator || _scope == .all) _status = null;
       _preserveSelection(0);
     });
+    if (_inCalculator || _scope == .all) {
+      _calculator.updateQuery(_search.text, cursorUtf16: _cursorUtf16());
+    }
     if (_inClipboard) {
       _queryDelay?.cancel();
       if (value.trim().isNotEmpty) {
@@ -319,6 +377,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     if (event is KeyUpEvent) return .ignored;
 
     if (key == LogicalKeyboardKey.escape && event is KeyDownEvent) {
+      if (_calculator.actionsOpen) {
+        _closeCalculatorActions();
+        return .handled;
+      }
       if (_search.text.isNotEmpty) {
         _search.clear();
         _searchChanged('');
@@ -338,9 +400,28 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _setScope(.all);
       return .handled;
     }
+    if (ctrl && key == LogicalKeyboardKey.digit5 && event is KeyDownEvent) {
+      _setScope(.calculator);
+      return .handled;
+    }
     if (ctrl && key == LogicalKeyboardKey.digit6 && event is KeyDownEvent) {
       _setScope(.clipboard);
       return .handled;
+    }
+    if (_scope == .all &&
+        _calculator.hasInlineResult &&
+        event is KeyDownEvent) {
+      if (key == LogicalKeyboardKey.tab && !ctrl && !alt && !shift) {
+        _setScope(.calculator, initialQuery: _search.text);
+        return .handled;
+      }
+      if (key == LogicalKeyboardKey.enter && !ctrl && !alt && !shift) {
+        unawaited(_copyCalculatorResult());
+        return .handled;
+      }
+    }
+    if (_inCalculator && event is KeyDownEvent) {
+      return _onCalculatorKey(key, ctrl: ctrl, shift: shift, alt: alt);
     }
     if (_inActions && _showsClear && key == LogicalKeyboardKey.enter) {
       if (event is KeyDownEvent) unawaited(_clear());
@@ -482,6 +563,345 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     );
   }
 
+  KeyEventResult _onCalculatorKey(
+    LogicalKeyboardKey key, {
+    required bool ctrl,
+    required bool shift,
+    required bool alt,
+  }) {
+    if (ctrl && key == LogicalKeyboardKey.keyK && !alt) {
+      if (_calculator.actionsOpen) {
+        _closeCalculatorActions();
+      } else {
+        _openCalculatorActions();
+      }
+      return .handled;
+    }
+    if (key == LogicalKeyboardKey.arrowRight &&
+        !ctrl &&
+        !shift &&
+        !alt &&
+        _search.selection.isCollapsed &&
+        _search.selection.extentOffset == _search.text.length &&
+        _calculator.canOpenActions) {
+      _openCalculatorActions();
+      return .handled;
+    }
+    if (ctrl && key == LogicalKeyboardKey.keyB && !shift && !alt) {
+      _calculator.cycleBitWidth();
+      return .handled;
+    }
+    if (ctrl && shift && key == LogicalKeyboardKey.keyC && !alt) {
+      final expr = _calculator.selectedCandidate?.normalized ?? _search.text;
+      if (expr.isNotEmpty) unawaited(_copyPlainText(expr));
+      return .handled;
+    }
+    if (alt && !ctrl && !shift) {
+      const formatKeys = [
+        LogicalKeyboardKey.digit1,
+        LogicalKeyboardKey.digit2,
+        LogicalKeyboardKey.digit3,
+        LogicalKeyboardKey.digit4,
+        LogicalKeyboardKey.digit5,
+      ];
+      final index = formatKeys.indexOf(key);
+      final formats = _calculator.selectedCandidate?.formats ?? const [];
+      if (index >= 0 && index < formats.length) {
+        final format = formats[index];
+        _calculator.selectFormat(format.id);
+        unawaited(_copyCalculatorResult(formatIdOverride: format.id));
+        return .handled;
+      }
+    }
+    if (key == LogicalKeyboardKey.tab && !ctrl && !alt) {
+      return _handleCalculatorTab(reverse: shift);
+    }
+    if ((key == LogicalKeyboardKey.arrowUp ||
+            key == LogicalKeyboardKey.arrowDown) &&
+        !ctrl &&
+        !alt) {
+      final delta = key == LogicalKeyboardKey.arrowUp ? -1 : 1;
+      if (_search.text.trim().isEmpty &&
+          _calculator.historyEntries.isNotEmpty) {
+        _calculator.moveHistorySelection(delta);
+        return .handled;
+      }
+      if (_calculator.completions.length > 1) {
+        _calculator.moveCompletionSelection(delta);
+        return .handled;
+      }
+      if (_calculator.catalogEntries.length > 1 &&
+          _calculator.selectedCandidate == null) {
+        _calculator.moveCatalogSelection(delta);
+        return .handled;
+      }
+      if (_calculator.candidates.length > 1) {
+        _calculator.cycleCandidate(delta);
+        return .handled;
+      }
+      return .ignored;
+    }
+    if (key == LogicalKeyboardKey.enter && !ctrl && !alt && !shift) {
+      if (_calculator.hasPendingError) {
+        _calculator.revealErrorNow();
+        return .handled;
+      }
+      if (_search.text.trim().isEmpty && _calculator.selectedHistory != null) {
+        unawaited(_copyPlainText(_calculator.selectedHistory!.copyText));
+        return .handled;
+      }
+      if (_calculator.isCopyableResult) {
+        unawaited(_copyCalculatorResult());
+        return .handled;
+      }
+      if (_calculator.selectedCatalogEntry case final entry?) {
+        _fillCalculatorQuery(entry.insertText);
+        return .handled;
+      }
+      return .ignored;
+    }
+    if (shift &&
+        key == LogicalKeyboardKey.delete &&
+        !ctrl &&
+        !alt &&
+        _search.text.trim().isEmpty &&
+        _calculator.selectedHistory != null) {
+      unawaited(
+        _calculator.deleteHistory(_calculator.selectedHistory!.historyId),
+      );
+      return .handled;
+    }
+    if (ctrl &&
+        key == LogicalKeyboardKey.keyP &&
+        !shift &&
+        !alt &&
+        _search.text.trim().isEmpty &&
+        _calculator.selectedHistory != null) {
+      final entry = _calculator.selectedHistory!;
+      unawaited(
+        _calculator.setHistoryPinned(entry.historyId, pinned: !entry.isPinned),
+      );
+      return .handled;
+    }
+    return .ignored;
+  }
+
+  KeyEventResult _handleCalculatorTab({required bool reverse}) {
+    if (!reverse) {
+      if (_calculator.pendingCorrectionEdit case final correction?) {
+        _applyCalculatorEdit(correction);
+        return .handled;
+      }
+      if (_calculator.pendingCompletionEdit case final completion?) {
+        _applyCalculatorEdit(completion);
+        return .handled;
+      }
+    }
+    if ((_calculator.selectedCandidate?.formats.length ?? 0) > 1) {
+      _calculator.cycleFormat(reverse ? -1 : 1);
+      return .handled;
+    }
+    if (_calculator.candidates.length > 1) {
+      _calculator.cycleCandidate(reverse ? -1 : 1);
+      return .handled;
+    }
+    if (!reverse &&
+        _search.text.trim().isEmpty &&
+        _calculator.selectedHistory != null) {
+      _fillCalculatorQuery(_calculator.selectedHistory!.query);
+      return .handled;
+    }
+    if (!reverse && _calculator.selectedCatalogEntry != null) {
+      _fillCalculatorQuery(_calculator.selectedCatalogEntry!.insertText);
+      return .handled;
+    }
+    return .ignored;
+  }
+
+  void _applyCalculatorEdit(CalculatorTextEdit edit) {
+    final next = edit.applyTo(_search.value);
+    if (next == null) return;
+    _search.value = next;
+    _searchFocus.requestFocus();
+    _calculator.updateQuery(
+      next.text,
+      cursorUtf16: next.selection.extentOffset,
+    );
+  }
+
+  void _fillCalculatorQuery(String query) {
+    _search.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
+    _searchFocus.requestFocus();
+    _calculator.updateQuery(query, cursorUtf16: query.length);
+  }
+
+  Future<void> _copyPlainText(String text) async {
+    if (text.isEmpty) return;
+    try {
+      await widget.client.publishText(text);
+    } on Object {
+      await Clipboard.setData(ClipboardData(text: text));
+    }
+    if (mounted) {
+      setState(() => _status = 'Copied $text to the clipboard.');
+    }
+  }
+
+  Future<void> _copyCalculatorResult({String? formatIdOverride}) async {
+    final text = await _calculator.commitSelected(
+      formatIdOverride: formatIdOverride,
+    );
+    if (text == null || text.isEmpty) return;
+    await _copyPlainText(text);
+  }
+
+  void _openCalculatorActions() {
+    if (!_calculator.canOpenActions) return;
+    _calculator.openActions();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _calculator.actionsOpen) _actionsFocus.requestFocus();
+    });
+  }
+
+  void _closeCalculatorActions() {
+    _calculator.closeActions();
+    _searchFocus.requestFocus();
+  }
+
+  List<CalculatorMenuAction> _currentCalculatorActions() =>
+      _calculator.buildActions(
+        onCopyText: _copyPlainText,
+        onCommitAndCopy: _copyCalculatorResult,
+        onEditQuery: _fillCalculatorQuery,
+        onSaveVariable: _promptSaveVariable,
+        onClearHistory: _confirmClearCalculatorHistory,
+      );
+
+  Future<void> _promptSaveVariable(String expression) async {
+    if (!mounted) return;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => _SaveVariableDialog(expression),
+    );
+    if (name == null || name.isEmpty || !mounted) return;
+    final error = await _calculator.saveVariable(name, expression);
+    if (!mounted) return;
+    setState(() {
+      _status = error ?? 'Saved variable $name.';
+    });
+    _searchFocus.requestFocus();
+  }
+
+  Future<void> _confirmClearCalculatorHistory() async {
+    if (!mounted) return;
+    final hasPinned = _calculator.historyEntries.any((e) => e.isPinned);
+    var includePinned = false;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Clear calculator history?'),
+          content: Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .start,
+            spacing: 8,
+            children: [
+              Text(
+                hasPinned
+                    ? 'Unpinned calculations will be removed.'
+                    : 'All calculator history will be removed.',
+              ),
+              if (hasPinned)
+                CheckboxListTile(
+                  value: includePinned,
+                  contentPadding: .zero,
+                  controlAffinity: .leading,
+                  title: const Text('Include pinned items'),
+                  onChanged: (value) =>
+                      setDialogState(() => includePinned = value ?? false),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Clear history'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _calculator.clearHistory(includePinned: includePinned);
+    if (!mounted) return;
+    setState(() => _status = 'Calculator history cleared.');
+    _searchFocus.requestFocus();
+  }
+
+  Future<void> _runCalculatorAction(CalculatorMenuAction action) async {
+    _closeCalculatorActions();
+    await action.run();
+  }
+
+  KeyEventResult _onActionsKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return .ignored;
+    if (event is! KeyDownEvent) return .ignored;
+    final keys = HardwareKeyboard.instance;
+    final key = event.logicalKey;
+    final ctrl = keys.isControlPressed;
+    final shift = keys.isShiftPressed;
+    final alt = keys.isAltPressed;
+
+    if (key == LogicalKeyboardKey.escape ||
+        (ctrl && key == LogicalKeyboardKey.keyK)) {
+      _closeCalculatorActions();
+      return .handled;
+    }
+    final actions = _currentCalculatorActions();
+    if (key == LogicalKeyboardKey.arrowUp ||
+        (key == LogicalKeyboardKey.tab && shift)) {
+      _calculator.moveActionSelection(-1, actions.length);
+      return .handled;
+    }
+    if (key == LogicalKeyboardKey.arrowDown ||
+        (key == LogicalKeyboardKey.tab && !shift)) {
+      _calculator.moveActionSelection(1, actions.length);
+      return .handled;
+    }
+    if (key == LogicalKeyboardKey.enter && actions.isNotEmpty) {
+      final index = _calculator.actionIndex.clamp(0, actions.length - 1);
+      unawaited(_runCalculatorAction(actions[index]));
+      return .handled;
+    }
+    if (key == LogicalKeyboardKey.backspace) {
+      final current = _calculator.actionFilter;
+      if (current.isNotEmpty) {
+        _calculator.updateActionFilter(
+          current.substring(0, current.length - 1),
+        );
+      }
+      return .handled;
+    }
+    final char = event.character;
+    if (char != null &&
+        char.isNotEmpty &&
+        !ctrl &&
+        !alt &&
+        char.codeUnitAt(0) >= 32) {
+      _calculator.updateActionFilter('${_calculator.actionFilter}$char');
+      return .handled;
+    }
+    return .handled;
+  }
+
   bool get _showsClear =>
       _inActions &&
       _error == null &&
@@ -520,42 +940,64 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                   padding: .fromLTRB(inset, top, inset, inset),
                   child: GestureDetector(
                     behavior: .opaque,
-                    onTap: () {},
+                    onTap: () {
+                      if (_calculator.actionsOpen) _closeCalculatorActions();
+                    },
                     excludeFromSemantics: true,
-                    child: LauncherPanel(
-                      width: _inClipboard ? 960 : 720,
-                      scope: _scope,
-                      enabledScopes: const {.all, .clipboard},
-                      onScopeSelected: _setScope,
-                      scrollBody: !_inClipboard,
-                      onOverlay: true,
-                      compact: compact,
-                      search: LauncherSearchField(
+                    child: ListenableBuilder(
+                      listenable: _calculator,
+                      builder: (context, _) => LauncherPanel(
+                        width: _inClipboard ? 960 : 720,
                         scope: _scope,
-                        controller: _search,
-                        focusNode: _searchFocus,
-                        autofocus: true,
+                        enabledScopes: const {.all, .calculator, .clipboard},
+                        onScopeSelected: _setScope,
+                        scrollBody: !_inClipboard,
+                        onOverlay: true,
                         compact: compact,
-                        placeholder: _inClipboard
-                            ? 'Filter clipboard…'
-                            : _inActions
-                            ? 'Filter actions…'
-                            : 'Search launcher…',
-                        onChanged: _searchChanged,
-                        trailing: _inClipboard && _error == null
-                            ? Text(
-                                '${_visibleEntries.length} items',
-                                style: Theme.of(context).textTheme.bodySmall,
+                        search: LauncherSearchField(
+                          scope: _scope,
+                          controller: _search,
+                          focusNode: _searchFocus,
+                          autofocus: true,
+                          compact: compact,
+                          placeholder: _inClipboard
+                              ? 'Filter clipboard…'
+                              : _inCalculator
+                              ? 'Calculate, convert units, bases, time, currency…'
+                              : _inActions
+                              ? 'Filter actions…'
+                              : 'Search launcher…',
+                          onChanged: _searchChanged,
+                          trailing: _inClipboard && _error == null
+                              ? Text(
+                                  '${_visibleEntries.length} items',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                )
+                              : _inCalculator
+                              ? Text(
+                                  _calculator.settings.shortLabel,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                )
+                              : null,
+                        ),
+                        body: _inClipboard
+                            ? _clipboardBody(
+                                selected,
+                                actions,
+                                compact: compact,
                               )
+                            : _inCalculator
+                            ? _calculatorBody(compact: compact)
+                            : _shellBody(),
+                        actions: _calculator.actionsOpen
+                            ? _calculatorActionsOverlay()
                             : null,
-                      ),
-                      body: _inClipboard
-                          ? _clipboardBody(selected, actions, compact: compact)
-                          : _shellBody(),
-                      footer: _footer(
-                        actions,
-                        selected,
-                        singleLine: constraints.maxWidth < 540 || height < 520,
+                        footer: _footer(
+                          actions,
+                          selected,
+                          singleLine:
+                              constraints.maxWidth < 540 || height < 520,
+                        ),
                       ),
                     ),
                   ),
@@ -564,6 +1006,42 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _calculatorBody({required bool compact}) => CalculatorResults(
+    controller: _calculator,
+    compact: compact,
+    onCopyResult: () => unawaited(_copyCalculatorResult()),
+    onCopyText: (text) => unawaited(_copyPlainText(text)),
+    onApplyEdit: _applyCalculatorEdit,
+    onFillQuery: _fillCalculatorQuery,
+    onClearHistory: () => unawaited(_confirmClearCalculatorHistory()),
+  );
+
+  Widget _calculatorActionsOverlay() {
+    final actions = _currentCalculatorActions();
+    return Focus(
+      focusNode: _actionsFocus,
+      onKeyEvent: _onActionsKey,
+      child: LauncherActionsMenu(
+        title: _calculator.actionFilter.isEmpty
+            ? 'Calculator actions'
+            : 'Filter: ${_calculator.actionFilter}',
+        actions: [
+          for (final action in actions)
+            LauncherAction(
+              action.label,
+              action.icon,
+              action.keys,
+              destructive: action.destructive,
+              onPressed: () => unawaited(_runCalculatorAction(action)),
+            ),
+        ],
+        selectedIndex: actions.isEmpty
+            ? 0
+            : _calculator.actionIndex.clamp(0, actions.length - 1),
       ),
     );
   }
@@ -582,13 +1060,46 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         onPressed: _busy ? null : _clear,
       );
     }
-    return LauncherResultRow(
+    final clipboardRow = LauncherResultRow(
       title: const TextSpan(text: 'Clipboard history'),
       subtitle: 'Search and paste recently copied items',
       leading: const LauncherSymbolTile(.clipboard),
       trailing: const LauncherKeyHint(['Ctrl', '6']),
       onPressed: () => _setScope(.clipboard),
     );
+    if (_scope == .all && _calculator.hasInlineResult) {
+      return Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        spacing: 8,
+        children: [
+          CalculatorInlineResult(
+            controller: _calculator,
+            onOpenInCalc: () =>
+                _setScope(.calculator, initialQuery: _search.text),
+            onCopy: () => unawaited(_copyCalculatorResult()),
+          ),
+          clipboardRow,
+        ],
+      );
+    }
+    if (_scope == .all && _search.text.trim().isEmpty) {
+      return Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        children: [
+          LauncherResultRow(
+            title: const TextSpan(text: 'Calculator'),
+            subtitle: 'Math, unit conversions, programmer bases, floats, time, currency',
+            leading: const LauncherSymbolTile(.calculate),
+            trailing: const LauncherKeyHint(['Ctrl', '5']),
+            onPressed: () => _setScope(.calculator),
+          ),
+          clipboardRow,
+        ],
+      );
+    }
+    return clipboardRow;
   }
 
   Widget _clipboardBody(
@@ -717,6 +1228,62 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         leading: [LauncherKeyHint(const [], label: status)],
       );
     }
+    if (_inCalculator) {
+      if (_calculator.actionsOpen) {
+        return LauncherFooter(
+          singleLine: singleLine,
+          leading: const [
+            LauncherKeyHint(['↵'], label: 'Run action'),
+            LauncherKeyHint(['Esc'], label: 'Back'),
+          ],
+          trailing: const [
+            LauncherKeyHint(['↑', '↓'], label: 'Navigate'),
+          ],
+        );
+      }
+      if (_search.text.trim().isEmpty) {
+        final selectedHistory = _calculator.selectedHistory;
+        return LauncherFooter(
+          singleLine: singleLine,
+          leading: [
+            if (selectedHistory != null) ...[
+              const LauncherKeyHint(['↵'], label: 'Copy result'),
+              const LauncherKeyHint(['Tab'], label: 'Edit query'),
+              LauncherKeyHint(const [
+                'Ctrl',
+                'P',
+              ], label: selectedHistory.isPinned ? 'Unpin' : 'Pin'),
+              const LauncherKeyHint(['⇧', 'Del'], label: 'Delete'),
+            ] else
+              const LauncherKeyHint(['Esc'], label: 'Close'),
+          ],
+          trailing: [
+            if (_calculator.historyEntries.isNotEmpty)
+              const LauncherKeyHint(['↑', '↓'], label: 'History'),
+            if (_calculator.canOpenActions)
+              const LauncherKeyHint(['Ctrl', 'K'], label: 'Actions'),
+          ],
+        );
+      }
+      final formatCount = _calculator.selectedCandidate?.formats.length ?? 0;
+      return LauncherFooter(
+        singleLine: singleLine,
+        leading: [
+          if (_calculator.hasPendingCompletionOrCorrection)
+            const LauncherKeyHint(['Tab'], label: 'Apply edit')
+          else if (formatCount > 1)
+            const LauncherKeyHint(['Tab'], label: 'Next format'),
+          if (_calculator.isCopyableResult)
+            const LauncherKeyHint(['↵'], label: 'Copy'),
+          if (_calculator.selectedCandidate?.kind == 'programmer')
+            const LauncherKeyHint(['Ctrl', 'B'], label: 'Bit width'),
+        ],
+        trailing: [
+          if (_calculator.canOpenActions)
+            const LauncherKeyHint(['Ctrl', 'K'], label: 'Actions'),
+        ],
+      );
+    }
     return LauncherFooter(
       singleLine: singleLine,
       leading: [
@@ -728,6 +1295,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
               LogicalKeyboardKey.delete,
             ].contains(action.key))
               action.hint,
+        if (_scope == .all && _calculator.hasInlineResult) ...const [
+          LauncherKeyHint(['Tab'], label: 'Open in Calc'),
+          LauncherKeyHint(['↵'], label: 'Copy'),
+        ],
         if (!_inClipboard) const LauncherKeyHint(['Esc'], label: 'Close'),
       ],
       trailing: [
@@ -789,6 +1360,66 @@ class _EditDialogState extends State<_EditDialog> {
         onPressed: () => Navigator.pop(context, _editor.text),
         child: const Text('Paste'),
       ),
+    ],
+  );
+}
+
+class _SaveVariableDialog extends StatefulWidget {
+  const _SaveVariableDialog(this.expression);
+
+  final String expression;
+
+  @override
+  State<_SaveVariableDialog> createState() => _SaveVariableDialogState();
+}
+
+class _SaveVariableDialogState extends State<_SaveVariableDialog> {
+  final _name = TextEditingController();
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final trimmed = _name.text.trim();
+    if (trimmed.isEmpty) return;
+    Navigator.pop(context, trimmed);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Save variable'),
+    content: SizedBox(
+      width: 360,
+      child: Column(
+        mainAxisSize: .min,
+        crossAxisAlignment: .stretch,
+        spacing: 12,
+        children: [
+          Text(
+            'Expression: ${widget.expression}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          TextField(
+            autofocus: true,
+            controller: _name,
+            decoration: const InputDecoration(
+              labelText: 'Variable name',
+              hintText: 'e.g. tax_rate',
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('Save')),
     ],
   );
 }
