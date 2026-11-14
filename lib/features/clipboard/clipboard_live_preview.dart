@@ -7,6 +7,7 @@ import '../launcher/launcher_controls.dart';
 import 'clipboard_client.dart';
 import 'clipboard_color.dart';
 import 'clipboard_preview.dart';
+import 'clipboard_svg.dart';
 
 const clipboardMono = TextStyle(
   fontFamily: 'JetBrains Mono',
@@ -110,19 +111,33 @@ class ClipboardLivePreview extends StatelessWidget {
         onFormat: onColor,
       ),
       .color => _PreviewContent(child: _TextLines(text, mono: true)),
-      .files => _PreviewContent(
-        child: Column(
-          crossAxisAlignment: .stretch,
-          spacing: 8,
-          children: [
-            for (final path in detail.files.take(24)) _FileLine(path),
-            if (detail.files.length > 24)
-              Text('+${detail.files.length - 24} more files'),
-          ],
-        ),
-      ),
+      .files => _filesPreview(detail),
       .hidden => const SizedBox.shrink(),
     };
+  }
+
+  Widget _filesPreview(ClipboardDetail detail) {
+    final fallback = _PreviewContent(
+      child: Column(
+        crossAxisAlignment: .stretch,
+        spacing: 8,
+        children: [
+          for (final path in detail.files.take(24)) _FileLine(path),
+          if (detail.files.length > 24)
+            Text('+${detail.files.length - 24} more files'),
+        ],
+      ),
+    );
+    if (detail.files.length == 1 && isSvgFilePath(detail.files.first)) {
+      return ClipboardSvgFile(
+        path: detail.files.first,
+        fit: .contain,
+        semanticLabel: 'Clipboard image',
+        fallback: fallback,
+        wrapper: (context, child) => _ImageFrame(child: child),
+      );
+    }
+    return fallback;
   }
 }
 
@@ -233,6 +248,24 @@ class _CodeLines extends StatelessWidget {
   }
 }
 
+class _ImageFrame extends StatelessWidget {
+  const _ImageFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: .circular(12),
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: CustomPaint(
+        painter: _TransparencyGrid(Theme.of(context).colorScheme),
+        child: child,
+      ),
+    ),
+  );
+}
+
 class _ImagePreview extends StatelessWidget {
   const _ImagePreview(this.detail, {required this.thumbnailOnly});
 
@@ -245,20 +278,13 @@ class _ImagePreview extends StatelessWidget {
     spacing: 8,
     children: [
       if (detail.thumbnail case final thumbnail?)
-        ClipRRect(
-          borderRadius: .circular(12),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 220),
-            child: CustomPaint(
-              painter: _TransparencyGrid(Theme.of(context).colorScheme),
-              child: Image.memory(
-                thumbnail,
-                fit: .contain,
-                semanticLabel: 'Clipboard image',
-                errorBuilder: (context, error, stack) =>
-                    const Text('Image preview unavailable'),
-              ),
-            ),
+        _ImageFrame(
+          child: Image.memory(
+            thumbnail,
+            fit: .contain,
+            semanticLabel: 'Clipboard image',
+            errorBuilder: (context, error, stack) =>
+                const Text('Image preview unavailable'),
           ),
         )
       else

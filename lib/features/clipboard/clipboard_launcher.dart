@@ -504,7 +504,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
           final height = constraints.maxHeight;
           final compact = constraints.maxWidth < 360;
           final inset = compact ? 8.0 : 16.0;
-          final top = height >= 940 ? height * .22 : inset;
+          final top = compact || height < 420 ? inset : 70.0;
           return Stack(
             children: [
               Positioned.fill(

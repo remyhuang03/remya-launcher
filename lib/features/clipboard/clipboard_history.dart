@@ -8,6 +8,7 @@ import '../launcher/launcher_results.dart';
 import 'clipboard_client.dart';
 import 'clipboard_color.dart';
 import 'clipboard_live_preview.dart';
+import 'clipboard_svg.dart';
 
 class ClipboardHistory extends StatelessWidget {
   const ClipboardHistory({
@@ -227,6 +228,7 @@ class _EntryLeading extends StatefulWidget {
 
 class _EntryLeadingState extends State<_EntryLeading> {
   Future<Uint8List?>? _thumbnail;
+  Future<String?>? _svgPath;
 
   @override
   void initState() {
@@ -244,6 +246,21 @@ class _EntryLeadingState extends State<_EntryLeading> {
     _thumbnail = widget.entry.kind == .image
         ? widget.client.thumbnail(widget.entry.id)
         : null;
+    _svgPath = widget.entry.kind == .files && isSvgFilePath(widget.entry.title)
+        ? _loadSvgPath()
+        : null;
+  }
+
+  Future<String?> _loadSvgPath() async {
+    try {
+      final detail = await widget.client.detail(widget.entry.id);
+      if (detail.files.length == 1 && isSvgFilePath(detail.files.first)) {
+        return detail.files.first;
+      }
+    } catch (_) {
+      // Fall back to the file tile when detail lookup fails.
+    }
+    return null;
   }
 
   @override
@@ -265,6 +282,22 @@ class _EntryLeadingState extends State<_EntryLeading> {
       .files => .folder,
       .hidden => .lock,
     }, selected: widget.selected);
+    if (entry.kind == .files && _svgPath != null) {
+      return FutureBuilder<String?>(
+        future: _svgPath,
+        builder: (context, snapshot) => switch (snapshot.data) {
+          final path? => ClipboardSvgFile(
+            path: path,
+            fit: .cover,
+            excludeFromSemantics: true,
+            fallback: tile,
+            wrapper: (context, child) =>
+                ClipRRect(borderRadius: .circular(8), child: child),
+          ),
+          null => tile,
+        },
+      );
+    }
     if (entry.kind != .image) return tile;
     return FutureBuilder<Uint8List?>(
       future: _thumbnail,

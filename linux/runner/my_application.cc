@@ -84,10 +84,14 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-  // Show the window when Flutter renders.
-  // Requires the view to be realized so we can start rendering.
-  g_signal_connect(view, "first-frame", G_CALLBACK(first_frame_cb), nullptr);
-  gtk_widget_realize(GTK_WIDGET(view));
+  // Show overlay windows immediately so gtk-layer-shell receives the compositor
+  // configure size before Flutter creates its initial render surface.
+  if (overlay) {
+    gtk_widget_show_all(GTK_WIDGET(window));
+  } else {
+    g_signal_connect(view, "first-frame", G_CALLBACK(first_frame_cb), nullptr);
+    gtk_widget_realize(GTK_WIDGET(view));
+  }
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
   if (!preview) register_launcher_window(view, window);

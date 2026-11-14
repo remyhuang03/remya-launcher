@@ -8,6 +8,7 @@ import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_client.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_color.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_platform.dart';
+import 'package:remya_launcher/features/launcher/launcher_panel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -222,6 +223,23 @@ void main() {
       'hsl(0 100% 50% / 0.502)',
       'oklch(0.628 0.258 29.234 / 0.502)',
     ]);
+  });
+
+  testWidgets('launcher panel stays fixed at 70px from top', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final clipboard = _TestClipboard([_entry('text', 'text', 'Note')]);
+
+    for (final size in const [
+      Size(1280, 720),
+      Size(1600, 900),
+      Size(1920, 1080),
+      Size(2560, 1440),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(RemyaLauncherApp(clipboardClient: clipboard));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byType(LauncherPanel)).dy, 70.0);
+    }
   });
 }
 
