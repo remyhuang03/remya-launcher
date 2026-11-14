@@ -58,6 +58,7 @@ pkg_check_modules(GTK_LAYER_SHELL REQUIRED IMPORTED_TARGET gtk-layer-shell-0>=0.
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(CLIPBOARD_BINARY "remya-launcher-clipboard")
+set(CALCULATOR_BINARY "remya-launcher-calculator")
 set(CARGO_TARGET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../target")
 set(CARGO_PROFILE debug)
 if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
@@ -65,15 +66,17 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   set(CARGO_PROFILE_ARGS --release)
 endif()
 set(CLIPBOARD_EXECUTABLE "${CARGO_TARGET_DIR}/${CARGO_PROFILE}/${CLIPBOARD_BINARY}")
-set(CLIPBOARD_NOTICES "${PROJECT_BINARY_DIR}/clipboard-rust-notices.txt")
-add_custom_target(clipboard_service
+set(CALCULATOR_EXECUTABLE "${CARGO_TARGET_DIR}/${CARGO_PROFILE}/${CALCULATOR_BINARY}")
+set(RUST_NOTICES "${PROJECT_BINARY_DIR}/rust-notices.txt")
+add_custom_target(rust_binaries
   COMMAND ${CMAKE_COMMAND} -E env "CARGO_TARGET_DIR=${CARGO_TARGET_DIR}"
-          "${CARGO_EXECUTABLE}" build --locked --bin "${CLIPBOARD_BINARY}"
+          "${CARGO_EXECUTABLE}" build --locked
+          --bin "${CLIPBOARD_BINARY}" --bin "${CALCULATOR_BINARY}"
           ${CARGO_PROFILE_ARGS}
   COMMAND "${Python3_EXECUTABLE}" tool/bundle_rust_notices.py
-          "${CARGO_EXECUTABLE}" "${CLIPBOARD_NOTICES}"
+          "${CARGO_EXECUTABLE}" "${RUST_NOTICES}"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
-  BYPRODUCTS "${CLIPBOARD_EXECUTABLE}" "${CLIPBOARD_NOTICES}"
+  BYPRODUCTS "${CLIPBOARD_EXECUTABLE}" "${CALCULATOR_EXECUTABLE}" "${RUST_NOTICES}"
   VERBATIM)
 
 # Application build; see runner/CMakeLists.txt.
@@ -81,7 +84,7 @@ add_subdirectory("runner")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
-add_dependencies(${BINARY_NAME} clipboard_service)
+add_dependencies(${BINARY_NAME} rust_binaries)
 
 # Only the install-generated bundle's copy of the executable will launch
 # correctly, since the resources must in the right relative locations. To avoid
@@ -116,9 +119,10 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
-install(PROGRAMS "${CLIPBOARD_EXECUTABLE}" DESTINATION "${CMAKE_INSTALL_PREFIX}"
+install(PROGRAMS "${CLIPBOARD_EXECUTABLE}" "${CALCULATOR_EXECUTABLE}"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
-install(FILES "${CLIPBOARD_NOTICES}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/licenses"
+install(FILES "${RUST_NOTICES}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/licenses"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

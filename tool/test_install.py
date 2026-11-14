@@ -1,10 +1,24 @@
 """Check packaging contracts without installing or contacting user services."""
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
-from tool.install import clipboard_unit, require_core
+from tool.install import (
+    APP_ID,
+    BUNDLE_BINARIES,
+    CALCULATOR_SIDECAR,
+    CLIPBOARD_SERVICE,
+    PACKAGE,
+    UNIT,
+    clipboard_unit,
+    install,
+    require_bundle,
+    require_core,
+)
 
 
 class PackagingTest(unittest.TestCase):
@@ -41,3 +55,83 @@ class PackagingTest(unittest.TestCase):
             self.assertIn(line, unit.splitlines())
         desktop = (root / "linux/packaging/top.remya.launcher.desktop").read_text()
         self.assertIn("[Desktop Action settings]\nName=Settings\nExec=remya_launcher --settings", desktop)
+
+    def test_bundle_requires_launcher_clipboard_and_calculator(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            bundle = Path(temporary) / "bundle"
+            bundle.mkdir()
+            for missing in BUNDLE_BINARIES:
+                for binary in BUNDLE_BINARIES:
+                    path = bundle / binary
+                    if binary == missing:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.touch()
+                with self.assertRaisesRegex(RuntimeError, missing):
+                    require_bundle(bundle)
+            for binary in BUNDLE_BINARIES:
+                (bundle / binary).touch()
+            require_bundle(bundle)
+
+    def test_install_deploys_calculator_sidecar_without_daemon_or_extra_symlink(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "repo"
+            bundle = root / "build/linux/x64/release/bundle"
+            (bundle / "data/licenses").mkdir(parents=True)
+            for binary in BUNDLE_BINARIES:
+                (bundle / binary).write_text(binary)
+            (bundle / "data/licenses/rust-notices.txt").write_text("notice text")
+            (root / "linux/packaging").mkdir(parents=True)
+            shutil.copyfile(
+                repo_root / "linux/packaging/top.remya.launcher.desktop",
+                root / f"linux/packaging/{PACKAGE}.desktop",
+            )
+            shutil.copyfile(
+                repo_root / "linux/packaging/remya-launcher.json",
+                root / "linux/packaging/remya-launcher.json",
+            )
+            (root / "assets/icons").mkdir(parents=True)
+            (root / "assets/icons/app_icon.svg").write_text("<svg/>")
+
+            home = Path(temporary) / "home"
+            data = home / ".local/share"
+            activation = data / "dbus-1/services/top.remya.Core1.service"
+            activation.parent.mkdir(parents=True)
+            activation.touch()
+            environment = {"HOME": str(home), "XDG_DATA_HOME": str(data)}
+
+            ok = subprocess.CompletedProcess(["systemctl"], 0, "", "")
+            with (
+                mock.patch("tool.install.require_inter_font"),
+                mock.patch("tool.install.shutil.which", side_effect=lambda cmd: cmd if cmd == "systemctl" else None),
+                mock.patch("tool.install.systemctl", return_value=ok),
+            ):
+                install(root, environment)
+
+            destination = data / "remya" / APP_ID
+            self.assertEqual((destination / APP_ID).read_text(), APP_ID)
+            self.assertEqual((destination / CLIPBOARD_SERVICE).read_text(), CLIPBOARD_SERVICE)
+            self.assertEqual((destination / CALCULATOR_SIDECAR).read_text(), CALCULATOR_SIDECAR)
+            self.assertEqual((destination / "data/licenses/rust-notices.txt").read_text(), "notice text")
+
+            bin_dir = home / ".local/bin"
+            self.assertTrue((bin_dir / APP_ID).is_symlink())
+            self.assertEqual((bin_dir / APP_ID).resolve(), (destination / APP_ID).resolve())
+            self.assertFalse((bin_dir / CALCULATOR_SIDECAR).exists())
+            self.assertFalse((bin_dir / CLIPBOARD_SERVICE).exists())
+
+            units_dir = data / "systemd/user"
+            self.assertEqual([path.name for path in units_dir.iterdir()], [UNIT])
+
+            # Unrelated binary at ~/.local/bin/remya_launcher must not be overwritten.
+            (bin_dir / APP_ID).unlink()
+            (bin_dir / APP_ID).write_text("unrelated")
+            with (
+                mock.patch("tool.install.require_inter_font"),
+                mock.patch("tool.install.shutil.which", side_effect=lambda cmd: cmd if cmd == "systemctl" else None),
+                mock.patch("tool.install.systemctl", return_value=ok),
+                self.assertRaisesRegex(RuntimeError, "Refusing to replace unrelated command"),
+            ):
+                install(root, environment)
+            self.assertEqual((bin_dir / APP_ID).read_text(), "unrelated")

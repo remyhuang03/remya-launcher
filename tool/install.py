@@ -9,6 +9,8 @@ import tempfile
 APP_ID = "remya_launcher"
 PACKAGE = "top.remya.launcher"
 CLIPBOARD_SERVICE = "remya-launcher-clipboard"
+CALCULATOR_SIDECAR = "remya-launcher-calculator"
+BUNDLE_BINARIES = (APP_ID, CLIPBOARD_SERVICE, CALCULATOR_SIDECAR)
 UNIT = f"{PACKAGE}.clipboard.service"
 
 
@@ -67,13 +69,20 @@ def require_core(environment):
         raise RuntimeError("Install Remya Core first (top.remya.Core1.service is required)")
 
 
+def require_bundle(source):
+    missing = [binary for binary in BUNDLE_BINARIES if not (source / binary).is_file()]
+    if missing:
+        raise RuntimeError(
+            f"Run fvm flutter build linux --release first (missing {', '.join(missing)})"
+        )
+
+
 def install(root, environment):
     require_core(environment)
     require_inter_font()
     data = data_home(environment).resolve()
     source = root / "build/linux/x64/release/bundle"
-    if not all((source / binary).is_file() for binary in (APP_ID, CLIPBOARD_SERVICE)):
-        raise RuntimeError("Run fvm flutter build linux --release first")
+    require_bundle(source)
     destination = data / "remya" / APP_ID
     home = environment.get("HOME", "")
     if not home.startswith("/"):
