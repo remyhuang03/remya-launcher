@@ -1,0 +1,111 @@
+name: Update Material Icon Theme
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Optional exact material-icon-theme npm version (defaults to latest stable)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-material-icons:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Flutter via FVM
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .fvmrc
+          cache: true
+
+      - name: Resolve target material-icon-theme version
+        id: version
+        run: |
+          CURRENT=$(node -p "require('./package.json').devDependencies['material-icon-theme']")
+          INPUT_VERSION="${{ github.event.inputs.target_version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            TARGET="$INPUT_VERSION"
+          else
+            TARGET=$(npm view material-icon-theme dist-tags.latest)
+          fi
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies and sync assets
+        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        run: |
+          npm install --no-fund --no-audit --save-dev --save-exact "material-icon-theme@${{ steps.version.outputs.target }}"
+          npm ci --no-fund --no-audit
+          node -e '
+            const fs = require("node:fs");
+            fs.writeFileSync("/tmp/before-manifest.json", fs.readFileSync("assets/material_icon_theme/manifest.json"));
+            fs.writeFileSync("/tmp/before-seeds.json", fs.readFileSync("assets/material_icon_theme/seeds.json"));
+            fs.writeFileSync("/tmp/before-metadata.json", fs.readFileSync("assets/material_icon_theme/metadata.json"));
+          '
+          npm run sync-icons
+          node tool/sync_material_icons.mjs --check
+
+      - name: Verify determinism and Flutter tests
+        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        run: |
+          node tool/sync_material_icons.mjs
+          git diff --exit-code -- assets/material_icon_theme/ pubspec.yaml || true
+          node tool/sync_material_icons.mjs --check
+          flutter pub get
+          flutter analyze
+          flutter test test/file_icon_resolver_test.dart test/file_icon_palette_test.dart test/file_icon_tile_test.dart
+
+      - name: Summarize icon and seed diffs
+        id: summary
+        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const beforeM = JSON.parse(fs.readFileSync("/tmp/before-manifest.json", "utf8"));
+            const afterM = JSON.parse(fs.readFileSync("assets/material_icon_theme/manifest.json", "utf8"));
+            const beforeS = JSON.parse(fs.readFileSync("/tmp/before-seeds.json", "utf8"));
+            const afterS = JSON.parse(fs.readFileSync("assets/material_icon_theme/seeds.json", "utf8"));
+            const beforeIds = new Set(Object.keys(beforeM.assets));
+            const afterIds = new Set(Object.keys(afterM.assets));
+            const addedIcons = [...afterIds].filter(x => !beforeIds.has(x));
+            const removedIcons = [...beforeIds].filter(x => !afterIds.has(x));
+            const seedChanges = [...afterIds]
+              .filter(x => beforeIds.has(x) && beforeS.seeds[x] !== afterS.seeds[x])
+              .map(x => `${x}: ${beforeS.seeds[x]} -> ${afterS.seeds[x]}`);
+            const lines = [
+              `### Material Icon Theme Update`,
+              ``,
+              `- **Version:** \`${beforeS.sourceVersion}\` -> \`${afterS.sourceVersion}\``,
+              `- **Icons:** ${beforeIds.size} -> ${afterIds.size} (+${addedIcons.length} / -${removedIcons.length})`,
+              `- **Seed changes:** ${seedChanges.length}`,
+            ];
+            if (addedIcons.length) lines.push(``, `<details><summary>Added icons (${addedIcons.length})</summary>`, ``, addedIcons.slice(0, 100).map(x => `- \`${x}\``).join("\n"), `</details>`);
+            if (removedIcons.length) lines.push(``, `<details><summary>Removed icons (${removedIcons.length})</summary>`, ``, removedIcons.slice(0, 100).map(x => `- \`${x}\``).join("\n"), `</details>`);
+            if (seedChanges.length) lines.push(``, `<details><summary>Changed seeds (${seedChanges.length})</summary>`, ``, seedChanges.slice(0, 100).map(x => `- \`${x}\``).join("\n"), `</details>`);
+            fs.writeFileSync("/tmp/pr-summary.md", lines.join("\n"));
+          '
+
+      - name: Create Pull Request
+        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore(assets): update material-icon-theme to ${{ steps.version.outputs.target }}"
+          branch: "chore/material-icon-theme-${{ steps.version.outputs.target }}"
+          title: "chore(assets): update material-icon-theme to ${{ steps.version.outputs.target }}"
+          body-path: /tmp/pr-summary.md
+          delete-branch: true

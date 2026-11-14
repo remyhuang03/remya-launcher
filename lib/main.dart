@@ -5,6 +5,7 @@ import 'package:remya_ui/remya_ui.dart';
 
 import 'app.dart';
 import 'features/clipboard/clipboard_platform.dart';
+import 'features/files/file_icon_tile.dart';
 import 'features/preview/launcher_examples.dart';
 
 Future<void> main(List<String> arguments) async {
@@ -16,6 +17,9 @@ Future<void> main(List<String> arguments) async {
     yield LicenseEntryWithLineBreaks([
       'Google Material Symbols',
     ], await rootBundle.loadString('assets/licenses/material-symbols.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Material Icon Theme',
+    ], await rootBundle.loadString('assets/material_icon_theme/LICENSE'));
   });
   final examples = {
     for (final example in LauncherExample.values) example.name: example,
@@ -52,10 +56,10 @@ Future<void> main(List<String> arguments) async {
   }
   final theme = SettingsThemeController.service();
   // Bound the on-demand startup; a late theme still applies when it arrives.
-  await theme.start().timeout(
-    const Duration(milliseconds: 500),
-    onTimeout: () {},
-  );
+  await Future.wait([
+    theme.start().timeout(const Duration(milliseconds: 500), onTimeout: () {}),
+    FileIconAssets.ensureLoaded(),
+  ]);
   runApp(
     RemyaLauncherApp(
       theme: theme,

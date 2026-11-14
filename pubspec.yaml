@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_svg: ^2.3.2
+  material_color_utilities: ^0.13.0
   remya_client:
     path: ../remya-core/packages/remya_client
   remya_ui:
@@ -28,3 +29,8 @@ flutter:
     - assets/icons/
     - assets/preview/
     - assets/licenses/
+    - assets/material_icon_theme/manifest.json
+    - assets/material_icon_theme/seeds.json
+    - assets/material_icon_theme/metadata.json
+    - assets/material_icon_theme/LICENSE
+    - assets/material_icon_theme/icons/

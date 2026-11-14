@@ -6,6 +6,7 @@ import 'features/clipboard/clipboard_client.dart';
 import 'features/clipboard/clipboard_launcher.dart';
 import 'features/clipboard/clipboard_platform.dart';
 import 'features/clipboard/clipboard_settings.dart';
+import 'features/files/file_icon_palette.dart';
 import 'features/preview/launcher_examples.dart';
 
 class RemyaLauncherApp extends StatelessWidget {
@@ -46,10 +47,10 @@ class RemyaLauncherApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         // The settings window uses the shared theme unchanged, like Remya Settings.
         theme: settingsPage == null
-            ? _launcherTheme(shared.theme(.light))
+            ? _launcherTheme(shared.theme(.light), shared.seedColor)
             : shared.theme(.light),
         darkTheme: settingsPage == null
-            ? _launcherTheme(shared.theme(.dark))
+            ? _launcherTheme(shared.theme(.dark), shared.seedColor)
             : shared.theme(.dark),
         themeMode: shared.mode,
         home: _home(),
@@ -85,10 +86,11 @@ class RemyaLauncherApp extends StatelessWidget {
         };
 }
 
-/// Keeps the launcher's typography on top of the shared Remya color scheme.
-ThemeData _launcherTheme(ThemeData base) {
+/// Keeps the launcher's typography and source seed on top of the shared Remya color scheme.
+ThemeData _launcherTheme(ThemeData base, Color sourceSeed) {
   final colors = base.colorScheme;
   return base.copyWith(
+    extensions: [...base.extensions.values, RemyaSourceSeed(sourceSeed)],
     textTheme: base.textTheme
         .apply(fontFamily: 'Inter')
         .merge(

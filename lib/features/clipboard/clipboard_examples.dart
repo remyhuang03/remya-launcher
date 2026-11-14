@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../files/file_icon_tile.dart';
 import '../launcher/launcher_controls.dart';
 import 'clipboard_preview.dart';
 
@@ -349,7 +350,12 @@ class _FileLine extends StatelessWidget {
     return Row(
       spacing: 8,
       children: [
-        LauncherIcon(icon, size: 18),
+        FileIconTile(
+          basename: name,
+          isDirectory: icon == .folder,
+          size: 28,
+          iconSize: 18,
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: .start,

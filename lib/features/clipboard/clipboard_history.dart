@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../files/file_icon_tile.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_results.dart';
 import 'clipboard_client.dart';
@@ -229,6 +231,7 @@ class _EntryLeading extends StatefulWidget {
 class _EntryLeadingState extends State<_EntryLeading> {
   Future<Uint8List?>? _thumbnail;
   Future<String?>? _svgPath;
+  Future<bool>? _isDirectory;
 
   @override
   void initState() {
@@ -249,6 +252,25 @@ class _EntryLeadingState extends State<_EntryLeading> {
     _svgPath = widget.entry.kind == .files && isSvgFilePath(widget.entry.title)
         ? _loadSvgPath()
         : null;
+    _isDirectory =
+        widget.entry.kind == .files &&
+            widget.entry.summary == '1 file' &&
+            !widget.entry.title.contains('.')
+        ? _loadIsDirectory()
+        : null;
+  }
+
+  Future<bool> _loadIsDirectory() async {
+    try {
+      final detail = await widget.client.detail(widget.entry.id);
+      if (detail.files.length == 1) {
+        return await FileSystemEntity.type(detail.files.first) ==
+            FileSystemEntityType.directory;
+      }
+    } catch (_) {
+      // Fall back to file icon resolution when detail or stat fails.
+    }
+    return false;
   }
 
   Future<String?> _loadSvgPath() async {
@@ -282,21 +304,37 @@ class _EntryLeadingState extends State<_EntryLeading> {
       .files => .folder,
       .hidden => .lock,
     }, selected: widget.selected);
-    if (entry.kind == .files && _svgPath != null) {
-      return FutureBuilder<String?>(
-        future: _svgPath,
-        builder: (context, snapshot) => switch (snapshot.data) {
-          final path? => ClipboardSvgFile(
-            path: path,
-            fit: .cover,
-            excludeFromSemantics: true,
-            fallback: tile,
-            wrapper: (context, child) =>
-                ClipRRect(borderRadius: .circular(8), child: child),
-          ),
-          null => tile,
-        },
+    if (entry.kind == .files) {
+      final singleFile = entry.summary == '1 file';
+      Widget buildFileTile(bool isDirectory) => FileIconTile(
+        basename: singleFile ? entry.title : 'folder',
+        isDirectory: isDirectory,
+        selected: widget.selected,
       );
+      final fileTile = _isDirectory == null
+          ? buildFileTile(!singleFile)
+          : FutureBuilder<bool>(
+              future: _isDirectory,
+              builder: (context, snapshot) =>
+                  buildFileTile(snapshot.data ?? false),
+            );
+      if (_svgPath != null) {
+        return FutureBuilder<String?>(
+          future: _svgPath,
+          builder: (context, snapshot) => switch (snapshot.data) {
+            final path? => ClipboardSvgFile(
+              path: path,
+              fit: .cover,
+              excludeFromSemantics: true,
+              fallback: fileTile,
+              wrapper: (context, child) =>
+                  ClipRRect(borderRadius: .circular(8), child: child),
+            ),
+            null => fileTile,
+          },
+        );
+      }
+      return fileTile;
     }
     if (entry.kind != .image) return tile;
     return FutureBuilder<Uint8List?>(

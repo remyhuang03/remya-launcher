@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../files/file_icon_tile.dart';
 import '../launcher/launcher_controls.dart';
 import 'clipboard_client.dart';
 import 'clipboard_color.dart';
@@ -399,11 +400,11 @@ class _FileLineState extends State<_FileLine> {
           child: Row(
             spacing: 8,
             children: [
-              LauncherIcon(
-                snapshot.data == FileSystemEntityType.directory
-                    ? .folder
-                    : .description,
-                size: 18,
+              FileIconTile(
+                basename: title,
+                isDirectory: snapshot.data == FileSystemEntityType.directory,
+                size: 28,
+                iconSize: 18,
               ),
               Expanded(
                 child: Column(
