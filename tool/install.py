@@ -10,8 +10,10 @@ APP_ID = "remya_launcher"
 PACKAGE = "top.remya.launcher"
 CLIPBOARD_SERVICE = "remya-launcher-clipboard"
 CALCULATOR_SIDECAR = "remya-launcher-calculator"
-BUNDLE_BINARIES = (APP_ID, CLIPBOARD_SERVICE, CALCULATOR_SIDECAR)
+APPS_SIDECAR = "remya-launcher-apps"
+BUNDLE_BINARIES = (APP_ID, CLIPBOARD_SERVICE, CALCULATOR_SIDECAR, APPS_SIDECAR)
 UNIT = f"{PACKAGE}.clipboard.service"
+APPS_UNIT = f"{PACKAGE}.apps.service"
 
 
 def data_home(environment):
@@ -42,6 +44,18 @@ def clipboard_unit(executable):
         "PartOf=graphical-session.target\nWants=top.remya.core.service\n"
         "After=graphical-session.target top.remya.core.service\n\n"
         f"[Service]\nExecStart={unit_quote(executable)}\n"
+        "Restart=on-failure\nRestartSec=2\nUMask=0077\nLimitCORE=0\n\n"
+        "[Install]\nWantedBy=graphical-session.target\n"
+    )
+
+
+def apps_unit(executable):
+    return (
+        "[Unit]\nDescription=Remya Launcher apps index\n"
+        "PartOf=graphical-session.target\n"
+        "After=graphical-session.target\n\n"
+        f"[Service]\nExecStart={unit_quote(executable)} --daemon\n"
+        "KillMode=process\n"
         "Restart=on-failure\nRestartSec=2\nUMask=0077\nLimitCORE=0\n\n"
         "[Install]\nWantedBy=graphical-session.target\n"
     )
@@ -95,27 +109,35 @@ def install(root, environment):
         raise RuntimeError("The clipboard watcher requires systemd user services")
     if systemctl("show", "--property=Version", "--value", check=False).returncode != 0:
         raise RuntimeError("Cannot connect to the systemd user manager")
-    was_active = systemctl("is-active", "--quiet", UNIT, check=False).returncode == 0
-    if was_active:
-        systemctl("stop", UNIT)
+    was_active = {
+        unit: systemctl("is-active", "--quiet", unit, check=False).returncode == 0
+        for unit in (UNIT, APPS_UNIT)
+    }
     try:
+        for unit, active in was_active.items():
+            if active:
+                systemctl("stop", unit)
         install_bundle(root, source, destination, data, command)
         units = data / "systemd/user"
         units.mkdir(parents=True, exist_ok=True)
         (units / UNIT).write_text(clipboard_unit(destination / CLIPBOARD_SERVICE))
+        (units / APPS_UNIT).write_text(apps_unit(destination / APPS_SIDECAR))
         systemctl("daemon-reload")
-        systemctl("enable", UNIT)
-        if was_active or systemctl(
-            "is-active", "--quiet", "graphical-session.target", check=False
-        ).returncode == 0:
-            systemctl("start", UNIT)
+        graphical_active = (
+            systemctl("is-active", "--quiet", "graphical-session.target", check=False).returncode == 0
+        )
+        for unit, active in was_active.items():
+            systemctl("enable", unit)
+            if active or graphical_active:
+                systemctl("start", unit)
     except Exception:
-        if was_active:
-            systemctl("start", UNIT, check=False)
+        for unit, active in was_active.items():
+            if active:
+                systemctl("start", unit, check=False)
         raise
     print(f"Installed {PACKAGE} in {destination}")
     print(f"Command: {command} (add ~/.local/bin to PATH if needed)")
-    print(f"Autostart: {UNIT} starts with the graphical session")
+    print(f"Autostart: {UNIT} and {APPS_UNIT} start with the graphical session")
 
 
 def install_bundle(root, source, destination, data, command):

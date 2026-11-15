@@ -29,6 +29,21 @@ class ClipboardPlatform {
     return const ClipboardPlatform();
   }
 
+  Future<void> listenForClipboard(void Function() onOpen) async {
+    _window.setMethodCallHandler((call) async {
+      if (call.method == 'showClipboard') onOpen();
+    });
+    try {
+      if (await _window.invokeMethod<bool>('readyForRequests') == true) {
+        onOpen();
+      }
+    } on MissingPluginException {
+      // A test or an embedder without the Launcher window channel.
+    }
+  }
+
+  void stopListeningForClipboard() => _window.setMethodCallHandler(null);
+
   Future<void> close() => _window.invokeMethod<void>('close');
 
   Future<bool> pasteToPreviousWindow() async => false;

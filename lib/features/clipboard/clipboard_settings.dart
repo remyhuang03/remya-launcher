@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:remya_client/remya_client.dart';
 import 'package:remya_ui/settings_ui.dart';
 
+import '../apps/apps_client.dart';
+import '../apps/apps_settings.dart';
 import 'clipboard_client.dart';
 import 'clipboard_policy.dart';
 
@@ -15,14 +17,14 @@ const _appIcon = 'assets/icons/app_icon.svg';
 /// The undecorated settings window's native close and move requests.
 const _window = MethodChannel('top.remya.launcher/window');
 
-/// The Launcher settings window: Clipboard and Material theme, then About in
-/// the footer.
+/// The Launcher settings window.
 class ClipboardSettingsWindow extends StatefulWidget {
   const ClipboardSettingsWindow({
     super.key,
     this.initialPage,
     this.client,
     this.clipboard = const ClipboardClient(),
+    this.apps,
   });
 
   /// Initial settings page id; null or empty opens Clipboard.
@@ -31,6 +33,7 @@ class ClipboardSettingsWindow extends StatefulWidget {
   /// Null connects to the session bus and closes it with the window.
   final SettingsClient? client;
   final ClipboardClient clipboard;
+  final AppsClient? apps;
 
   @override
   State<ClipboardSettingsWindow> createState() =>
@@ -39,6 +42,7 @@ class ClipboardSettingsWindow extends StatefulWidget {
 
 class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
   late final SettingsClient _client = widget.client ?? SettingsClient();
+  late final AppsClient _apps = widget.apps ?? AppsClient();
   late final _controller = ClipboardPolicyController(
     client: _client,
     clipboard: widget.clipboard,
@@ -53,6 +57,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
   void dispose() {
     _controller.dispose();
     if (widget.client == null) unawaited(_client.close());
+    if (widget.apps == null) unawaited(_apps.close());
     super.dispose();
   }
 
@@ -90,6 +95,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
                 category: .system,
                 builder: (_) => _ClipboardPage(controller: _controller),
               ),
+              appsSettingsPage(_apps),
               remyaMaterialThemePage(client: _client),
             ],
             footerPages: [

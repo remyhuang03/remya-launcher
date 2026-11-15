@@ -5,6 +5,7 @@ import 'package:remya_ui/remya_ui.dart';
 import 'package:remya_ui/settings_ui.dart';
 
 import 'app.dart';
+import 'features/apps/apps_client.dart';
 import 'features/clipboard/clipboard_platform.dart';
 import 'features/files/file_icon_tile.dart';
 import 'features/preview/launcher_examples.dart';
@@ -19,7 +20,14 @@ String? parseSettingsPage(List<String> arguments) {
       ? arguments[settingsIndex + 1]
       : '';
   if (settingsPage != null &&
-      !['', 'clipboard', remyaMaterialThemePageId].contains(settingsPage)) {
+      ![
+        '',
+        'clipboard',
+        'apps',
+        'apps-preferences',
+        'hidden-apps',
+        remyaMaterialThemePageId,
+      ].contains(settingsPage)) {
     throw ArgumentError.value(settingsPage, 'page', 'Unknown settings page');
   }
   return settingsPage;
@@ -73,6 +81,9 @@ Future<void> main(List<String> arguments) async {
       theme: theme,
       example: selectedExample,
       settingsPage: settingsPage,
+      appsClient: selectedExample == null && settingsPage == null
+          ? AppsClient()
+          : null,
       clipboardType: clipboardType ?? 'command',
       startInClipboard: arguments.contains('--clipboard'),
       clipboardPlatform: selectedExample == null && settingsPage == null

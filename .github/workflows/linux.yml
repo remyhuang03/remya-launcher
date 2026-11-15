@@ -98,6 +98,7 @@ jobs:
           test -x build/linux/x64/release/bundle/remya_launcher
           test -x build/linux/x64/release/bundle/remya-launcher-clipboard
           test -x build/linux/x64/release/bundle/remya-launcher-calculator
+          test -x build/linux/x64/release/bundle/remya-launcher-apps
           commit=$(git rev-parse HEAD)
           archive="remya-launcher-linux-x86_64-${commit:0:12}.tar.zst"
           mkdir -p candidate

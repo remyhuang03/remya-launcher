@@ -7,6 +7,9 @@ namespace {
 
 const char kHiding[] = "remya-launcher-hiding";
 const char kPress[] = "remya-launcher-press";
+const char kChannel[] = "remya-launcher-window-channel";
+const char kReady[] = "remya-launcher-dart-ready";
+const char kShowClipboard[] = "remya-launcher-show-clipboard";
 
 // The last primary press, which a later beginMove turns into a move drag.
 struct Press {
@@ -119,6 +122,48 @@ void open_with(GtkWindow *window, FlMethodCall *call, const gchar *path) {
   fl_method_call_respond_success(call, value, nullptr);
 }
 
+void resolve_app_icon(GtkWidget *widget, FlMethodCall *call, FlValue *args) {
+  FlValue *name = nullptr;
+  FlValue *size = nullptr;
+  if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+    name = fl_value_lookup_string(args, "name");
+    size = fl_value_lookup_string(args, "size");
+  }
+  if (name == nullptr || fl_value_get_type(name) != FL_VALUE_TYPE_STRING ||
+      size == nullptr || fl_value_get_type(size) != FL_VALUE_TYPE_INT ||
+      fl_value_get_int(size) < 1 || fl_value_get_int(size) > 256) {
+    fl_method_call_respond_error(call, "invalid-arguments",
+                                 "Expected an icon name and size from 1 to 256",
+                                 nullptr, nullptr);
+    return;
+  }
+
+  const gchar *icon = fl_value_get_string(name);
+  const int pixels = fl_value_get_int(size);
+  g_autoptr(GdkPixbuf) pixbuf = nullptr;
+  if (g_path_is_absolute(icon)) {
+    if (g_file_test(icon, G_FILE_TEST_IS_REGULAR))
+      pixbuf = gdk_pixbuf_new_from_file_at_scale(icon, pixels, pixels, TRUE,
+                                                 nullptr);
+  } else if (*icon != '\0' && g_strstr_len(icon, -1, "/") == nullptr) {
+    auto *theme =
+        gtk_icon_theme_get_for_screen(gtk_widget_get_screen(widget));
+    pixbuf = gtk_icon_theme_load_icon(theme, icon, pixels,
+                                     GTK_ICON_LOOKUP_FORCE_SIZE, nullptr);
+  }
+
+  g_autofree gchar *buffer = nullptr;
+  gsize length = 0;
+  g_autoptr(FlValue) value = nullptr;
+  if (pixbuf != nullptr &&
+      gdk_pixbuf_save_to_bufferv(pixbuf, &buffer, &length, "png", nullptr,
+                                nullptr, nullptr)) {
+    value = fl_value_new_uint8_list(
+        reinterpret_cast<const uint8_t *>(buffer), length);
+  }
+  fl_method_call_respond_success(call, value, nullptr);
+}
+
 void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
   auto *window = GTK_WINDOW(data);
   auto *widget = GTK_WIDGET(window);
@@ -133,6 +178,15 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
     schedule_close(widget);
   } else if (g_str_equal(method, "beginMove")) {
     begin_move(window);
+  } else if (g_str_equal(method, "readyForRequests")) {
+    g_object_set_data(G_OBJECT(window), kReady, GINT_TO_POINTER(TRUE));
+    g_autoptr(FlValue) pending = fl_value_new_bool(
+        g_object_steal_data(G_OBJECT(window), kShowClipboard) != nullptr);
+    fl_method_call_respond_success(call, pending, nullptr);
+    return;
+  } else if (g_str_equal(method, "resolveAppIcon")) {
+    resolve_app_icon(widget, call, args);
+    return;
   } else if (g_str_equal(method, "saveFile") ||
              g_str_equal(method, "openWith")) {
     if (fl_value_get_type(args) != FL_VALUE_TYPE_STRING) {
@@ -199,4 +253,17 @@ void register_launcher_window(FlView *view, GtkWindow *window) {
       "top.remya.launcher/window", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, window_method, window,
                                             nullptr);
+  g_object_set_data_full(G_OBJECT(window), kChannel, g_steal_pointer(&channel),
+                         g_object_unref);
+}
+
+void show_launcher_clipboard(GtkWindow *window) {
+  // A second invocation can arrive before Flutter has attached its handler.
+  if (g_object_get_data(G_OBJECT(window), kReady) == nullptr) {
+    g_object_set_data(G_OBJECT(window), kShowClipboard, GINT_TO_POINTER(TRUE));
+    return;
+  }
+  auto *channel = FL_METHOD_CHANNEL(g_object_get_data(G_OBJECT(window), kChannel));
+  fl_method_channel_invoke_method(channel, "showClipboard", nullptr, nullptr,
+                                  nullptr, nullptr);
 }

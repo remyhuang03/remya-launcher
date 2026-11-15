@@ -15,6 +15,7 @@ class LauncherPanel extends StatelessWidget {
     this.onOverlay = false,
     this.compact = false,
     this.actions,
+    this.actionsBodyHeight = 286,
     super.key,
   });
 
@@ -29,6 +30,7 @@ class LauncherPanel extends StatelessWidget {
   final bool onOverlay;
   final bool compact;
   final Widget? actions;
+  final double actionsBodyHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -58,8 +60,8 @@ class LauncherPanel extends StatelessWidget {
                         child: actions == null
                             ? body
                             : ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  minHeight: 286,
+                                constraints: BoxConstraints(
+                                  minHeight: actionsBodyHeight,
                                 ),
                                 child: body,
                               ),

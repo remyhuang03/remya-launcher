@@ -36,6 +36,9 @@ enum LauncherIconName {
   schedule,
   straighten,
   functions,
+  visibilityOff,
+  download,
+  bookmark,
 }
 
 class LauncherIcon extends StatelessWidget {

@@ -7,5 +7,6 @@
 bool configure_launcher_overlay(GtkWindow *window);
 void configure_settings_window(GtkWindow *window);
 void register_launcher_window(FlView *view, GtkWindow *window);
+void show_launcher_clipboard(GtkWindow *window);
 
 #endif

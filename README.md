@@ -26,13 +26,14 @@
 Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
 
 - **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes, `Alt+1–9` quick pick, and contextual footer key hints.
+- **Apps search**: Search installed applications in All or press `Ctrl+2` for Apps. Open or focus an app with Enter, launch a new instance with `Ctrl+Enter`, and expand its windows and desktop actions with `Ctrl+Right`. Install candidates come from local package metadata.
 - **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Core policy storage.
 - **Material Design 3 Expressive**: Smooth shape morphing, Inter and JetBrains Mono typography, and a `gtk-layer-shell` overlay anchored at 22% screen height.
 
 > [!CAUTION]
 > **Early Development & Preview Only — Not Ready for Daily Use**
 >
-> Remya Launcher is in early active development. Currently, **the calculator**, **live clipboard history** (the Rust clipboard daemon and live Clipboard view) and **interactive UI design previews** (`--preview`) are implemented. Most other launcher scopes, search backends, and Hyprland window/action integrations described below reflect the planned [Remya Launcher Figma specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) and are not yet implemented.
+> Remya Launcher is in early active development. Currently, **Apps search**, **the calculator**, **live clipboard history** (the Rust clipboard daemon and live Clipboard view) and **interactive UI design previews** (`--preview`) are implemented. Most other launcher scopes, search backends, and Hyprland window/action integrations described below reflect the planned [Remya Launcher Figma specification](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) and are not yet implemented.
 
 ## 🚀 Installation
 
@@ -55,7 +56,7 @@ cd remya_launcher-0.1.0+1-linux-x86_64
 python tool/install.py
 ```
 
-Install **Remya Core** before Remya Launcher. Clipboard capture and retention policy belongs to Launcher and is stored by Core through the `remya-launcher` app-preferences registration. `remya_launcher --settings [clipboard]` opens the settings route; its UI is pending.
+Install **Remya Core** before Remya Launcher. Clipboard capture and retention policy belongs to Launcher and is stored by Core through the `remya-launcher` app-preferences registration. `remya_launcher --settings [clipboard|apps|hidden-apps]` opens Launcher settings.
 
 ## ✨ Features
 
@@ -149,7 +150,7 @@ python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-Use `~/.local/bin/remya_launcher --clipboard` for a Hyprland `Super+V` keybinding.
+Bind `~/.local/bin/remya_launcher --toggle` to open or close the launcher. Use `~/.local/bin/remya_launcher --clipboard` for a Hyprland `Super+V` keybinding.
 
 ## 📜 License
 

@@ -23,11 +23,16 @@ static void first_frame_cb(FlView* view, gpointer) {
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
-  GtkWindow* window =
-      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  auto* gtk_application = GTK_APPLICATION(application);
+  if (GList* windows = gtk_application_get_windows(gtk_application)) {
+    gtk_window_present(GTK_WINDOW(windows->data));
+    return;
+  }
+  GtkWindow* window = GTK_WINDOW(gtk_application_window_new(gtk_application));
   gboolean preview = FALSE;
   gboolean settings = FALSE;
-  for (char** argument = self->dart_entrypoint_arguments; *argument; ++argument) {
+  for (char** argument = self->dart_entrypoint_arguments;
+       argument && *argument; ++argument) {
     if (g_strcmp0(*argument, "--settings") == 0) settings = TRUE;
     if (g_str_has_prefix(*argument, "--preview=")) preview = TRUE;
   }
@@ -99,43 +104,31 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
-// Implements GApplication::local_command_line.
-static gboolean my_application_local_command_line(GApplication* application,
-                                                  gchar*** arguments,
-                                                  int* exit_status) {
-  MyApplication* self = MY_APPLICATION(application);
-  // Strip out the first argument as it is the binary name.
-  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
-
-  g_autoptr(GError) error = nullptr;
-  if (!g_application_register(application, nullptr, &error)) {
-    g_warning("Failed to register: %s", error->message);
-    *exit_status = 1;
-    return TRUE;
+// Routes subsequent Launcher invocations to the existing window over the session bus.
+static int my_application_command_line(GApplication* application,
+                                       GApplicationCommandLine* command_line) {
+  auto* self = MY_APPLICATION(application);
+  g_auto(GStrv) args =
+      g_application_command_line_get_arguments(command_line, nullptr);
+  const gchar* const* options = args + 1;
+  GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (windows != nullptr) {
+    auto* window = GTK_WINDOW(windows->data);
+    if (g_strv_contains(options, "--toggle")) {
+      gtk_window_close(window);
+    } else {
+      if (g_strv_contains(options, "--clipboard")) {
+        show_launcher_clipboard(window);
+      }
+      gtk_window_present(window);
+    }
+    return 0;
   }
 
+  g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  self->dart_entrypoint_arguments = g_strdupv(args + 1);
   g_application_activate(application);
-  *exit_status = 0;
-
-  return TRUE;
-}
-
-// Implements GApplication::startup.
-static void my_application_startup(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application startup.
-
-  G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
-}
-
-// Implements GApplication::shutdown.
-static void my_application_shutdown(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
-
-  // Perform any actions required at application shutdown.
-
-  G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
+  return 0;
 }
 
 // Implements GObject::dispose.
@@ -147,23 +140,27 @@ static void my_application_dispose(GObject* object) {
 
 static void my_application_class_init(MyApplicationClass* klass) {
   G_APPLICATION_CLASS(klass)->activate = my_application_activate;
-  G_APPLICATION_CLASS(klass)->local_command_line =
-      my_application_local_command_line;
-  G_APPLICATION_CLASS(klass)->startup = my_application_startup;
-  G_APPLICATION_CLASS(klass)->shutdown = my_application_shutdown;
+  G_APPLICATION_CLASS(klass)->command_line = my_application_command_line;
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
 static void my_application_init(MyApplication* self) {}
 
-MyApplication* my_application_new() {
+MyApplication* my_application_new(char** arguments) {
   // Set the program name to the application ID, which helps various systems
   // like GTK and desktop environments map this running application to its
   // corresponding .desktop file. This ensures better integration by allowing
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
 
-  return MY_APPLICATION(g_object_new(my_application_get_type(),
-                                     "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+  auto flags = G_APPLICATION_HANDLES_COMMAND_LINE;
+  for (char** arg = arguments; *arg != nullptr; ++arg) {
+    if (g_str_equal(*arg, "--settings") ||
+        g_str_has_prefix(*arg, "--preview=")) {
+      flags = static_cast<GApplicationFlags>(flags | G_APPLICATION_NON_UNIQUE);
+      break;
+    }
+  }
+  return MY_APPLICATION(g_object_new(my_application_get_type(), "application-id",
+                                    APPLICATION_ID, "flags", flags, nullptr));
 }

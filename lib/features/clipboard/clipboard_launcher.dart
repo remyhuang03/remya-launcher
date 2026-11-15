@@ -4,6 +4,9 @@ import 'dart:io' show ProcessException;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../apps/apps_client.dart';
+import '../apps/apps_results.dart';
+import '../apps/apps_search_controller.dart';
 import '../calculator/calculator_client.dart';
 import '../calculator/calculator_controller.dart';
 import '../calculator/calculator_results.dart';
@@ -25,6 +28,7 @@ class ClipboardLauncher extends StatefulWidget {
     required this.client,
     required this.platform,
     this.calculatorClient,
+    this.appsClient,
     super.key,
   });
 
@@ -32,6 +36,7 @@ class ClipboardLauncher extends StatefulWidget {
   final ClipboardClient client;
   final ClipboardPlatform platform;
   final CalculatorClient? calculatorClient;
+  final AppsClient? appsClient;
 
   @override
   State<ClipboardLauncher> createState() => _ClipboardLauncherState();
@@ -81,6 +86,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   late final _calculator = CalculatorController(
     client: widget.calculatorClient,
   );
+  late final _apps = AppsSearchController(
+    client: widget.appsClient,
+    onClose: _dismiss,
+    onCopy: _copyPlainText,
+    onInfo: _showAppInfo,
+    onWorkspace: _askWorkspace,
+    onSearchFocus: _searchFocus.requestFocus,
+  );
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _actionsFocus = FocusNode();
@@ -103,10 +116,19 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   Future<ClipboardDetail>? _detail;
   _ClipboardFilter _filter = .all;
   LauncherScope _scope = .all;
+  int _tileColumns = 6;
 
   bool get _inClipboard => _scope == .clipboard;
   bool get _inActions => _scope == .run;
   bool get _inCalculator => _scope == .calculator;
+  bool get _inApps => _scope == .apps;
+
+  List<LauncherScope> get _activeScopes => [
+    .all,
+    if (_apps.available) .apps,
+    .calculator,
+    .clipboard,
+  ];
 
   List<ClipboardEntry> get _visibleEntries => _entries
       .where((entry) => _matchesQuery(entry) && _filter.accepts(entry.kind))
@@ -124,16 +146,24 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _scope = .clipboard;
       _startWatch();
     }
+    _apps.update(_scope, '', immediate: true);
+    unawaited(
+      widget.platform.listenForClipboard(() {
+        if (mounted) _setScope(.clipboard);
+      }),
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.platform.stopListeningForClipboard();
     _search.removeListener(_onSearchSelectionChanged);
     _subscription?.cancel();
     _refreshDelay?.cancel();
     _queryDelay?.cancel();
     _calculator.dispose();
+    _apps.dispose();
     _search.dispose();
     _searchFocus.dispose();
     _actionsFocus.dispose();
@@ -228,17 +258,22 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
   }
 
-  void _setScope(LauncherScope scope, {String initialQuery = ''}) {
-    if (_scope == scope && initialQuery.isEmpty) return;
+  void _setScope(LauncherScope scope, {String? initialQuery}) {
+    if (_scope == scope && initialQuery == null) return;
+    final nextQuery =
+        initialQuery ??
+        (scope == .apps || (_scope == .apps && scope == .all)
+            ? _search.text
+            : '');
     final wasWatching = _inClipboard || _inActions;
     setState(() {
       _scope = scope;
-      if (initialQuery.isEmpty) {
+      if (nextQuery.isEmpty) {
         _search.clear();
       } else {
         _search.value = TextEditingValue(
-          text: initialQuery,
-          selection: TextSelection.collapsed(offset: initialQuery.length),
+          text: nextQuery,
+          selection: TextSelection.collapsed(offset: nextQuery.length),
         );
       }
       _queryIds = null;
@@ -253,6 +288,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       query: _search.text,
       cursorUtf16: _cursorUtf16(),
     );
+    _apps.update(scope, nextQuery, immediate: true);
     if (_inClipboard || _inActions) {
       if (!wasWatching) _startWatch();
     } else {
@@ -289,6 +325,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       if (_inCalculator || _scope == .all) _status = null;
       _preserveSelection(0);
     });
+    _apps.update(_scope, value);
     if (_inCalculator || _scope == .all) {
       _calculator.updateQuery(_search.text, cursorUtf16: _cursorUtf16());
     }
@@ -373,6 +410,27 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         (!ctrl ||
             !keys.logicalKeysPressed.contains(LogicalKeyboardKey.space))) {
       _maskSecret();
+    }
+    if (ctrl && !alt && event is KeyDownEvent) {
+      if (key == LogicalKeyboardKey.digit2 && _apps.available) {
+        _setScope(.apps);
+        return .handled;
+      }
+      if (key == LogicalKeyboardKey.tab && _apps.available) {
+        final scopes = _activeScopes;
+        final index = scopes.indexOf(_scope);
+        _setScope(scopes[(index + (shift ? -1 : 1)) % scopes.length]);
+        return .handled;
+      }
+    }
+    if (_inApps || _scope == .all) {
+      final handled = _apps.handleKey(
+        event,
+        _search,
+        _searchChanged,
+        tileColumns: _tileColumns,
+      );
+      if (handled == .handled) return handled;
     }
     if (event is KeyUpEvent) return .ignored;
 
@@ -495,6 +553,30 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     } else {
       _revealed = null;
     }
+  }
+
+  Future<void> _showAppInfo(String text) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Package info'),
+      content: SingleChildScrollView(child: SelectableText(text)),
+      actions: [
+        TextButton(
+          autofocus: true,
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+
+  Future<String?> _askWorkspace() async {
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => const _WorkspaceDialog(),
+    );
+    if (mounted) _searchFocus.requestFocus();
+    return value;
   }
 
   Future<void> _dismiss() async {
@@ -1018,6 +1100,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         builder: (context, constraints) {
           final height = constraints.maxHeight;
           final compact = constraints.maxWidth < 360;
+          _tileColumns = constraints.maxWidth < 640 ? 3 : 6;
           final inset = compact ? 8.0 : 16.0;
           final top = compact || height < 420 ? inset : 70.0;
           return Stack(
@@ -1037,16 +1120,18 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                     behavior: .opaque,
                     onTap: () {
                       if (_calculator.actionsOpen) _closeCalculatorActions();
+                      _apps.closeMenu();
                     },
                     excludeFromSemantics: true,
                     child: ListenableBuilder(
-                      listenable: _calculator,
+                      listenable: Listenable.merge([_calculator, _apps]),
                       builder: (context, _) => LauncherPanel(
                         width: _inClipboard ? 960 : 720,
                         scope: _scope,
-                        enabledScopes: const {.all, .calculator, .clipboard},
+                        enabledScopes: _activeScopes.toSet(),
                         onScopeSelected: _setScope,
-                        scrollBody: !_inClipboard,
+                        scrollBody: !_inClipboard && !_inApps,
+                        actionsBodyHeight: _apps.menuApp == null ? 286 : 408,
                         onOverlay: true,
                         compact: compact,
                         search: LauncherSearchField(
@@ -1059,11 +1144,17 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                               ? 'Filter clipboard…'
                               : _inCalculator
                               ? 'Expression, conversion, or search functions & units'
+                              : _inApps
+                              ? (_apps.ready
+                                    ? 'Filter ${_apps.result.total} apps by name, kind or keyword…'
+                                    : 'Filter apps by name, kind or keyword…')
                               : _inActions
                               ? 'Filter actions…'
                               : 'Search launcher…',
                           onChanged: _searchChanged,
-                          trailing: _inClipboard && _error == null
+                          trailing: _inApps && _apps.ready
+                              ? AppsSearchHint(_apps)
+                              : _inClipboard && _error == null
                               ? Text(
                                   '${_visibleEntries.length} items',
                                   style: Theme.of(context).textTheme.bodySmall,
@@ -1083,9 +1174,13 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                               )
                             : _inCalculator
                             ? _calculatorBody(compact: compact)
+                            : _inApps
+                            ? AppsResults(_apps, tileColumns: _tileColumns)
                             : _shellBody(),
                         actions: _calculator.actionsOpen
                             ? _calculatorActionsOverlay()
+                            : _apps.menuApp != null
+                            ? AppsActionsMenu(_apps)
                             : null,
                         footer: _footer(
                           actions,
@@ -1171,6 +1266,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         crossAxisAlignment: .stretch,
         spacing: 8,
         children: [
+          AppsResults(_apps, tileColumns: _tileColumns),
           CalculatorInlineResult(
             controller: _calculator,
             onOpenInCalc: () =>
@@ -1186,6 +1282,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
         children: [
+          AppsResults(_apps, tileColumns: _tileColumns),
           LauncherResultRow(
             title: const TextSpan(text: 'Calculator'),
             subtitle: 'Math, unit conversions, programmer bases, floats, time, currency',
@@ -1197,7 +1294,13 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         ],
       );
     }
-    return clipboardRow;
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        AppsResults(_apps, tileColumns: _tileColumns),
+        clipboardRow,
+      ],
+    );
   }
 
   Widget _clipboardBody(
@@ -1326,6 +1429,9 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         leading: [LauncherKeyHint(const [], label: status)],
       );
     }
+    if (_inApps || (_scope == .all && _apps.selected != null)) {
+      return appsFooter(_apps, singleLine: singleLine);
+    }
     if (_inCalculator) {
       if (_calculator.actionsOpen) {
         return LauncherFooter(
@@ -1427,6 +1533,47 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       ],
     );
   }
+}
+
+class _WorkspaceDialog extends StatefulWidget {
+  const _WorkspaceDialog();
+
+  @override
+  State<_WorkspaceDialog> createState() => _WorkspaceDialogState();
+}
+
+class _WorkspaceDialogState extends State<_WorkspaceDialog> {
+  final _form = GlobalKey<FormState>();
+  String _value = '';
+
+  void _submit() {
+    if (_form.currentState!.validate()) Navigator.pop(context, _value.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Open on workspace'),
+    content: Form(
+      key: _form,
+      child: TextFormField(
+        autofocus: true,
+        keyboardType: .number,
+        decoration: const InputDecoration(labelText: 'Workspace number'),
+        onChanged: (value) => _value = value,
+        onFieldSubmitted: (_) => _submit(),
+        validator: (value) => (int.tryParse(value?.trim() ?? '') ?? 0) > 0
+            ? null
+            : 'Enter a positive workspace number.',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('Open')),
+    ],
+  );
 }
 
 class _Message extends StatelessWidget {

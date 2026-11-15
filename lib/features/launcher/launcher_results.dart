@@ -66,6 +66,7 @@ class LauncherResultRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.leading,
+    this.subtitleSpan,
     this.trailing,
     this.selected = false,
     this.monospaced = false,
@@ -75,6 +76,7 @@ class LauncherResultRow extends StatelessWidget {
 
   final InlineSpan title;
   final String subtitle;
+  final InlineSpan? subtitleSpan;
   final Widget leading;
   final Widget? trailing;
   final bool selected;
@@ -128,8 +130,8 @@ class LauncherResultRow extends StatelessWidget {
                                 : colors.onSurface,
                           ),
                         ),
-                        Text(
-                          subtitle,
+                        Text.rich(
+                          subtitleSpan ?? TextSpan(text: subtitle),
                           maxLines: 1,
                           overflow: .ellipsis,
                           style: theme.textTheme.bodySmall,
@@ -184,11 +186,12 @@ class LauncherPinnedTile extends StatelessWidget {
             height: 88,
             child: Stack(
               children: [
-                PositionedDirectional(
-                  start: 8,
-                  top: 8,
-                  child: LauncherKeycap(shortcut),
-                ),
+                if (shortcut.isNotEmpty)
+                  PositionedDirectional(
+                    start: 8,
+                    top: 8,
+                    child: LauncherKeycap(shortcut),
+                  ),
                 Center(
                   child: Padding(
                     padding: const .only(top: 4),

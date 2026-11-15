@@ -260,12 +260,14 @@ class LauncherActionsMenu extends StatelessWidget {
     required this.title,
     required this.actions,
     this.selectedIndex = 0,
+    this.filter,
     super.key,
   });
 
   final String title;
   final List<LauncherAction> actions;
   final int selectedIndex;
+  final Widget? filter;
 
   @override
   Widget build(BuildContext context) {
@@ -287,16 +289,18 @@ class LauncherActionsMenu extends StatelessWidget {
                 spacing: 8,
                 children: [
                   Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: .ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 16 / 13,
-                        fontWeight: .w600,
-                      ),
-                    ),
+                    child:
+                        filter ??
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: .ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 16 / 13,
+                            fontWeight: .w600,
+                          ),
+                        ),
                   ),
                   Text(
                     'type to filter',
@@ -306,7 +310,8 @@ class LauncherActionsMenu extends StatelessWidget {
               ),
             ),
             for (final (index, action) in actions.indexed) ...[
-              if (action.destructive)
+              if (action.destructive &&
+                  (index == 0 || !actions[index - 1].destructive))
                 Divider(height: 6, color: colors.outlineVariant),
               _ActionRow(action, selected: index == selectedIndex),
             ],

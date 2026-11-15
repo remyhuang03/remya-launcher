@@ -9,11 +9,14 @@ from unittest import mock
 
 from tool.install import (
     APP_ID,
+    APPS_SIDECAR,
+    APPS_UNIT,
     BUNDLE_BINARIES,
     CALCULATOR_SIDECAR,
     CLIPBOARD_SERVICE,
     PACKAGE,
     UNIT,
+    apps_unit,
     clipboard_unit,
     install,
     require_bundle,
@@ -57,6 +60,10 @@ class PackagingTest(unittest.TestCase):
         for line in ["Wants=top.remya.core.service",
                      "After=graphical-session.target top.remya.core.service", "UMask=0077", "LimitCORE=0"]:
             self.assertIn(line, unit.splitlines())
+        apps_svc = apps_unit(Path('/tmp/a b/apps'))
+        for line in ['ExecStart="/tmp/a b/apps" --daemon', "KillMode=process",
+                     "After=graphical-session.target", "UMask=0077", "LimitCORE=0"]:
+            self.assertIn(line, apps_svc.splitlines())
         desktop = (root / "linux/packaging/top.remya.launcher.desktop").read_text()
         self.assertIn("[Desktop Action settings]\nName=Settings\nExec=remya_launcher --settings", desktop)
 
@@ -117,16 +124,18 @@ class PackagingTest(unittest.TestCase):
             self.assertEqual((destination / APP_ID).read_text(), APP_ID)
             self.assertEqual((destination / CLIPBOARD_SERVICE).read_text(), CLIPBOARD_SERVICE)
             self.assertEqual((destination / CALCULATOR_SIDECAR).read_text(), CALCULATOR_SIDECAR)
+            self.assertEqual((destination / APPS_SIDECAR).read_text(), APPS_SIDECAR)
             self.assertEqual((destination / "data/licenses/rust-notices.txt").read_text(), "notice text")
 
             bin_dir = home / ".local/bin"
             self.assertTrue((bin_dir / APP_ID).is_symlink())
             self.assertEqual((bin_dir / APP_ID).resolve(), (destination / APP_ID).resolve())
             self.assertFalse((bin_dir / CALCULATOR_SIDECAR).exists())
+            self.assertFalse((bin_dir / APPS_SIDECAR).exists())
             self.assertFalse((bin_dir / CLIPBOARD_SERVICE).exists())
 
             units_dir = data / "systemd/user"
-            self.assertEqual([path.name for path in units_dir.iterdir()], [UNIT])
+            self.assertEqual(sorted(path.name for path in units_dir.iterdir()), sorted([UNIT, APPS_UNIT]))
 
             # Unrelated binary at ~/.local/bin/remya_launcher must not be overwritten.
             (bin_dir / APP_ID).unlink()
@@ -139,3 +148,23 @@ class PackagingTest(unittest.TestCase):
             ):
                 install(root, environment)
             self.assertEqual((bin_dir / APP_ID).read_text(), "unrelated")
+
+            # Failure while stopping Apps must still restart Clipboard inside rollback.
+            (bin_dir / APP_ID).unlink()
+            (bin_dir / APP_ID).symlink_to(destination / APP_ID)
+            calls = []
+
+            def failing_apps_stop(*arguments, check=True):
+                calls.append(arguments)
+                if arguments == ("stop", APPS_UNIT):
+                    raise subprocess.CalledProcessError(1, ["systemctl", *arguments])
+                return ok
+
+            with (
+                mock.patch("tool.install.require_inter_font"),
+                mock.patch("tool.install.shutil.which", side_effect=lambda cmd: cmd if cmd == "systemctl" else None),
+                mock.patch("tool.install.systemctl", side_effect=failing_apps_stop),
+                self.assertRaises(subprocess.CalledProcessError),
+            ):
+                install(root, environment)
+            self.assertIn(("start", UNIT), calls)

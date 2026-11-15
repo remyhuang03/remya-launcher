@@ -13,6 +13,6 @@ int main(int argc, char** argv) {
              "/usr/share/glvnd/egl_vendor.d/50_mesa.json", TRUE);
   }
 
-  g_autoptr(MyApplication) app = my_application_new();
+  g_autoptr(MyApplication) app = my_application_new(argv + 1);
   return g_application_run(G_APPLICATION(app), argc, argv);
 }
