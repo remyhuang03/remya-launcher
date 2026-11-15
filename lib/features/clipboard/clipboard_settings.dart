@@ -15,13 +15,18 @@ const _appIcon = 'assets/icons/app_icon.svg';
 /// The undecorated settings window's native close and move requests.
 const _window = MethodChannel('top.remya.launcher/window');
 
-/// The Launcher settings window: Clipboard, then About in the footer.
+/// The Launcher settings window: Clipboard and Material theme, then About in
+/// the footer.
 class ClipboardSettingsWindow extends StatefulWidget {
   const ClipboardSettingsWindow({
     super.key,
+    this.initialPage,
     this.client,
     this.clipboard = const ClipboardClient(),
   });
+
+  /// Initial settings page id; null or empty opens Clipboard.
+  final String? initialPage;
 
   /// Null connects to the session bus and closes it with the window.
   final SettingsClient? client;
@@ -39,7 +44,10 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
     clipboard: widget.clipboard,
   )..start();
   final _version = remyaAppVersion();
-  String _selected = 'clipboard';
+  late String _selected = switch (widget.initialPage) {
+    null || '' => 'clipboard',
+    final page => page,
+  };
 
   @override
   void dispose() {
@@ -55,7 +63,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
     children: [
       RemyaTitleBar(
         icon: SvgPicture.asset(_appIcon),
-        title: 'Remya Launcher Settings',
+        title: 'Remy\'a Launcher Settings',
         dragArea: (child) => GestureDetector(
           behavior: .opaque,
           onPanStart: (_) => unawaited(_window.invokeMethod<void>('beginMove')),
@@ -69,15 +77,20 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
           builder: (context, _) => RemyaSettingsScaffold(
             selected: _selected,
             onSelected: _select,
-            loading: _controller.busy && _controller.policy == null,
+            loading:
+                _selected == 'clipboard' &&
+                _controller.busy &&
+                _controller.policy == null,
             onBack: _selected == 'licenses' ? () => _select('about') : null,
             pages: [
               RemyaSettingsPage(
                 id: 'clipboard',
                 title: 'Clipboard',
                 icon: Icons.content_paste_rounded,
+                category: .system,
                 builder: (_) => _ClipboardPage(controller: _controller),
               ),
+              remyaMaterialThemePage(client: _client),
             ],
             footerPages: [
               RemyaSettingsPage(
@@ -127,9 +140,9 @@ class _AboutPage extends StatelessWidget {
         builder: (context, snapshot) => RemyaAboutHeader(
           icon: SvgPicture.asset(
             _appIcon,
-            semanticsLabel: 'Remya Launcher application icon',
+            semanticsLabel: 'Remy\'a Launcher application icon',
           ),
-          name: 'Remya Launcher',
+          name: 'Remy\'a Launcher',
           version: snapshot.data,
         ),
       ),
@@ -170,7 +183,7 @@ class _ClipboardPage extends StatelessWidget {
         icon: const Icon(Icons.delete_sweep_rounded),
         title: const Text('Clear clipboard history?'),
         content: const Text(
-          'This removes every entry from Remya Launcher’s history, including '
+          'This removes every entry from Remy\'a Launcher’s history, including '
           'pinned entries.',
         ),
         actions: [
@@ -212,8 +225,8 @@ class _ClipboardPage extends StatelessWidget {
         if (controller.policyError case final error?)
           SettingsErrorCard(
             message: policy == null
-                ? 'Remya Core cannot provide the clipboard policy.\n$error'
-                : 'Remya Core cannot provide the clipboard policy.\n$error\n'
+                ? 'Remy\'a Core cannot provide the clipboard policy.\n$error'
+                : 'Remy\'a Core cannot provide the clipboard policy.\n$error\n'
                       'Showing the last values read.',
             onRetry: controller.busy ? null : controller.refresh,
           ),
@@ -230,7 +243,7 @@ class _ClipboardPage extends StatelessWidget {
               label: const SettingLabel(
                 'Clipboard history',
                 description:
-                    'Record new items in Remya Launcher. Turning this off '
+                    'Record new items in Remy\'a Launcher. Turning this off '
                     'keeps the existing history.',
               ),
               control: policy == null
@@ -269,7 +282,7 @@ class _ClipboardPage extends StatelessWidget {
                 'Clear clipboard history',
                 description:
                     'Remove every saved item, including pinned items, from '
-                    'Remya Launcher.',
+                    'Remy\'a Launcher.',
               ),
               control: FilledButton.tonal(
                 style: destructiveTonalButtonStyle(context),

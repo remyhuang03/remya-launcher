@@ -41,7 +41,7 @@ static void my_application_activate(GApplication* application) {
   // If running on Wayland assume the header bar will work (may need changing
   // if future cases occur).
   // Settings is an ordinary xdg toplevel without the overlay's focus-out close.
-  const char* title = settings ? "Remya Launcher Settings" : "Remya Launcher";
+  const char* title = settings ? "Remy'a Launcher Settings" : "Remy'a Launcher";
   gboolean use_header_bar = TRUE;
 #ifdef GDK_WINDOWING_X11
   GdkScreen* screen = gtk_window_get_screen(window);

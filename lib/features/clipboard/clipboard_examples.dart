@@ -44,7 +44,7 @@ Widget clipboardPreviewExample(String type) => switch (type) {
     summary: '1920 × 1080 · PNG',
     content: ClipboardImageThumbnail(),
     metadata: {
-      'Source': 'Remya Screen Capture',
+      'Source': 'Remy\'a Screen Capture',
       'Size': '1.2 MB',
       'Copied': '14:27 · 5 min ago',
     },

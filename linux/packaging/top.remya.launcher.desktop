@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Remya Launcher
-Comment=Open Remya Launcher
+Name=Remy'a Launcher
+Comment=Open Remy'a Launcher
 Exec=remya_launcher
 Icon=top.remya.launcher
 Terminal=false

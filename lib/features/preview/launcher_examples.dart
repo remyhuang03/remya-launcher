@@ -484,7 +484,7 @@ class LauncherExampleView extends StatelessWidget {
           ),
           _row(
             'Screenshot 1920 × 1080',
-            'Image · PNG · 1.2 MB · from Remya Screen Capture',
+            'Image · PNG · 1.2 MB · from Remy\'a Screen Capture',
             .image,
             leading: const ClipboardImageThumbnail(square: true),
             meta: '5 min',

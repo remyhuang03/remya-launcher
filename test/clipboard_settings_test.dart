@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:remya_client/remya_client.dart';
 import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_client.dart';
+import 'package:remya_launcher/main.dart';
+import 'package:remya_ui/settings_ui.dart';
 
 class _Core extends SettingsClient {
   final signals = StreamController<SettingsChange>.broadcast();
@@ -34,6 +36,19 @@ class _Core extends SettingsClient {
   ]) async {
     if (failure case final failure?) throw failure;
     final id = arguments.first;
+    if (method == 'Get' && id == 'theme') {
+      return {
+        'version': 1,
+        'theme': {
+          'style_variant': 'tonal_spot',
+          'theme_mode': 'light',
+          'contrast': 'standard',
+        },
+      };
+    }
+    if (method == 'Get' && id == 'accent') {
+      return {'source': 'custom', 'color': '#8054C9'};
+    }
     final key = id.substring('remya-launcher.'.length);
     if (method == 'Set') {
       writes.add(arguments);
@@ -77,7 +92,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Remya Core cannot provide the clipboard policy'),
+      find.textContaining('Remy\'a Core cannot provide the clipboard policy'),
       findsOne,
     );
     expect(find.byType(Switch), findsNothing);
@@ -89,7 +104,7 @@ void main() {
     core.owners.add(true);
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Remya Core cannot provide the clipboard policy'),
+      find.textContaining('Remy\'a Core cannot provide the clipboard policy'),
       findsNothing,
     );
 
@@ -160,4 +175,98 @@ void main() {
     expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  test(
+    'parseSettingsPage accepts clipboard, material-theme, and empty page',
+    () {
+      expect(parseSettingsPage(const []), isNull);
+      expect(parseSettingsPage(const ['--clipboard']), isNull);
+      expect(parseSettingsPage(const ['--settings']), '');
+      expect(parseSettingsPage(const ['--settings', '--clipboard']), '');
+      expect(parseSettingsPage(const ['--settings', 'clipboard']), 'clipboard');
+      expect(
+        parseSettingsPage(const ['--settings', remyaMaterialThemePageId]),
+        remyaMaterialThemePageId,
+      );
+      expect(
+        () => parseSettingsPage(const ['--settings', 'unknown']),
+        throwsArgumentError,
+      );
+    },
+  );
+
+  testWidgets(
+    'settings routing preserves Clipboard first and opens Material theme',
+    (tester) async {
+      final core = _Core()..failure = null;
+      final clipboard = _Clipboard();
+      addTearDown(core.signals.close);
+      addTearDown(core.owners.close);
+      await tester.binding.setSurfaceSize(const Size(1100, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        RemyaLauncherApp(
+          settingsPage: '',
+          settingsClient: core,
+          clipboardClient: clipboard,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('content-clipboard')), findsOne);
+      final clipboardIcon = tester.widget<RemyaSidebarIcon>(
+        find.descendant(
+          of: find.byKey(const ValueKey('nav-clipboard')),
+          matching: find.byType(RemyaSidebarIcon),
+        ),
+      );
+      expect(clipboardIcon.category, RemyaSettingsCategory.system);
+      final themeIcon = tester.widget<RemyaSidebarIcon>(
+        find.descendant(
+          of: find.byKey(const ValueKey('nav-$remyaMaterialThemePageId')),
+          matching: find.byType(RemyaSidebarIcon),
+        ),
+      );
+      expect(themeIcon.category, RemyaSettingsCategory.personalization);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('nav-about')),
+          matching: find.byType(RemyaSidebarIcon),
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('nav-$remyaMaterialThemePageId')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('content-$remyaMaterialThemePageId')),
+        findsOne,
+      );
+      expect(find.text('Changes apply to all Remy\'a apps.'), findsOne);
+      expect(find.text('Theme mode'), findsOne);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        RemyaLauncherApp(
+          settingsPage: remyaMaterialThemePageId,
+          settingsClient: core,
+          clipboardClient: clipboard,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('content-$remyaMaterialThemePageId')),
+        findsOne,
+      );
+      expect(find.text('Changes apply to all Remy\'a apps.'), findsOne);
+
+      await tester.tap(find.byKey(const ValueKey('nav-clipboard')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('content-clipboard')), findsOne);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

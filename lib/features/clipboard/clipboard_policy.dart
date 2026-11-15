@@ -130,7 +130,7 @@ class ClipboardPolicyController extends ChangeNotifier {
           _ => value is int && value >= 1 && value <= 365,
         };
     if (!valid) {
-      throw FormatException('Remya Core returned an invalid $key value.');
+      throw FormatException('Remy\'a Core returned an invalid $key value.');
     }
     return value as Object;
   }
@@ -166,6 +166,6 @@ class ClipboardPolicyController extends ChangeNotifier {
 String describeError(Object error) => switch (error) {
   ClipboardServiceException(:final message) => message,
   FormatException(:final message) => message,
-  TimeoutException() => 'Remya Core did not respond.',
+  TimeoutException() => 'Remy\'a Core did not respond.',
   _ => '$error'.replaceFirst(RegExp(r'^(?:[\w-]+\.)+(?=\w+: )'), ''),
 };

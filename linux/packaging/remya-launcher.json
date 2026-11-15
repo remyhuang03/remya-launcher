@@ -2,7 +2,7 @@
   "version": 1,
   "id": "remya-launcher",
   "app": "top.remya.launcher",
-  "title": "Remya Launcher",
+  "title": "Remy'a Launcher",
   "icon": "top.remya.launcher",
   "config": "launcher",
   "pages": [
@@ -12,6 +12,17 @@
       "keywords": [
         "history",
         "retention"
+      ]
+    },
+    {
+      "id": "material-theme",
+      "title": "Material theme",
+      "keywords": [
+        "theme",
+        "appearance",
+        "color",
+        "dark",
+        "light"
       ]
     }
   ],

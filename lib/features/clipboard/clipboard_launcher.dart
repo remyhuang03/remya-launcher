@@ -195,7 +195,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     } on ParallelWaitError<dynamic, dynamic> catch (error) {
       final (AsyncError? history, AsyncError? _) = error.errors;
       history == null
-          ? _setUnavailable('Remya Core cannot provide the clipboard policy.')
+          ? _setUnavailable('Remy\'a Core cannot provide the clipboard policy.')
           : _setUnavailable();
     } on Object {
       _setUnavailable();
@@ -538,7 +538,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       builder: (context) => AlertDialog(
         title: const Text('Clear clipboard history?'),
         content: const Text(
-          'This removes all Remya Launcher history, including pinned entries.',
+          'This removes all Remy\'a Launcher history, including pinned entries.',
         ),
         actions: [
           TextButton(
@@ -1151,7 +1151,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       if (!_showsClear) return const _Message('No matching actions.');
       return LauncherResultRow(
         title: const TextSpan(text: 'Clear clipboard history'),
-        subtitle: 'Remya Launcher',
+        subtitle: 'Remy\'a Launcher',
         leading: const LauncherSymbolTile(.trash, selected: true),
         trailing: const LauncherKeyHint(['↵']),
         selected: true,

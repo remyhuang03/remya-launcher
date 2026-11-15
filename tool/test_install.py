@@ -46,6 +46,10 @@ class PackagingTest(unittest.TestCase):
         registration = json.loads((root / "linux/packaging/remya-launcher.json").read_text())
         self.assertEqual(registration["id"], "remya-launcher")
         self.assertEqual(registration["config"], "launcher")
+        self.assertEqual(
+            [page["id"] for page in registration["pages"]],
+            ["clipboard", "material-theme"],
+        )
         self.assertEqual({key: row["default"] for key, row in registration["settings"].items()}, {
             "clipboard-history": True, "clipboard-max-items": 500, "clipboard-retention-days": 30,
         })

@@ -42,8 +42,8 @@ class RemyaLauncherApp extends StatelessWidget {
       final shared = theme?.theme ?? const RemyaTheme();
       return MaterialApp(
         title: settingsPage == null
-            ? 'Remya Launcher'
-            : 'Remya Launcher Settings',
+            ? 'Remy\'a Launcher'
+            : 'Remy\'a Launcher Settings',
         debugShowCheckedModeBanner: false,
         // The settings window uses the shared theme unchanged, like Remya Settings.
         theme: settingsPage == null
@@ -60,6 +60,7 @@ class RemyaLauncherApp extends StatelessWidget {
 
   Widget _home() => settingsPage != null
       ? ClipboardSettingsWindow(
+          initialPage: settingsPage,
           client: settingsClient,
           clipboard: clipboardClient,
         )
