@@ -17,62 +17,90 @@ permissions:
 jobs:
   update-material-icons:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: source/remya-launcher
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: source/remya-launcher
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
           cache: 'npm'
-
-      - name: Setup Flutter via FVM
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version-file: .fvmrc
-          cache: true
+          cache-dependency-path: source/remya-launcher/package-lock.json
 
       - name: Resolve target material-icon-theme version
         id: version
+        env:
+          INPUT_VERSION: ${{ inputs.target_version }}
         run: |
-          CURRENT=$(node -p "require('./package.json').devDependencies['material-icon-theme']")
-          INPUT_VERSION="${{ github.event.inputs.target_version }}"
-          if [ -n "$INPUT_VERSION" ]; then
-            TARGET="$INPUT_VERSION"
-          else
-            TARGET=$(npm view material-icon-theme dist-tags.latest)
+          current=$(node -p "require('./package.json').devDependencies['material-icon-theme']")
+          target="${INPUT_VERSION:-}"
+          if [[ -z "$target" ]]; then
+            target=$(npm view material-icon-theme dist-tags.latest)
           fi
-          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
-          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          number='(0|[1-9][0-9]*)'
+          identifiers='[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*'
+          if [[ ! "$target" =~ ^$number\.$number\.$number(-$identifiers)?(\+$identifiers)?$ ]]; then
+            echo "::error::Expected an exact material-icon-theme npm version."
+            exit 1
+          fi
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+          if [[ "$current" != "$target" || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            echo "update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Remya Core
+        if: steps.version.outputs.update == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: remyhuang03/remya-core
+          ref: 50e6817b35aabba60e5271d049c14c3d37592e7e # v0.1.0
+          path: source/remya-core
+          persist-credentials: false
+
+      - name: Install FVM
+        if: steps.version.outputs.update == 'true'
+        run: |
+          fvm_archive=$(mktemp)
+          curl --fail --location --retry 3 \
+            https://github.com/btwld/fvm/releases/download/4.3.2/fvm-4.3.2-linux-x64.tar.gz \
+            --output "$fvm_archive"
+          echo "17dfced05f5b0cb32398dadd0691acc2bc458e8c4b0045a781cd5aa6c85f6ecb  $fvm_archive" | sha256sum -c -
+          tar -xzf "$fvm_archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/fvm" >> "$GITHUB_PATH"
 
       - name: Install dependencies and sync assets
-        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        if: steps.version.outputs.update == 'true'
+        env:
+          TARGET_VERSION: ${{ steps.version.outputs.target }}
         run: |
-          npm install --no-fund --no-audit --save-dev --save-exact "material-icon-theme@${{ steps.version.outputs.target }}"
+          npm install --no-fund --no-audit --save-dev --save-exact "material-icon-theme@$TARGET_VERSION"
           npm ci --no-fund --no-audit
           node -e '
             const fs = require("node:fs");
             fs.writeFileSync("/tmp/before-manifest.json", fs.readFileSync("assets/material_icon_theme/manifest.json"));
             fs.writeFileSync("/tmp/before-seeds.json", fs.readFileSync("assets/material_icon_theme/seeds.json"));
-            fs.writeFileSync("/tmp/before-metadata.json", fs.readFileSync("assets/material_icon_theme/metadata.json"));
           '
           npm run sync-icons
-          node tool/sync_material_icons.mjs --check
 
       - name: Verify determinism and Flutter tests
-        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        if: steps.version.outputs.update == 'true'
         run: |
-          node tool/sync_material_icons.mjs
-          git diff --exit-code -- assets/material_icon_theme/ pubspec.yaml || true
           node tool/sync_material_icons.mjs --check
-          flutter pub get
-          flutter analyze
-          flutter test test/file_icon_resolver_test.dart test/file_icon_palette_test.dart test/file_icon_tile_test.dart
+          fvm install --skip-pub-get
+          fvm flutter pub get --enforce-lockfile
+          fvm flutter analyze --no-pub
+          fvm flutter test --no-pub test/file_icon_resolver_test.dart test/file_icon_palette_test.dart test/clipboard_launcher_test.dart
 
       - name: Summarize icon and seed diffs
-        id: summary
-        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
+        if: steps.version.outputs.update == 'true'
         run: |
           node -e '
             const fs = require("node:fs");
@@ -101,9 +129,10 @@ jobs:
           '
 
       - name: Create Pull Request
-        if: steps.version.outputs.current != steps.version.outputs.target || github.event_name == 'workflow_dispatch'
-        uses: peter-evans/create-pull-request@v7
+        if: steps.version.outputs.update == 'true'
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
         with:
+          path: source/remya-launcher
           commit-message: "chore(assets): update material-icon-theme to ${{ steps.version.outputs.target }}"
           branch: "chore/material-icon-theme-${{ steps.version.outputs.target }}"
           title: "chore(assets): update material-icon-theme to ${{ steps.version.outputs.target }}"

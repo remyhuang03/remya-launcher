@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a problem with Remy'a Launcher.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search [existing issues](https://github.com/remyhuang03/remya-launcher/issues?q=is%3Aissue) before filing.
+        This issue is visible to people with access to the repository. Remove private information from logs and attachments.
+        Keep suspected vulnerabilities and sensitive details out of the issue tracker.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Search or launcher actions
+        - Clipboard history or paste
+        - Calculator
+        - File icons
+        - Installation or startup
+        - Other or unsure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version and installation method
+      placeholder: "Example: an installed release, package version, or source commit"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Linux distribution and Hyprland version
+      description: Include the relevant version from `hyprctl version` if available.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the relevant command, action, or shortcut.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Describe what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Relevant setup and logs
+      description: >-
+        For clipboard issues, include the content type and selection or paste mode. For search or action issues, include the entry type and action. Share only synthetic clipboard data.
