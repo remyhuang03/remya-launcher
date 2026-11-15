@@ -123,33 +123,6 @@ class _AppsPreferencesPageState extends State<_AppsPreferencesPage> {
           SettingsGroup(
             title: 'Search and launch',
             children: [
-              SettingRow(
-                id: 'alwaysNew',
-                label: const SettingLabel('When an app is already running'),
-                control: Semantics(
-                  label: 'When an app is already running',
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<bool>(
-                      value: preferences['alwaysNew'] as bool,
-                      items: const [
-                        DropdownMenuItem(
-                          value: false,
-                          child: Text('Focus window'),
-                        ),
-                        DropdownMenuItem(
-                          value: true,
-                          child: Text('Always open a new window'),
-                        ),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (value) {
-                              if (value != null) _save('alwaysNew', value);
-                            },
-                    ),
-                  ),
-                ),
-              ),
               _editRow(.frequentDays, preferences['frequentDays'] as int),
               _toggle(
                 'pinyin',

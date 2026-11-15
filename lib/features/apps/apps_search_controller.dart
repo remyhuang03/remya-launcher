@@ -157,8 +157,6 @@ class AppsSearchController extends ChangeNotifier {
   bool isSelected(AppChoice choice) => choice.id == _selection;
   String? errorFor(AppChoice choice) =>
       _errorId == choice.id ? actionError : null;
-  bool focuses(LauncherAppEntry app) =>
-      app.windows.isNotEmpty && !result.alwaysNew;
 
   void update(LauncherScope scope, String value, {bool immediate = false}) {
     if (client == null) return;
@@ -295,12 +293,7 @@ class AppsSearchController extends ChangeNotifier {
       (a) => !a.id.toLowerCase().replaceAll('_', '-').startsWith('new-window'),
     );
     return [
-      AppMenuAction(
-        'open',
-        focuses(app) ? 'Focus window' : 'Open',
-        focuses(app) ? .window : .openNew,
-        const ['↵'],
-      ),
+      const AppMenuAction('open', 'Open', .openNew, ['↵']),
       const AppMenuAction(
         'new',
         'New window',

@@ -106,7 +106,6 @@ pub fn run_search(
             pinned: Vec::new(),
             packages: Vec::new(),
             hidden: false,
-            always_new: prefs.always_new,
         };
     }
 
@@ -132,7 +131,6 @@ pub fn run_search(
             pinned: Vec::new(),
             packages: Vec::new(),
             hidden: true,
-            always_new: prefs.always_new,
         };
     }
 
@@ -155,7 +153,6 @@ pub fn run_search(
         pinned: Vec::new(),
         packages,
         hidden: false,
-        always_new: prefs.always_new,
     }
 }
 
@@ -272,7 +269,6 @@ fn empty_query_result(
         pinned,
         packages: Vec::new(),
         hidden: false,
-        always_new: store.preferences().always_new,
     }
 }
 

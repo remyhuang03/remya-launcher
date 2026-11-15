@@ -155,29 +155,7 @@ impl AppsService {
         source: Option<&str>,
     ) -> Result<Value, String> {
         match action {
-            "open" => {
-                let id = require_non_empty(app_id, "appId")?;
-                let app = self.lookup_app(id)?;
-                let prefs = {
-                    let mut store = self.store.lock().unwrap();
-                    store.refresh_if_changed();
-                    store.preferences().clone()
-                };
-
-                let clients = hyprland::fetch_clients();
-                let windows =
-                    hyprland::match_windows(app.startup_wm_class.as_deref(), &app.id, &clients);
-                if !prefs.always_new
-                    && let Some(first_window) = windows.first()
-                {
-                    hyprland::focus_known_window(&first_window.id)?;
-                } else {
-                    launch::launch_app(&app, &prefs)?;
-                }
-
-                Ok(self.finish_launched_action(&app.id, query))
-            }
-            "new" => {
+            "open" | "new" => {
                 let id = require_non_empty(app_id, "appId")?;
                 let app = self.lookup_app(id)?;
                 let prefs = self.current_prefs();

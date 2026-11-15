@@ -67,7 +67,6 @@ class AppsSearch {
     this.pinned = const [],
     this.packages = const [],
     this.hidden = false,
-    this.alwaysNew = false,
   });
 
   AppsSearch.fromJson(Map<String, dynamic> json)
@@ -77,13 +76,12 @@ class AppsSearch {
       frequent = _entries(json['frequent'], LauncherAppEntry.fromJson),
       pinned = _entries(json['pinned'], LauncherAppEntry.fromJson),
       packages = _entries(json['packages'], AppPackage.fromJson),
-      hidden = json['hidden'] == true,
-      alwaysNew = json['alwaysNew'] == true;
+      hidden = json['hidden'] == true;
 
   final int total, matched;
   final List<LauncherAppEntry> apps, frequent, pinned;
   final List<AppPackage> packages;
-  final bool hidden, alwaysNew;
+  final bool hidden;
 }
 
 class AppsException implements Exception {

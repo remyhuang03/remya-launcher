@@ -391,11 +391,7 @@ class _AppResultRow extends StatelessWidget {
           detail,
         ].where((s) => s.isNotEmpty).join(' · ');
       }
-      primary = directAction != null
-          ? 'Run'
-          : c.focuses(app)
-          ? 'Focus'
-          : 'Open';
+      primary = directAction != null ? 'Run' : 'Open';
       meta = c.expandedId == app.id && directAction == null
           ? 'Expanded'
           : running
@@ -607,14 +603,9 @@ LauncherFooter appsFooter(AppsSearchController c, {required bool singleLine}) {
     leading: [
       if (c.empty) const LauncherKeyHint(['↑', '↓'], label: 'Navigate'),
       if (app != null) ...[
-        LauncherKeyHint(
-          const ['↵'],
-          label: app.actionId != null
-              ? 'Run'
-              : c.focuses(app)
-              ? 'Focus'
-              : 'Open',
-        ),
+        LauncherKeyHint(const [
+          '↵',
+        ], label: app.actionId != null ? 'Run' : 'Open'),
         const LauncherKeyHint(['Ctrl', '↵'], label: 'New window'),
         if (!c.empty && (app.windows.isNotEmpty || app.actions.isNotEmpty))
           const LauncherKeyHint(['Ctrl', '→'], label: 'Windows & actions'),

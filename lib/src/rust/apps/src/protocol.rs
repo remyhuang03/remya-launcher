@@ -44,8 +44,6 @@ const fn default_true() -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Preferences {
-    #[serde(default)]
-    pub always_new: bool,
     #[serde(default = "default_frequent_days")]
     pub frequent_days: u32,
     #[serde(default = "default_true")]
@@ -69,7 +67,6 @@ const fn default_frequent_days() -> u32 {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
-            always_new: false,
             frequent_days: default_frequent_days(),
             pinyin: true,
             terminal: String::new(),
@@ -84,7 +81,6 @@ impl Default for Preferences {
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreferencesPatch {
-    pub always_new: Option<bool>,
     pub frequent_days: Option<i64>,
     pub pinyin: Option<bool>,
     pub terminal: Option<String>,
@@ -147,7 +143,6 @@ pub struct SearchData {
     pub pinned: Vec<AppEntry>,
     pub packages: Vec<PackageEntry>,
     pub hidden: bool,
-    pub always_new: bool,
 }
 
 #[derive(Debug, Serialize)]

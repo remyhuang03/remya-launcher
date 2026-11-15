@@ -6,7 +6,6 @@ import 'package:remya_ui/settings_ui.dart';
 
 class _AppsClient extends AppsClient {
   final values = <String, Object>{
-    'alwaysNew': false,
     'frequentDays': 30,
     'pinyin': true,
     'terminal': '',

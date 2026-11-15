@@ -26,7 +26,7 @@
 Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
 
 - **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes, `Alt+1–9` quick pick, and contextual footer key hints.
-- **Apps search**: Search installed applications in All or press `Ctrl+2` for Apps. Open or focus an app with Enter, launch a new instance with `Ctrl+Enter`, and expand its windows and desktop actions with `Ctrl+Right`. Install candidates come from local package metadata.
+- **Apps search**: Search installed applications in All or press `Ctrl+2` for Apps. Open a new app window with Enter or `Ctrl+Enter`. Expand its windows and desktop actions with `Ctrl+Right`, then press Enter on a window to focus it. Install candidates come from local package metadata.
 - **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Core policy storage.
 - **Material Design 3 Expressive**: Smooth shape morphing, Inter and JetBrains Mono typography, and a `gtk-layer-shell` overlay anchored at 22% screen height.
 

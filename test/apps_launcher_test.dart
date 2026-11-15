@@ -170,6 +170,7 @@ void main() {
         LogicalKeyboardKey.keyK,
       );
       expect(find.text('type to filter'), findsOneWidget);
+      expect(find.text('Focus window'), findsNothing);
       await tester.enterText(find.byType(TextField).last, 'private');
       await tester.pump();
       expect(find.text('New Private Window'), findsOneWidget);
@@ -185,12 +186,9 @@ void main() {
       expect(find.text('The executable was not found.'), findsOneWidget);
 
       client.fail = false;
-      await _shortcut(
-        tester,
-        LogicalKeyboardKey.controlLeft,
-        LogicalKeyboardKey.enter,
-      );
-      expect(client.actions.last.$1, 'new');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(client.actions.last, ('open', _appId, null, null, null));
       expect(platform.closes, 1);
       await tester.pumpWidget(const SizedBox());
     },

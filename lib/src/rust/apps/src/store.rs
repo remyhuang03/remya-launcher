@@ -89,9 +89,6 @@ impl Store {
     pub fn update_preferences(&mut self, patch: PreferencesPatch) -> Result<Preferences, String> {
         self.refresh_if_changed();
         let mut next = self.preferences.clone();
-        if let Some(always_new) = patch.always_new {
-            next.always_new = always_new;
-        }
         if let Some(frequent_days) = patch.frequent_days {
             if !(1..=365).contains(&frequent_days) {
                 return Err("frequentDays must be between 1 and 365.".into());

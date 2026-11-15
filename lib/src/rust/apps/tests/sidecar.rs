@@ -409,7 +409,6 @@ fn pin_hide_unhide_and_preferences_persistence() {
         assert_eq!(
             prefs["data"],
             json!({
-                "alwaysNew": false,
                 "frequentDays": 30,
                 "pinyin": true,
                 "terminal": "",
@@ -426,16 +425,14 @@ fn pin_hide_unhide_and_preferences_persistence() {
         let updated = sidecar.request(json!({
             "id": 3,
             "op": "preferences",
-            "values": {"alwaysNew": true, "terminal": "kitty"}
+            "values": {"terminal": "kitty"}
         }));
-        assert_eq!(updated["data"]["alwaysNew"], true);
         assert_eq!(updated["data"]["terminal"], "kitty");
 
         // Pin preserves order.
         sidecar.request(json!({"id": 4, "op": "perform", "action": "pin", "appId": "two.desktop"}));
         sidecar.request(json!({"id": 5, "op": "perform", "action": "pin", "appId": "one.desktop"}));
         let empty = sidecar.request(json!({"id": 6, "op": "search", "query": ""}));
-        assert_eq!(empty["data"]["alwaysNew"], true);
         let pinned_ids: Vec<&str> = empty["data"]["pinned"]
             .as_array()
             .unwrap()
@@ -461,7 +458,6 @@ fn pin_hide_unhide_and_preferences_persistence() {
     // Persistence survives process restart.
     let mut sidecar2 = env.spawn_cli(&["--standalone"]);
     let prefs2 = sidecar2.request(json!({"id": 11, "op": "preferences"}));
-    assert_eq!(prefs2["data"]["alwaysNew"], true);
     assert_eq!(prefs2["data"]["terminal"], "kitty");
     sidecar2
         .request(json!({"id": 12, "op": "perform", "action": "unhide", "appId": "one.desktop"}));
@@ -474,6 +470,11 @@ fn hyprland_windows_focus_quit_and_workspace_validation() {
     let env = TestEnv::new();
     let hypr_log = env.root.path().join("hypr.log");
     let launch_log = env.root.path().join("launch.log");
+    let new_log = env.root.path().join("new.log");
+    let config = env.config_home.join("remya/launcher");
+    fs::create_dir_all(&config).unwrap();
+    fs::write(config.join("apps.json"), r#"{"alwaysNew":false}"#).unwrap();
+    env.write_script("new-editor", &format!("touch '{}'", new_log.display()));
     env.write_script(
         "my-editor",
         &format!("echo launched >> '{}'", launch_log.display()),
@@ -502,7 +503,7 @@ echo ok"#,
     env.write_desktop(
         false,
         "code.desktop",
-        "[Desktop Entry]\nType=Application\nName=Code\nStartupWMClass=Code-OSS\nExec=my-editor\n",
+        "[Desktop Entry]\nType=Application\nName=Code\nStartupWMClass=Code-OSS\nExec=my-editor\nActions=NewWindow;\n\n[Desktop Action NewWindow]\nName=New Window\nExec=new-editor\n",
     );
 
     let mut sidecar = env.spawn_cli(&["--standalone"]);
@@ -519,12 +520,29 @@ echo ok"#,
             || (windows[2]["id"] == "0xeee" && windows[3]["id"] == "0xddd")
     );
 
-    // open focuses MRU window via Hyprland Lua repl when alwaysNew=false.
-    sidecar.request(json!({"id": 2, "op": "perform", "action": "open", "appId": "code.desktop"}));
-    let log_text = fs::read_to_string(&hypr_log).unwrap();
-    assert!(log_text.contains("repl "));
-    assert!(log_text.contains("hl.dsp.focus({window=\"address:0xaaa\"})"));
+    // Open requests a new window even when the app has running windows and
+    // the old preference file selected focusing.
+    let opened = sidecar
+        .request(json!({"id": 2, "op": "perform", "action": "open", "appId": "code.desktop"}));
+    assert!(opened["data"].is_object());
+    for _ in 0..20 {
+        if new_log.exists() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    assert!(new_log.exists());
     assert!(!launch_log.exists());
+    assert!(!hypr_log.exists());
+
+    let focused =
+        sidecar.request(json!({"id": 9, "op": "perform", "action": "window", "target": "0xbbb"}));
+    assert!(focused["data"].is_object());
+    assert!(
+        fs::read_to_string(&hypr_log)
+            .unwrap()
+            .contains("hl.dsp.focus({window=\"address:0xbbb\"})")
+    );
 
     // window rejects invalid/unknown addresses and accepts known address.
     let bad_win =
