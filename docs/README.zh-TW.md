@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Arch%20Linux%20%7C%20Hyprland-1793D1?style=flat-square&logo=archlinux&logoColor=white" alt="Platform: Arch Linux | Hyprland">
-  <img src="https://img.shields.io/badge/Flutter-3.47.8-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter 3.47.8">
+  <img src="https://img.shields.io/badge/Flutter-3.50.0-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter 3.50.0">
   <img src="https://img.shields.io/badge/Rust-2024-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 2024">
   <img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-4C1?style=flat-square" alt="License: PolyForm Noncommercial 1.0.0">
 </p>
@@ -26,101 +26,97 @@
 Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤優先應用程式啟動器、快速切換器與 Wayland 剪貼簿歷史管理器，使用 Flutter、Rust 與 Material Design 3 Expressive 打造。
 
 - **鍵盤優先的工作流程**：雙手無需離開主鍵區即可完成操作，提供自然前綴範圍、`Alt+1–9` 快速選取與情境式底部按鍵提示。
-- **內建 Wayland 剪貼簿歷史**：背景 Rust 監聽常駐程式會保存複製的文字、程式碼、連結、色彩、檔案與圖片縮圖，支援敏感內容遮罩及 Remya Settings 整合。
-- **Material Design 3 Expressive**：流暢的形狀形變動畫、Inter 與 JetBrains Mono 字型排版，以及固定於螢幕高度 22% 的 `gtk-layer-shell` 浮層。
+- **應用程式搜尋**：在 All 中搜尋已安裝的應用程式，或按 `Ctrl+2` 切換至 Apps。按 Enter 或 `Ctrl+Enter` 開啟新的應用程式視窗；按 `Ctrl+Right` 展開其視窗與桌面動作，並在視窗上按 Enter 將其聚焦。安裝候選項目來自本機套件中繼資料。
+- **內建 Wayland 剪貼簿歷史**：背景 Rust 監聽程式會保存複製的文字、程式碼、連結、色彩、檔案與圖片縮圖，並支援敏感資料遮罩與 Remya Core 原則儲存。
+- **本機 Web 搜尋**：搜尋您所啟用設定檔中的瀏覽器歷史紀錄與書籤、自動補全網址，或使用如 `gh ` 等關鍵字開始搜尋。
 
 > [!CAUTION]
-> **Early Development & Preview Only — Not Ready for Daily Use（早期開發與預覽階段 — 尚未適合日常使用）**
+> **早期開發階段**
 >
-> Remya Launcher 目前處於早期積極開發階段。現階段已實作**計算機**、**即時剪貼簿歷史**（Rust 剪貼簿常駐程式與即時 Clipboard 檢視）以及**互動式 UI 設計預覽**（`--preview`）。以下所述的其餘多數啟動器範圍、搜尋後端與 Hyprland 視窗／動作整合皆屬於規劃中的 [Remya Launcher Figma 設計規範](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)，尚未實作。
+> Apps 搜尋、Windows、Web 搜尋、Calculator 與 Clipboard 皆使用即時資料。Files 與 Emoji 範圍以及一般指令執行仍在規劃中。可使用 `--preview` 搭配範例資料探索 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)。
 
 ## 🚀 安裝
 
-### AUR（`dev` 頻道）
+### 原始碼建置
 
-在 Arch Linux 上，待 AUR 套件上架後可透過以下命令安裝開發版本：
-
-```bash
-paru -S remya-launcher-git || yay -S remya-launcher-git
-```
+請先安裝 **Remya Core**。在 Arch Linux 上，請依照[先決條件與環境設定](#先決條件與環境設定)與[驗證與本機安裝](#驗證與本機安裝)的步驟建置並安裝 Launcher。
 
 ### 發行壓縮檔
 
-預編譯的發行壓縮檔尚未發布。未來於 [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) 提供壓縮檔後，請驗證雜湊值、解壓縮並執行本機安裝腳本：
+針對由本儲存庫 Linux CI 工作流程建置的 Linux x86_64 候選版本，請下載並解壓縮該候選產物，其中包含 `remya-launcher-linux-x86_64-<commit>.tar.zst` 壓縮檔與 `SHA256SUMS`。在包含這些檔案的目錄中執行：
 
 ```bash
-sha256sum -c SHA256SUMS --ignore-missing
-tar --zstd -xf remya_launcher-0.1.0+1-linux-x86_64.tar.zst
-cd remya_launcher-0.1.0+1-linux-x86_64
+sha256sum -c SHA256SUMS
+mkdir -p remya-launcher-candidate
+tar --zstd -xf remya-launcher-linux-x86_64-*.tar.zst -C remya-launcher-candidate
+cd remya-launcher-candidate
 python tool/install.py
 ```
 
-成套安裝 Remya 桌面元件時，請先安裝 **Remya Settings**，再安裝 **Remya Bar**。剪貼簿保留天數與擷取設定可在 **Remya Settings → System → Clipboard** 中管理。
+使用 `remya_launcher --settings` 開啟 Launcher 設定。亦可透過 `remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps` 或 `material-theme` 直接開啟特定頁面。
 
 ## ✨ 功能特色
 
 ### 目前已提供
 
+- **All 與 Apps（`Ctrl+2`）**：搜尋已安裝的應用程式並按 `Enter` 開啟。在 Apps 中，按 `Ctrl+Right` 可展開應用程式已開啟的視窗與桌面動作。若無符合的應用程式，安裝候選項目將來自本機套件中繼資料。All 亦會顯示支援的內嵌計算結果、最多三筆本機 Web 結果，以及針對網址輸入的直接動作。
+- **Web（`Ctrl+4` / `?`）**：
+  - 在 **Launcher Settings → Web** 中啟用 Firefox 或 Chromium 系列設定檔。即使未啟用任何設定檔，仍可開啟輸入的網址或使用搜尋引擎搜尋。Launcher 會從已啟用的設定檔讀取近期歷史紀錄與書籤，並維護私密的本機索引；它會從本機瀏覽器資料讀取網站圖示，若無可用圖示則顯示字首縮寫。
+  - 可在 **Launcher 設定 → Web** 中選擇 DuckDuckGo 或 Google 作為預設搜尋引擎。關鍵字只會切換目前查詢的引擎。
+  - 空白輸入時會顯示常用網站（`Alt+1–6`）與近期頁面。搜尋時會顯示依相關性與使用頻率排序的書籤與歷史紀錄，接著是搜尋引擎建議。按 `Tab` 接受網址補全；按 `Enter` 開啟輸入的網址或選取的項目；按 `Ctrl+Enter` 則改為進行搜尋。
+  - 輸入搜尋引擎關鍵字並加上空格，例如 `gh ` 代表 GitHub、`aw ` 代表 ArchWiki，或 `yt ` 代表 YouTube。選取搜尋引擎後，按 `Tab` 可循環切換引擎，查詢為空時按 `Backspace` 可移除該關鍵字標記。
+  - 按 `Ctrl+K` 可開啟頁面的動作選單：在支援的瀏覽器或私密視窗中開啟、複製網址或 Markdown 連結、搜尋該網站、釘選，或從 Launcher 中隱藏。Launcher 絕不會修改瀏覽器歷史紀錄或書籤；關閉設定檔將會從 Launcher 移除其索引。
+- **Windows（`Ctrl+7` / `#`）**：依標題或類別篩選 Hyprland 視窗。按 `Enter` 聚焦視窗，或按 `Ctrl+Enter` 將其移至目前工作區。
+
 - **即時剪貼簿歷史（`remya_launcher --clipboard` / `Ctrl+6` / `;`）**：
-  - 背景 Rust 監聽程式（`remya-launcher-clipboard`）以 systemd 使用者服務 `top.remya.launcher.clipboard.service` 隨圖形工作階段啟動。
+  - 背景 Rust 監聽程式（`remya-launcher-clipboard`）作為 `top.remya.launcher.clipboard.service` systemd 使用者單元隨圖形工作階段執行。
   - 預設於 `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3`（預設 `~/.local/state/remya/launcher/clipboard.sqlite3`）保存最多 500 筆未釘選項目（最長 30 天）；已釘選項目不受自動清理影響。
-  - 單筆選取內容上限 64 MiB，解碼圖片上限 2,400 萬像素（支援 PNG、JPEG、WebP、GIF、BMP）；超過 20 MB 但在限制內的圖片會保留縮圖。
-  - 由來源應用程式標記為敏感的資料僅於記憶體中保留最多 45 秒並自動遮罩，不會寫入磁碟。
-  - 於 `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` 提供同使用者 Unix socket JSON IPC 介面供 Remya Settings 使用（`preferences`、針對 `enabled`/`maxItems`/`retentionDays` 的 `setPreference` 與 `clear`）。
-  - *已知 Wayland 限制*：Wayland data-control 無法辨識剪貼簿內容來自哪個應用程式，因此設計中的來源應用程式標籤與依應用程式排除黑名單無法可靠實作。
+  - 擷取上限 64 MiB 的選取內容與上限 2,400 萬像素的解碼圖片（PNG、JPEG、WebP、GIF、BMP）；超過 20 MB 但在上述限制內的圖片會保留縮圖。
+  - 由來源應用程式標記為敏感的項目僅於記憶體中保留最多 45 秒並自動遮罩，不會寫入磁碟。
+  - 於 `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` 提供同使用者歷史紀錄操作與 `clear`。原則會從 `top.remya.Core1` 讀取並於 `Changed` 時重新整理；當原則無法取得或無效時，擷取與自動歷史清理將暫停。
+  - 安裝 `remya/apps/remya-launcher.json` 與桌面 `settings` 動作。剪貼簿單元會在 `top.remya.core.service` 之後啟動並宣告對其的相依。
+  - *已知 Wayland 限制*：Wayland data-control 無法辨識剪貼簿選取內容是由哪個應用程式提供，因此設計中的來源應用程式標籤與依應用程式排除黑名單無法可靠實作。
 - **計算機（`Ctrl+5` / `=`）**：
-  - 在 `All` 中內嵌求值基本算式並在 `Calc`（`Ctrl+5` 或 `=`）中處理完整查詢，基於本機 `fend-core` 數學運算、具型別單位、含位寬與正負號的進位制、FP32/FP16/BF16、時區，以及僅於明確重新整理時擷取的 ECB 參考匯率快照，並提供目錄補全與歷史紀錄。
+  - 在 `All` 中內嵌求值基本算式並在 `Calc`（`Ctrl+5` 或 `=`）中處理完整查詢，透過本機 `fend-core` 數學運算、具型別單位、含位寬與正負號的進位制、FP32/FP16/BF16、時區，以及僅於明確重新整理時擷取的 ECB 參考匯率快照，並提供目錄補全與歷史紀錄。
   - 選用的 FP8 與一般行事曆算術仍處於延後狀態。
 - **互動式設計預覽（`--preview`）**：
-  - 可從建置完成的 bundle 傳入 `--preview=<name>` 檢視所有設計狀態：
+  - 使用 `--preview=<name>` 從建置完成的 bundle 檢視所有規劃中的 UI 狀態：
     - 啟動器狀態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
     - 剪貼簿類型預覽：`clipboard-text`、`clipboard-code`、`clipboard-image`、`clipboard-link`、`clipboard-color`、`clipboard-files`、`clipboard-hidden`
 
 ### 規劃中的範圍與能力（設計規範）
 
-以下能力依據 [Remya Launcher 設計規範](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) 規劃：
-
-- **自然前綴範圍（Scopes）**：
-  - **All（`Ctrl+1`）**：混合呈現應用程式、檔案、Web 歷史與指令（每組最多 3 筆，依各組最佳分數動態排序），輸入類 URL 字串時直接提供開啟連結動作。
-  - **Apps（`Ctrl+2`）**：XDG `.desktop` 模糊比對（名稱、`GenericName`、`Keywords`、執行檔），結合 frecency 權重與次要 desktop actions（例如開啟無痕視窗）。
-  - **Files（`Ctrl+3`，`/` 或 `~` 前綴）**：原生路徑補全（`Tab` 逐段補全）、檔名模糊搜尋（`fd` + 最近使用），以及將面板擴展至 880 px 的右側預覽窗格（資料夾內容、文字摘要、圖片縮圖）。
-  - **Web（`Ctrl+4`，`?` 前綴）**：唯讀本機瀏覽器歷史（Firefox `places.sqlite` / Chromium `History`）依 frecency 排序，並於末端提供網頁搜尋動作（`Ctrl+Enter`）。
-  - **Clipboard（`Ctrl+6`，`;` 前綴）**：960 px 左右雙欄檢視，支援類型篩選（透過 `Ctrl+F` 於 `All · Text · Images · Links · Files · Colors` 切換）、`Pinned → Today → Yesterday → Earlier` 分組、重複項目合併與複製次數統計、依類型客製化預覽（含行號的語法高亮程式碼、HEX/RGB/HSL/OKLCH 色塊、棋盤格透明圖片預覽），以及直接寫回並貼上至上一個聚焦視窗（`Enter`，或 `Ctrl+Enter` 執行該類型的次要動作）。
-  - **Windows（`Ctrl+7`，`#` 前綴）**：透過 `hyprctl clients` 依標題與類別比對視窗並顯示工作區徽標；`Enter` 聚焦並切換工作區，`Ctrl+Enter` 將視窗移至目前工作區。
-  - **Emoji（`:` 前綴）** 與 **Run（`$` / `>` 前綴）**：依名稱與別名搜尋 Emoji／符號，以及直接執行 Shell／終端機指令。
-- **鍵盤優先導覽**：
-  - `↑`/`↓` 或 `Ctrl+N`/`Ctrl+P` 跨分組連續移動；`Ctrl+↑`/`Ctrl+↓` 跳至上／下一個分組首項。
-  - 按住 `Alt` 顯示行號並按 `Alt+1–9` 直接執行主要動作（空狀態下對應 `Alt+1–6` Pinned 項目），`Ctrl+Alt+1–9` 執行次要動作。
-  - `→` 或 `Ctrl+K` 開啟可輸入篩選的 Actions 選單；`Ctrl+C` 複製選取的值；`Ctrl+D` 釘選／取消釘選；`Shift+Del` 從 Recent 遺忘或從歷史中刪除。
-  - `Ctrl+W` / `Ctrl+Backspace` 刪除前一個詞彙或路徑段；`Ctrl+U` 清空查詢；`Esc` 依序退回（選單 → 查詢 → 範圍 → 關閉）；空白輸入時按 `?` 顯示完整快捷鍵速查表。
-- **Hyprland 浮層與視覺系統**：
-  - 採用 `gtk-layer-shell` 獨佔鍵盤互動浮層，預設寬度 720 px，高度變化時僅向下伸縮（250 ms），點擊外部或失去焦點即關閉。
-  - Material Design 3 Expressive 形狀形變（選取列與釘選卡片圓角 `20 px → 12 px`，範圍 chip `16 px → 10 px`），並與 Remya 桌面主題種子色彩動態同步。
+- **Files（`Ctrl+3` / `/` / `~`）**：路徑補全、檔名模糊搜尋，以及目錄、文字與圖片的預覽。
+- **Emoji（`:`）** 與 **Run（`$` / `>`）**：Emoji 與符號搜尋，以及一般指令執行。目前的即時 Run 範圍提供本機剪貼簿清除動作。
 
 ## ⌨️ 開發
 
 ### 技術堆疊與架構
 
-- **前端**：Flutter & Dart（透過 `.fvmrc` 鎖定為 `3.47.8`），搭配 `material_ui`（Material Design 3 Expressive）與 `flutter_svg`。
-  - `lib/app.dart` 與 `lib/main.dart`：應用程式組裝、CLI 參數處理（`--clipboard`、`--preview=...`）與授權條款註冊。
+- **前端**：Flutter & Dart（透過 `.fvmrc` 鎖定為 `3.50.0`），搭配 `material_ui`（Material Design 3 Expressive）與 `flutter_svg`。
+  - `lib/app.dart` 與 `lib/main.dart`：應用程式組裝、CLI 旗標處理（`--clipboard`、`--settings`、`--preview=...`）與授權條款註冊。
   - `lib/features/launcher/`：啟動器面板、搜尋欄、範圍 chip、結果與釘選列、按鍵提示、計算機卡片、檔案預覽及動作選單。
   - `lib/features/clipboard/`：即時剪貼簿頁面、Unix socket 用戶端、類型預覽與剪貼簿動作。
-  - `lib/features/preview/`：以可重用元件組裝的互動式設計範例。
+  - `lib/features/web/`：Web 結果、鍵盤動作、設定檔設定與 Web sidecar 用戶端。
+  - `lib/features/preview/`：以可重用控制項組裝的互動式設計範例。
 - **後端**：位於儲存庫根目錄的 Rust（`edition = "2024"`，`resolver = "3"`）工作區：
   - `lib/src/rust/clipboard/`：Wayland 剪貼簿監聽常駐程式（`remya-launcher-clipboard`）、SQLite 持久化與 IPC 伺服器。
+  - `lib/src/rust/apps/`：常駐應用程式索引、套件查詢與 Hyprland 視窗動作。
+  - `lib/src/rust/calculator/`：本機求值、補全與計算機歷史紀錄。
+  - `lib/src/rust/web/`：隨選 Web sidecar，包含瀏覽器讀取器、私密 SQLite 索引與瀏覽器分派。
   - `lib/src/rust/core/`：核心 Rust crate（保留用於共用啟動器後端邏輯）。
 
 ### 先決條件與環境設定
 
-請先確認系統已安裝 GTK 3、`gtk-layer-shell`、Python 3、`inter-font`（Arch 可執行 `sudo pacman -S inter-font`）、FVM 及 `rust-toolchain.toml` 指定的 Rust 工具鏈。
+請將 Remya Core 簽出至與本儲存庫同層級的 `../remya-core`，以便 Flutter 解析 `remya_client` 與 `remya_ui`。請安裝 GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM，以及 `rust-toolchain.toml` 中指定的 Rust 工具鏈。
 
 ```bash
 fvm install
-fvm flutter pub get
+fvm flutter pub get --enforce-lockfile
 fvm flutter run -d linux
 ```
 
-從 Debug 建置執行設計預覽：
+若要從 Debug 建置檢視設計預覽：
 
 ```bash
 build/linux/x64/debug/bundle/remya_launcher --preview=files
@@ -131,25 +127,26 @@ build/linux/x64/debug/bundle/remya_launcher --preview=files
 執行格式化檢查、靜態分析、測試以及循序的 Debug／Release 建置：
 
 ```bash
-fvm dart format --output=none --set-exit-if-changed .
+fvm dart format --output=none --set-exit-if-changed lib test
 fvm flutter analyze
 fvm flutter test
-cargo fmt --check
-cargo clippy --workspace --all-targets
-cargo test --workspace
+python -m unittest tool.test_install
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
 fvm flutter build linux --debug
 fvm flutter build linux --release
 ```
 
-將 Release bundle、桌面進入點與 `top.remya.launcher.clipboard.service` systemd 使用者單元安裝至 `$XDG_DATA_HOME`：
+將 Release bundle、桌面進入點以及 `top.remya.launcher.clipboard.service` 與 `top.remya.launcher.apps.service` systemd 使用者單元安裝至 `$XDG_DATA_HOME`。Calculator 與 Web 則採隨選執行。
 
 ```bash
 python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-可將 `~/.local/bin/remya_launcher --clipboard` 設定為 Hyprland 的 `Super+V` 快捷鍵綁定。
+綁定 `~/.local/bin/remya_launcher --toggle` 以開啟或關閉啟動器，並使用 `~/.local/bin/remya_launcher --clipboard` 作為 Hyprland 的 `Super+V` 快捷鍵綁定。
 
 ## 📜 授權條款
 
-Remya Launcher 採用 [PolyForm Noncommercial License 1.0.0](../LICENSE) 授權。Material Symbols 與第三方聲明位於 `assets/licenses/`。
+Remya Launcher 採用 [PolyForm Noncommercial License 1.0.0](../LICENSE) 授權。Material Symbols 與第三方聲明包含於 `assets/licenses/` 中。
