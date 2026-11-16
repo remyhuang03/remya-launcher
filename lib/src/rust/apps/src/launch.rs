@@ -345,7 +345,11 @@ fn find_exec_program(tokens: &[String]) -> Option<&str> {
             continue;
         }
         if tok == "env" {
-            for next in iter.by_ref() {
+            while let Some(next) = iter.next() {
+                if matches!(next, "-u" | "--unset") {
+                    iter.next()?;
+                    continue;
+                }
                 if !next.contains('=') && !next.starts_with('-') {
                     return Some(next);
                 }
@@ -464,4 +468,17 @@ fn percent_encode(input: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{find_exec_program, tokenize_exec_raw};
+
+    #[test]
+    fn finds_program_after_env_unset_options() {
+        let tokens = tokenize_exec_raw(
+            "env -u GDK_SCALE --unset GDK_DPI_SCALE XCURSOR_SIZE=20 chatgpt --ozone-platform=wayland %U",
+        );
+        assert_eq!(find_exec_program(&tokens), Some("chatgpt"));
+    }
 }
