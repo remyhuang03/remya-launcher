@@ -1278,6 +1278,22 @@ name = "remya_launcher_core"
 version = "0.1.0"
 
 [[package]]
+name = "remya_launcher_web"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "gio",
+ "image",
+ "rusqlite",
+ "rustix",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "url",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
