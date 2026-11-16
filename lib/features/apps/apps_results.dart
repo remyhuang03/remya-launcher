@@ -14,10 +14,16 @@ import 'apps_search_controller.dart';
 typedef _ResultBlock = (double, Widget Function(), bool);
 
 class AppsResults extends StatefulWidget {
-  const AppsResults(this.controller, {required this.tileColumns, super.key});
+  const AppsResults(
+    this.controller, {
+    required this.tileColumns,
+    this.selectionVisible = true,
+    super.key,
+  });
 
   final AppsSearchController controller;
   final int tileColumns;
+  final bool selectionVisible;
 
   @override
   State<AppsResults> createState() => _AppsResultsState();
@@ -75,10 +81,14 @@ class _AppsResultsState extends State<AppsResults> {
         enabled: child,
         child: Padding(
           padding: const .only(bottom: 2),
-          child: _AppResultRow(c, choice),
+          child: _AppResultRow(
+            c,
+            choice,
+            selectionVisible: widget.selectionVisible,
+          ),
         ),
       ),
-      selected: c.isSelected(choice),
+      selected: widget.selectionVisible && c.isSelected(choice),
     );
 
     final tiles = c.tiles;
@@ -309,16 +319,21 @@ class _Indented extends StatelessWidget {
 }
 
 class _AppResultRow extends StatelessWidget {
-  const _AppResultRow(this.controller, this.choice);
+  const _AppResultRow(
+    this.controller,
+    this.choice, {
+    required this.selectionVisible,
+  });
 
   final AppsSearchController controller;
   final AppChoice choice;
+  final bool selectionVisible;
 
   @override
   Widget build(BuildContext context) {
     final c = controller;
     final colors = Theme.of(context).colorScheme;
-    final selected = c.isSelected(choice);
+    final selected = selectionVisible && c.isSelected(choice);
     final app = choice.app;
     final package = choice.package;
     final window = choice.window;

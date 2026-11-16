@@ -9,6 +9,7 @@ import 'features/apps/apps_client.dart';
 import 'features/clipboard/clipboard_platform.dart';
 import 'features/files/file_icon_tile.dart';
 import 'features/preview/launcher_examples.dart';
+import 'features/web/web_client.dart';
 
 /// Parses the optional `--settings [page]` launch argument.
 String? parseSettingsPage(List<String> arguments) {
@@ -26,6 +27,7 @@ String? parseSettingsPage(List<String> arguments) {
         'apps',
         'apps-preferences',
         'hidden-apps',
+        'web',
         remyaMaterialThemePageId,
       ].contains(settingsPage)) {
     throw ArgumentError.value(settingsPage, 'page', 'Unknown settings page');
@@ -84,6 +86,7 @@ Future<void> main(List<String> arguments) async {
       appsClient: selectedExample == null && settingsPage == null
           ? AppsClient()
           : null,
+      webClient: selectedExample == null ? WebClient() : null,
       clipboardType: clipboardType ?? 'command',
       startInClipboard: arguments.contains('--clipboard'),
       clipboardPlatform: selectedExample == null && settingsPage == null

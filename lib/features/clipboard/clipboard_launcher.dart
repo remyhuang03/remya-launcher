@@ -14,6 +14,10 @@ import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
 import '../launcher/launcher_results.dart';
+import '../web/web_client.dart';
+import '../web/web_results.dart';
+import '../web/web_search_controller.dart';
+import '../web/web_shortcuts.dart';
 import '../windows/windows_controller.dart';
 import '../windows/windows_results.dart';
 import 'clipboard_actions.dart';
@@ -24,6 +28,12 @@ import 'clipboard_live_preview.dart';
 import 'clipboard_platform.dart';
 import 'clipboard_preview.dart';
 
+part 'clipboard_launcher_calculator.dart';
+part 'clipboard_launcher_dialogs.dart';
+part 'clipboard_launcher_keyboard.dart';
+part 'clipboard_launcher_view.dart';
+part 'clipboard_launcher_web.dart';
+
 class ClipboardLauncher extends StatefulWidget {
   const ClipboardLauncher({
     required this.startInClipboard,
@@ -31,6 +41,7 @@ class ClipboardLauncher extends StatefulWidget {
     required this.platform,
     this.calculatorClient,
     this.appsClient,
+    this.webClient,
     super.key,
   });
 
@@ -39,6 +50,7 @@ class ClipboardLauncher extends StatefulWidget {
   final ClipboardPlatform platform;
   final CalculatorClient? calculatorClient;
   final AppsClient? appsClient;
+  final WebClient? webClient;
 
   @override
   State<ClipboardLauncher> createState() => _ClipboardLauncherState();
@@ -100,6 +112,20 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     client: widget.appsClient,
     onClose: _dismiss,
   );
+  late final _web = WebSearchController(
+    client: widget.webClient,
+    onClose: _dismiss,
+    onSearchFocus: _searchFocus.requestFocus,
+    confirmForget: _confirmWebForget,
+  );
+  late final _webShortcuts = WebShortcuts(
+    web: _web,
+    search: _search,
+    changeSearch: (text, engine) =>
+        _setScope(.web, initialQuery: text, webEngine: engine),
+    showEngines: () => unawaited(_showWebEngines()),
+  );
+  bool? _webSelectedInAll;
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _actionsFocus = FocusNode();
@@ -129,10 +155,18 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   bool get _inCalculator => _scope == .calculator;
   bool get _inApps => _scope == .apps;
   bool get _inWindows => _scope == .windows;
+  bool get _inWeb => _scope == .web;
+  bool get _webActiveInAll =>
+      _scope == .all &&
+      _web.selected != null &&
+      (_webSelectedInAll ??
+          (_web.layout.direct != null ||
+              (_apps.selected == null && !_calculator.hasInlineResult)));
 
   List<LauncherScope> get _activeScopes => [
     .all,
     if (_apps.available) .apps,
+    if (_web.available) .web,
     .calculator,
     .clipboard,
     if (_apps.available) .windows,
@@ -155,6 +189,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _startWatch();
     }
     _apps.update(_scope, '', immediate: true);
+    unawaited(_web.loadEngines());
     unawaited(
       widget.platform.listenForClipboard(() {
         if (mounted) _setScope(.clipboard);
@@ -173,6 +208,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _calculator.dispose();
     _apps.dispose();
     _windows.dispose();
+    _web.dispose();
     _search.dispose();
     _searchFocus.dispose();
     _actionsFocus.dispose();
@@ -261,22 +297,32 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   void _onSearchSelectionChanged() {
+    if ((_inWeb || _scope == .all) && _web.result?.input.completion != null) {
+      setState(() {});
+    }
     if (!_inCalculator || _calculator.actionsOpen) return;
     if (_search.text == _calculator.query) {
       _calculator.updateCursor(_cursorUtf16());
     }
   }
 
-  void _setScope(LauncherScope scope, {String? initialQuery}) {
+  void _setScope(
+    LauncherScope scope, {
+    String? initialQuery,
+    WebEngine? webEngine,
+  }) {
     if (_scope == scope && initialQuery == null) return;
     final nextQuery =
         initialQuery ??
-        (scope == .apps || (_scope == .apps && scope == .all)
+        (scope == .apps ||
+                scope == .web ||
+                ((_scope == .apps || _scope == .web) && scope == .all)
             ? _search.text
             : '');
     final wasWatching = _inClipboard || _inActions;
     setState(() {
       _scope = scope;
+      _webSelectedInAll = null;
       if (nextQuery.isEmpty) {
         _search.clear();
       } else {
@@ -298,6 +344,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       cursorUtf16: _cursorUtf16(),
     );
     _apps.update(scope, nextQuery, immediate: true);
+    _web.update(scope, nextQuery, engine: webEngine, immediate: true);
     _windows.update(active: _inWindows, query: _search.text);
     if (_inClipboard || _inActions) {
       if (!wasWatching) _startWatch();
@@ -310,6 +357,20 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   void _searchChanged(String value) {
+    if (_web.available && (_inWeb || _scope == .all)) {
+      if (_scope == .all && value == '?') {
+        _setScope(.web, initialQuery: '');
+        return;
+      }
+      final engine = _web.engine == null && _search.value.composing.isCollapsed
+          ? _web.keyword(value)
+          : null;
+      if (engine != null) {
+        final query = value.substring(value.indexOf(' ') + 1);
+        _setScope(.web, initialQuery: query, webEngine: engine);
+        return;
+      }
+    }
     if (_scope == .all) {
       if (value == ';' || value == '>') {
         _setScope(value == ';' ? .clipboard : .run);
@@ -336,10 +397,12 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
     setState(() {
       _queryIds = null;
-      if (_inCalculator || _scope == .all) _status = null;
+      if (_inCalculator || _inWeb || _scope == .all) _status = null;
+      _webSelectedInAll = null;
       _preserveSelection(0);
     });
     _apps.update(_scope, value);
+    _web.update(_scope, value, engine: _web.engine);
     _windows.update(active: _inWindows, query: value);
     if (_inCalculator || _scope == .all) {
       _calculator.updateQuery(_search.text, cursorUtf16: _cursorUtf16());
@@ -414,139 +477,6 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     });
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    final keys = HardwareKeyboard.instance;
-    final key = event.logicalKey;
-    final ctrl = keys.isControlPressed;
-    final shift = keys.isShiftPressed;
-    final alt = keys.isAltPressed;
-
-    if (_revealing &&
-        (!ctrl ||
-            !keys.logicalKeysPressed.contains(LogicalKeyboardKey.space))) {
-      _maskSecret();
-    }
-    if (ctrl && !alt && event is KeyDownEvent) {
-      if (key == LogicalKeyboardKey.digit2 && _apps.available) {
-        _setScope(.apps);
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.digit7 && _apps.available) {
-        _setScope(.windows);
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.tab && _apps.available) {
-        final scopes = _activeScopes;
-        final index = scopes.indexOf(_scope);
-        _setScope(scopes[(index + (shift ? -1 : 1)) % scopes.length]);
-        return .handled;
-      }
-    }
-    if (_inApps || _scope == .all) {
-      final handled = _apps.handleKey(
-        event,
-        _search,
-        _searchChanged,
-        tileColumns: _tileColumns,
-      );
-      if (handled == .handled) return handled;
-    }
-    if (_inWindows && _windows.handleKey(event) == .handled) return .handled;
-    if (event is KeyUpEvent) return .ignored;
-
-    if (key == LogicalKeyboardKey.escape && event is KeyDownEvent) {
-      if (_calculator.actionsOpen) {
-        _closeCalculatorActions();
-        return .handled;
-      }
-      if (_inCalculator && _calculator.shouldShowError) {
-        _calculator.dismissError();
-        return .handled;
-      }
-      if (_search.text.isNotEmpty) {
-        _search.clear();
-        _searchChanged('');
-      } else if (_scope != .all) {
-        _setScope(.all);
-      } else {
-        unawaited(_dismiss());
-      }
-      return .handled;
-    }
-    if (key == LogicalKeyboardKey.backspace &&
-        _search.text.isEmpty &&
-        _scope != .all &&
-        !ctrl &&
-        !alt &&
-        event is KeyDownEvent) {
-      _setScope(.all);
-      return .handled;
-    }
-    if (ctrl && key == LogicalKeyboardKey.digit5 && event is KeyDownEvent) {
-      _setScope(.calculator);
-      return .handled;
-    }
-    if (ctrl && key == LogicalKeyboardKey.digit6 && event is KeyDownEvent) {
-      _setScope(.clipboard);
-      return .handled;
-    }
-    if (_scope == .all &&
-        _calculator.hasInlineResult &&
-        event is KeyDownEvent) {
-      if (key == LogicalKeyboardKey.tab && !ctrl && !alt && !shift) {
-        _setScope(.calculator, initialQuery: _search.text);
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.enter && !ctrl && !alt && !shift) {
-        unawaited(_copyCalculatorResult());
-        return .handled;
-      }
-    }
-    if (_inCalculator && event is KeyDownEvent) {
-      return _onCalculatorKey(key, ctrl: ctrl, shift: shift, alt: alt);
-    }
-    if (_inActions && _showsClear && key == LogicalKeyboardKey.enter) {
-      if (event is KeyDownEvent) unawaited(_clear());
-      return .handled;
-    }
-    if (!_inClipboard) return .ignored;
-    if (key == LogicalKeyboardKey.arrowUp ||
-        key == LogicalKeyboardKey.arrowDown) {
-      _move(key == LogicalKeyboardKey.arrowUp ? -1 : 1);
-      return .handled;
-    }
-    if (ctrl && key == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
-      final filters = _ClipboardFilter.values;
-      _setFilter(filters[(_filter.index + (shift ? -1 : 1)) % filters.length]);
-      return .handled;
-    }
-
-    final entry = _selected;
-    if (entry == null || _error != null || _busy) return .ignored;
-    if (ctrl && key == LogicalKeyboardKey.space && entry.kind == .hidden) {
-      if (event is KeyDownEvent) unawaited(_reveal(entry));
-      return .handled;
-    }
-    final action = _clipboardActions
-        .forEntry(entry)
-        .where(
-          (action) =>
-              action.key == key &&
-              action.ctrl == ctrl &&
-              action.shift == shift &&
-              action.alt == alt,
-        )
-        .firstOrNull;
-    if (action == null) return .ignored;
-    if (action.key == LogicalKeyboardKey.keyC &&
-        _searchFocus.hasFocus &&
-        !_search.selection.isCollapsed) {
-      return .ignored;
-    }
-    if (event is KeyDownEvent) unawaited(_perform(action.run));
-    return .handled;
-  }
-
   Future<void> _reveal(ClipboardEntry entry) async {
     final generation = ++_revealGeneration;
     _revealing = true;
@@ -573,30 +503,6 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     } else {
       _revealed = null;
     }
-  }
-
-  Future<void> _showAppInfo(String text) => showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Package info'),
-      content: SingleChildScrollView(child: SelectableText(text)),
-      actions: [
-        TextButton(
-          autofocus: true,
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
-        ),
-      ],
-    ),
-  );
-
-  Future<String?> _askWorkspace() async {
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => const _WorkspaceDialog(),
-    );
-    if (mounted) _searchFocus.requestFocus();
-    return value;
   }
 
   Future<void> _dismiss() async {
@@ -634,296 +540,6 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
   }
 
-  Future<void> _clear() => _perform(() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear clipboard history?'),
-        content: const Text(
-          'This removes all Remy\'a Launcher history, including pinned entries.',
-        ),
-        actions: [
-          TextButton(
-            autofocus: true,
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Clear history'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    await widget.client.clear();
-    await _refresh();
-    if (mounted) setState(() => _status = 'Clipboard history cleared.');
-  });
-
-  Future<String?> _editText(String initial) async {
-    if (!mounted) return null;
-    return showDialog<String>(
-      context: context,
-      builder: (context) => _EditDialog(initial),
-    );
-  }
-
-  KeyEventResult _onCalculatorKey(
-    LogicalKeyboardKey key, {
-    required bool ctrl,
-    required bool shift,
-    required bool alt,
-  }) {
-    if (ctrl && key == LogicalKeyboardKey.keyK && !alt) {
-      if (_calculator.actionsOpen) {
-        _closeCalculatorActions();
-      } else {
-        _openCalculatorActions();
-      }
-      return .handled;
-    }
-    if (key == LogicalKeyboardKey.arrowRight &&
-        !ctrl &&
-        !shift &&
-        !alt &&
-        _search.selection.isCollapsed &&
-        _search.selection.extentOffset == _search.text.length &&
-        _calculator.canOpenActions) {
-      _openCalculatorActions();
-      return .handled;
-    }
-    if (ctrl && key == LogicalKeyboardKey.keyB && !shift && !alt) {
-      _calculator.cycleBitWidth();
-      return .handled;
-    }
-    if (ctrl &&
-        !shift &&
-        !alt &&
-        key == LogicalKeyboardKey.keyR &&
-        (_calculator.selectedCandidate?.kind == 'currency' ||
-            _calculator.hasRateDiagnostic)) {
-      unawaited(_calculator.refreshRates());
-      return .handled;
-    }
-    if (ctrl &&
-        !shift &&
-        !alt &&
-        key == LogicalKeyboardKey.keyI &&
-        _calculator.candidates.length > 1) {
-      _calculator.cycleCandidate(1);
-      return .handled;
-    }
-    if (ctrl &&
-        !alt &&
-        (shift && key == LogicalKeyboardKey.keyC ||
-            !shift && key == LogicalKeyboardKey.enter)) {
-      final expr = _calculator.selectedCandidate?.normalized ?? _search.text;
-      if (expr.isNotEmpty) unawaited(_copyPlainText(expr));
-      return .handled;
-    }
-    if (alt &&
-        !ctrl &&
-        !shift &&
-        key == LogicalKeyboardKey.enter &&
-        _calculator.isCopyableResult) {
-      unawaited(_pasteCalculatorResult());
-      return .handled;
-    }
-    if (ctrl &&
-        !alt &&
-        !shift &&
-        key == LogicalKeyboardKey.keyS &&
-        _calculator.isCopyableResult) {
-      unawaited(_promptSaveVariable(_search.text));
-      return .handled;
-    }
-    if (alt && !ctrl && !shift) {
-      const formatKeys = [
-        LogicalKeyboardKey.digit1,
-        LogicalKeyboardKey.digit2,
-        LogicalKeyboardKey.digit3,
-        LogicalKeyboardKey.digit4,
-        LogicalKeyboardKey.digit5,
-      ];
-      final index = formatKeys.indexOf(key);
-      final candidate = _calculator.selectedCandidate;
-      if (index >= 0 &&
-          _calculator.completions.isNotEmpty &&
-          index < _calculator.completions.length) {
-        if (_calculator.completions[index].edit case final edit?) {
-          _applyCalculatorEdit(edit);
-          return .handled;
-        }
-      }
-      if (index >= 0 &&
-          _calculator.candidates.length > 1 &&
-          index < _calculator.candidates.length) {
-        _calculator.selectCandidate(_calculator.candidates[index].id);
-        return .handled;
-      }
-      final formats = candidate?.numberedFormats ?? const [];
-      final format = index >= 0 && index < formats.length
-          ? formats[index]
-          : null;
-      if (format != null) {
-        _calculator.selectFormat(format.id);
-        unawaited(
-          _copyCalculatorResult(
-            formatIdOverride: format.id,
-            copyFloatBits: true,
-          ),
-        );
-        return .handled;
-      }
-    }
-    if (key == LogicalKeyboardKey.tab && !ctrl && !alt) {
-      return _handleCalculatorTab(reverse: shift);
-    }
-    if ((key == LogicalKeyboardKey.arrowUp ||
-            key == LogicalKeyboardKey.arrowDown) &&
-        !ctrl &&
-        !alt) {
-      final delta = key == LogicalKeyboardKey.arrowUp ? -1 : 1;
-      if (_calculator.shouldShowError && _calculator.suggestions.isNotEmpty) {
-        _calculator.moveSuggestion(delta);
-        return .handled;
-      }
-      if (_search.text.trim().isEmpty &&
-          _calculator.historyEntries.isNotEmpty) {
-        _calculator.moveHistorySelection(delta);
-        return .handled;
-      }
-      if (_calculator.completions.length > 1) {
-        _calculator.moveCompletionSelection(delta);
-        return .handled;
-      }
-      if (_calculator.catalogEntries.length > 1 &&
-          _calculator.selectedCandidate == null) {
-        _calculator.moveCatalogSelection(delta);
-        return .handled;
-      }
-      if (_calculator.candidates.length > 1) {
-        _calculator.cycleCandidate(delta);
-        return .handled;
-      }
-      return .ignored;
-    }
-    if (key == LogicalKeyboardKey.enter && !ctrl && !alt && !shift) {
-      if (_calculator.hasPendingError) {
-        _calculator.revealErrorNow();
-        return .handled;
-      }
-      if (_calculator.shouldShowError && _calculator.suggestions.isNotEmpty) {
-        final suggestion =
-            _calculator.suggestions[_calculator.selectedSuggestionIndex];
-        if (suggestion.replacement case final edit?) {
-          _applyCalculatorEdit(edit);
-        } else {
-          _fillCalculatorQuery(suggestion.label);
-        }
-        return .handled;
-      }
-      if (_calculator.selectedCompletion?.edit case final edit?) {
-        _applyCalculatorEdit(edit);
-        return .handled;
-      }
-      if (_search.text.trim().isEmpty && _calculator.selectedHistory != null) {
-        unawaited(_copyPlainText(_calculator.selectedHistory!.copyText));
-        return .handled;
-      }
-      if (_calculator.isCopyableResult) {
-        unawaited(_copyCalculatorResult());
-        return .handled;
-      }
-      if (_calculator.selectedCatalogEntry case final entry?) {
-        if (entry.definition case final definition?) {
-          unawaited(_copyPlainText(definition));
-        } else {
-          _fillCalculatorQuery(entry.insertText);
-        }
-        return .handled;
-      }
-      return .ignored;
-    }
-    if (shift &&
-        key == LogicalKeyboardKey.delete &&
-        !ctrl &&
-        !alt &&
-        _search.text.trim().isEmpty &&
-        _calculator.selectedHistory != null) {
-      unawaited(
-        _calculator.deleteHistory(_calculator.selectedHistory!.historyId),
-      );
-      return .handled;
-    }
-    if (ctrl &&
-        key == LogicalKeyboardKey.keyD &&
-        !shift &&
-        !alt &&
-        _search.text.trim().isEmpty &&
-        _calculator.selectedHistory != null) {
-      final entry = _calculator.selectedHistory!;
-      unawaited(
-        _calculator.setHistoryPinned(entry.historyId, pinned: !entry.isPinned),
-      );
-      return .handled;
-    }
-    return .ignored;
-  }
-
-  KeyEventResult _handleCalculatorTab({required bool reverse}) {
-    if (!reverse) {
-      if (_calculator.pendingCorrectionEdit case final correction?) {
-        _applyCalculatorEdit(correction);
-        return .handled;
-      }
-      if (_calculator.pendingCompletionEdit case final completion?) {
-        _applyCalculatorEdit(completion);
-        return .handled;
-      }
-    }
-    if ((_calculator.selectedCandidate?.formats.length ?? 0) > 1) {
-      _calculator.cycleFormat(reverse ? -1 : 1);
-      return .handled;
-    }
-    if (_calculator.candidates.length > 1) {
-      _calculator.cycleCandidate(reverse ? -1 : 1);
-      return .handled;
-    }
-    if (!reverse &&
-        _search.text.trim().isEmpty &&
-        _calculator.selectedHistory != null) {
-      _fillCalculatorQuery(_calculator.selectedHistory!.query);
-      return .handled;
-    }
-    if (!reverse && _calculator.selectedCatalogEntry != null) {
-      _fillCalculatorQuery(_calculator.selectedCatalogEntry!.insertText);
-      return .handled;
-    }
-    return .ignored;
-  }
-
-  void _applyCalculatorEdit(CalculatorTextEdit edit) {
-    final next = edit.applyTo(_search.value);
-    if (next == null) return;
-    _search.value = next;
-    _searchFocus.requestFocus();
-    _calculator.updateQuery(
-      next.text,
-      cursorUtf16: next.selection.extentOffset,
-    );
-  }
-
-  void _fillCalculatorQuery(String query) {
-    _search.value = TextEditingValue(
-      text: query,
-      selection: TextSelection.collapsed(offset: query.length),
-    );
-    _searchFocus.requestFocus();
-    _calculator.updateQuery(query, cursorUtf16: query.length);
-  }
-
   Future<void> _copyPlainText(String text) async {
     if (text.isEmpty) return;
     try {
@@ -936,799 +552,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
   }
 
-  Future<void> _pasteCalculatorResult() async {
-    final result = await _calculator.commitSelected();
-    if (result == null || result.isEmpty || !mounted) return;
-    await _perform(() => _clipboardActions.pasteText(result));
-  }
-
-  Future<void> _copyCalculatorResult({
-    String? formatIdOverride,
-    bool copyFloatBits = false,
-  }) async {
-    final text = await _calculator.commitSelected(
-      formatIdOverride: formatIdOverride,
-      copyFloatBits: copyFloatBits,
-    );
-    if (text == null || text.isEmpty) return;
-    await _copyPlainText(text);
-  }
-
-  void _openCalculatorActions() {
-    if (!_calculator.canOpenActions) return;
-    _calculator.openActions();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _calculator.actionsOpen) _actionsFocus.requestFocus();
-    });
-  }
-
-  void _closeCalculatorActions() {
-    _calculator.closeActions();
-    _searchFocus.requestFocus();
-  }
-
-  List<CalculatorMenuAction> _currentCalculatorActions() =>
-      _calculator.buildActions(
-        onCopyText: _copyPlainText,
-        onCommitAndCopy: _copyCalculatorResult,
-        onEditQuery: _fillCalculatorQuery,
-        onSaveVariable: _promptSaveVariable,
-        onPasteResult: _pasteCalculatorResult,
-        onClearHistory: _confirmClearCalculatorHistory,
-      );
-
-  Future<void> _promptSaveVariable(String expression) async {
-    if (!mounted) return;
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => _SaveVariableDialog(expression),
-    );
-    if (name == null || name.isEmpty || !mounted) return;
-    final error = await _calculator.saveVariable(name, expression);
-    if (!mounted) return;
-    setState(() {
-      _status = error ?? 'Saved variable $name.';
-    });
-    _searchFocus.requestFocus();
-  }
-
-  Future<void> _confirmClearCalculatorHistory() async {
-    if (!mounted) return;
-    final hasPinned = _calculator.historyEntries.any((e) => e.isPinned);
-    var includePinned = false;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Clear calculator history?'),
-          content: Column(
-            mainAxisSize: .min,
-            crossAxisAlignment: .start,
-            spacing: 8,
-            children: [
-              Text(
-                hasPinned
-                    ? 'Unpinned calculations will be removed.'
-                    : 'All calculator history will be removed.',
-              ),
-              if (hasPinned)
-                CheckboxListTile(
-                  value: includePinned,
-                  contentPadding: .zero,
-                  controlAffinity: .leading,
-                  title: const Text('Include pinned items'),
-                  onChanged: (value) =>
-                      setDialogState(() => includePinned = value ?? false),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              autofocus: true,
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Clear history'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    await _calculator.clearHistory(includePinned: includePinned);
-    if (!mounted) return;
-    setState(() => _status = 'Calculator history cleared.');
-    _searchFocus.requestFocus();
-  }
-
-  Future<void> _runCalculatorAction(CalculatorMenuAction action) async {
-    _closeCalculatorActions();
-    await action.run();
-  }
-
-  KeyEventResult _onActionsKey(FocusNode node, KeyEvent event) {
-    if (event is KeyUpEvent) return .ignored;
-    if (event is! KeyDownEvent) return .ignored;
-    final keys = HardwareKeyboard.instance;
-    final key = event.logicalKey;
-    final ctrl = keys.isControlPressed;
-    final shift = keys.isShiftPressed;
-    final alt = keys.isAltPressed;
-
-    if (key == LogicalKeyboardKey.escape ||
-        (ctrl && key == LogicalKeyboardKey.keyK)) {
-      _closeCalculatorActions();
-      return .handled;
-    }
-    final actions = _currentCalculatorActions();
-    if (key == LogicalKeyboardKey.arrowUp ||
-        (key == LogicalKeyboardKey.tab && shift)) {
-      _calculator.moveActionSelection(-1, actions.length);
-      return .handled;
-    }
-    if (key == LogicalKeyboardKey.arrowDown ||
-        (key == LogicalKeyboardKey.tab && !shift)) {
-      _calculator.moveActionSelection(1, actions.length);
-      return .handled;
-    }
-    if (key == LogicalKeyboardKey.enter && actions.isNotEmpty) {
-      final index = _calculator.actionIndex.clamp(0, actions.length - 1);
-      unawaited(_runCalculatorAction(actions[index]));
-      return .handled;
-    }
-    if (key == LogicalKeyboardKey.backspace) {
-      final current = _calculator.actionFilter;
-      if (current.isNotEmpty) {
-        _calculator.updateActionFilter(
-          current.substring(0, current.length - 1),
-        );
-      }
-      return .handled;
-    }
-    final char = event.character;
-    if (char != null &&
-        char.isNotEmpty &&
-        !ctrl &&
-        !alt &&
-        char.codeUnitAt(0) >= 32) {
-      _calculator.updateActionFilter('${_calculator.actionFilter}$char');
-      return .handled;
-    }
-    return .handled;
-  }
-
   bool get _showsClear =>
       _inActions &&
       _error == null &&
       !_loading &&
       'clear clipboard history'.contains(_search.text.trim().toLowerCase());
 
-  @override
-  Widget build(BuildContext context) {
-    final selected = _selected;
-    final actions = selected == null || _error != null
-        ? const <ClipboardAction>[]
-        : _clipboardActions.forEntry(selected);
-    return Focus(
-      onKeyEvent: _onKey,
-      onFocusChange: (focused) {
-        if (!focused) _maskSecret();
-      },
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final height = constraints.maxHeight;
-          final compact = constraints.maxWidth < 360;
-          _tileColumns = constraints.maxWidth < 640 ? 3 : 6;
-          final inset = compact ? 8.0 : 16.0;
-          final top = compact || height < 420 ? inset : 70.0;
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: .opaque,
-                  onTap: _dismiss,
-                  excludeFromSemantics: true,
-                ),
-              ),
-              Align(
-                alignment: .topCenter,
-                child: Padding(
-                  padding: .fromLTRB(inset, top, inset, inset),
-                  child: GestureDetector(
-                    behavior: .opaque,
-                    onTap: () {
-                      if (_calculator.actionsOpen) _closeCalculatorActions();
-                      _apps.closeMenu();
-                    },
-                    excludeFromSemantics: true,
-                    child: ListenableBuilder(
-                      listenable: Listenable.merge([
-                        _calculator,
-                        _apps,
-                        _windows,
-                      ]),
-                      builder: (context, _) => LauncherPanel(
-                        width: _inClipboard ? 960 : 720,
-                        scope: _scope,
-                        enabledScopes: _activeScopes.toSet(),
-                        onScopeSelected: _setScope,
-                        scrollBody: !_inClipboard && !_inApps && !_inWindows,
-                        actionsBodyHeight: _apps.menuApp == null ? 286 : 408,
-                        onOverlay: true,
-                        compact: compact,
-                        search: LauncherSearchField(
-                          scope: _scope,
-                          controller: _search,
-                          focusNode: _searchFocus,
-                          autofocus: true,
-                          compact: compact,
-                          placeholder: _inClipboard
-                              ? 'Filter clipboard…'
-                              : _inCalculator
-                              ? 'Expression, conversion, or search functions & units'
-                              : _inApps
-                              ? (_apps.ready
-                                    ? 'Filter ${_apps.result.total} apps by name, kind or keyword…'
-                                    : 'Filter apps by name, kind or keyword…')
-                              : _inWindows
-                              ? 'Filter windows by title or class…'
-                              : _inActions
-                              ? 'Filter actions…'
-                              : 'Search launcher…',
-                          onChanged: _searchChanged,
-                          trailing: _inApps && _apps.ready
-                              ? AppsSearchHint(_apps)
-                              : _inWindows && _windows.ready
-                              ? Text(
-                                  '${_windows.windows.length} windows',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                )
-                              : _inClipboard && _error == null
-                              ? Text(
-                                  '${_visibleEntries.length} items',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                )
-                              : _inCalculator && _calculator.searchHint != null
-                              ? Text(
-                                  _calculator.searchHint!,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                )
-                              : null,
-                        ),
-                        body: _inClipboard
-                            ? _clipboardBody(
-                                selected,
-                                actions,
-                                compact: compact,
-                              )
-                            : _inCalculator
-                            ? _calculatorBody(compact: compact)
-                            : _inApps
-                            ? AppsResults(_apps, tileColumns: _tileColumns)
-                            : _inWindows
-                            ? WindowsResults(_windows)
-                            : _shellBody(),
-                        actions: _calculator.actionsOpen
-                            ? _calculatorActionsOverlay()
-                            : _apps.menuApp != null
-                            ? AppsActionsMenu(_apps)
-                            : null,
-                        footer: _footer(
-                          actions,
-                          selected,
-                          singleLine:
-                              constraints.maxWidth < 540 || height < 520,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _calculatorBody({required bool compact}) => CalculatorResults(
-    controller: _calculator,
-    compact: compact,
-    onCopyResult: () => unawaited(_copyCalculatorResult()),
-    onCopyText: (text) => unawaited(_copyPlainText(text)),
-    onApplyEdit: _applyCalculatorEdit,
-    onFillQuery: _fillCalculatorQuery,
-    onClearHistory: () => unawaited(_confirmClearCalculatorHistory()),
-  );
-
-  Widget _calculatorActionsOverlay() {
-    final actions = _currentCalculatorActions();
-    return Focus(
-      focusNode: _actionsFocus,
-      onKeyEvent: _onActionsKey,
-      child: LauncherActionsMenu(
-        title: _calculator.actionFilter.isEmpty
-            ? (_calculator.selectedCandidate?.primaryDisplay(
-                    _calculator.selectedFormatId,
-                  ) ??
-                  'Calculator actions')
-            : 'Filter: ${_calculator.actionFilter}',
-        actions: [
-          for (final action in actions)
-            LauncherAction(
-              action.label,
-              action.icon,
-              action.keys,
-              destructive: action.destructive,
-              onPressed: () => unawaited(_runCalculatorAction(action)),
-            ),
-        ],
-        selectedIndex: actions.isEmpty
-            ? 0
-            : _calculator.actionIndex.clamp(0, actions.length - 1),
-      ),
-    );
-  }
-
-  Widget _shellBody() {
-    if (_inActions) {
-      if (_error != null) return _unavailable();
-      if (_loading) return const LinearProgressIndicator();
-      if (!_showsClear) return const _Message('No matching actions.');
-      return LauncherResultRow(
-        title: const TextSpan(text: 'Clear clipboard history'),
-        subtitle: 'Remy\'a Launcher',
-        leading: const LauncherSymbolTile(.trash, selected: true),
-        trailing: const LauncherKeyHint(['↵']),
-        selected: true,
-        onPressed: _busy ? null : _clear,
-      );
-    }
-    final clipboardRow = LauncherResultRow(
-      title: const TextSpan(text: 'Clipboard history'),
-      subtitle: 'Search and paste recently copied items',
-      leading: const LauncherSymbolTile(.clipboard),
-      trailing: const LauncherKeyHint(['Ctrl', '6']),
-      onPressed: () => _setScope(.clipboard),
-    );
-    if (_scope == .all && _calculator.hasInlineResult) {
-      return Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        spacing: 8,
-        children: [
-          AppsResults(_apps, tileColumns: _tileColumns),
-          CalculatorInlineResult(
-            controller: _calculator,
-            onOpenInCalc: () =>
-                _setScope(.calculator, initialQuery: _search.text),
-            onCopy: () => unawaited(_copyCalculatorResult()),
-          ),
-          clipboardRow,
-        ],
-      );
-    }
-    if (_scope == .all && _search.text.trim().isEmpty) {
-      return Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        children: [
-          AppsResults(_apps, tileColumns: _tileColumns),
-          LauncherResultRow(
-            title: const TextSpan(text: 'Calculator'),
-            subtitle: 'Math, unit conversions, programmer bases, floats, time, currency',
-            leading: const LauncherSymbolTile(.calculate),
-            trailing: const LauncherKeyHint(['Ctrl', '5']),
-            onPressed: () => _setScope(.calculator),
-          ),
-          clipboardRow,
-          if (_apps.available)
-            LauncherResultRow(
-              title: const TextSpan(text: 'Windows'),
-              subtitle: 'Focus an open window or move it here',
-              leading: const LauncherSymbolTile(.window),
-              trailing: const LauncherKeyHint(['Ctrl', '7']),
-              onPressed: () => _setScope(.windows),
-            ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: .stretch,
-      children: [
-        AppsResults(_apps, tileColumns: _tileColumns),
-        clipboardRow,
-      ],
-    );
-  }
-
-  Widget _clipboardBody(
-    ClipboardEntry? selected,
-    List<ClipboardAction> actions, {
-    required bool compact,
-  }) {
-    if (_error != null) return _unavailable();
-    if (_loading && _entries.isEmpty) {
-      return const LinearProgressIndicator(
-        semanticsLabel: 'Loading clipboard history',
-      );
-    }
-    final visible = _visibleEntries;
-    final counts = <String, int>{
-      for (final filter in _ClipboardFilter.values)
-        filter.label: _entries
-            .where(
-              (entry) => _matchesQuery(entry) && filter.accepts(entry.kind),
-            )
-            .length,
-    };
-    final filters = ClipboardFilters(
-      counts: counts,
-      selected: _filter.label,
-      onSelected: (label) => _setFilter(
-        _ClipboardFilter.values.firstWhere((filter) => filter.label == label),
-      ),
-    );
-    if (visible.isEmpty) {
-      return Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        children: [
-          filters,
-          _Message(
-            _entries.isEmpty
-                ? _enabled
-                      ? 'Clipboard history is empty.'
-                      : 'Clipboard history is paused.'
-                : 'No matching clipboard entries.',
-          ),
-        ],
-      );
-    }
-
-    return ClipboardHistory(
-      entries: visible,
-      selectedId: _selectedId,
-      client: widget.client,
-      scroll: _historyScroll,
-      filters: filters,
-      paused: !_enabled,
-      compact: compact,
-      preview: selected == null
-          ? const SizedBox.shrink()
-          : _preview(selected, actions, compact: compact),
-      onSelected: (entry) {
-        setState(() => _select(entry));
-        _searchFocus.requestFocus();
-      },
-      onPaste: _busy
-          ? null
-          : (entry) => _perform(() => _clipboardActions.paste(entry)),
-    );
-  }
-
-  Widget _preview(
-    ClipboardEntry selected,
-    List<ClipboardAction> actions, {
-    required bool compact,
-  }) {
-    final hints = [
-      for (final action in actions)
-        if (action.key != LogicalKeyboardKey.keyD && !action.alt) action.hint,
-      if (selected.kind == .color && clipboardColor(selected.color) != null)
-        const LauncherKeyHint(['Alt', '1–4'], label: 'Paste in that format'),
-    ];
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: .circular(20),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      ),
-      child: SingleChildScrollView(
-        key: ValueKey(selected.id),
-        child: FutureBuilder<ClipboardDetail>(
-          future: _detail,
-          builder: (context, snapshot) => snapshot.hasError
-              ? const _Message('Preview unavailable.')
-              : ClipboardLivePreview(
-                  entry: selected,
-                  compact: compact,
-                  detail: snapshot.connectionState == .done
-                      ? snapshot.data
-                      : null,
-                  hints: hints,
-                  revealed: _revealed,
-                  onColor: _busy
-                      ? null
-                      : (value) =>
-                            _perform(() => _clipboardActions.pasteText(value)),
-                ),
-        ),
-      ),
-    );
-  }
-
-  Widget _unavailable() => Wrap(
-    crossAxisAlignment: .center,
-    children: [
-      _Message(_error!),
-      TextButton(
-        onPressed: _loading ? null : _startWatch,
-        child: const Text('Retry'),
-      ),
-    ],
-  );
-
-  LauncherFooter _footer(
-    List<ClipboardAction> actions,
-    ClipboardEntry? selected, {
-    required bool singleLine,
-  }) {
-    if (_status case final status?) {
-      return LauncherFooter(
-        leading: [LauncherKeyHint(const [], label: status)],
-      );
-    }
-    if (_inWindows) return windowsFooter(_windows, singleLine: singleLine);
-    if (_inApps || (_scope == .all && _apps.selected != null)) {
-      return appsFooter(_apps, singleLine: singleLine);
-    }
-    if (_inCalculator) {
-      if (_calculator.actionsOpen) {
-        return LauncherFooter(
-          singleLine: singleLine,
-          leading: const [
-            LauncherKeyHint(['↵'], label: 'Run action'),
-            LauncherKeyHint(['Esc'], label: 'Back'),
-          ],
-          trailing: const [
-            LauncherKeyHint(['↑', '↓'], label: 'Navigate'),
-          ],
-        );
-      }
-      if (_search.text.trim().isEmpty) {
-        final selectedHistory = _calculator.selectedHistory;
-        return LauncherFooter(
-          singleLine: singleLine,
-          leading: [
-            if (selectedHistory != null) ...[
-              const LauncherKeyHint(['↵'], label: 'Copy result'),
-              const LauncherKeyHint(['Tab'], label: 'Edit query'),
-              LauncherKeyHint(const [
-                'Ctrl',
-                'D',
-              ], label: selectedHistory.isPinned ? 'Unpin' : 'Pin'),
-              const LauncherKeyHint(['⇧', 'Del'], label: 'Delete'),
-            ] else
-              const LauncherKeyHint(['Esc'], label: 'Close'),
-          ],
-          trailing: [
-            if (_calculator.historyEntries.isNotEmpty)
-              const LauncherKeyHint(['↑', '↓'], label: 'History'),
-            if (_calculator.canOpenActions)
-              const LauncherKeyHint(['Ctrl', 'K'], label: 'Actions'),
-          ],
-        );
-      }
-      if (_calculator.shouldShowError && _calculator.suggestions.isNotEmpty) {
-        return LauncherFooter(
-          singleLine: singleLine,
-          leading: const [
-            LauncherKeyHint(['↵'], label: 'Use suggestion'),
-            LauncherKeyHint(['↑', '↓'], label: 'Choose'),
-          ],
-          trailing: const [
-            LauncherKeyHint(['Esc'], label: 'Keep editing'),
-          ],
-        );
-      }
-      final formatCount = _calculator.selectedCandidate?.formats.length ?? 0;
-      return LauncherFooter(
-        singleLine: singleLine,
-        leading: [
-          if (_calculator.hasPendingCompletionOrCorrection)
-            const LauncherKeyHint(['Tab'], label: 'Apply edit')
-          else if (formatCount > 1)
-            const LauncherKeyHint(['Tab'], label: 'Next format'),
-          if (_calculator.isCopyableResult)
-            const LauncherKeyHint(['↵'], label: 'Copy'),
-          if (_calculator.selectedCandidate?.kind == 'programmer') ...const [
-            LauncherKeyHint(['Alt', '1–4'], label: 'Copy format'),
-            LauncherKeyHint(['Ctrl', 'B'], label: 'Bit width'),
-          ],
-          if (_calculator.selectedCandidate?.kind == 'float_format')
-            const LauncherKeyHint(['Alt', '1–3'], label: 'Copy bits'),
-          if (_calculator.selectedCandidate?.kind == 'currency')
-            const LauncherKeyHint(['Ctrl', 'R'], label: 'Refresh rates'),
-          if (_calculator.candidates.length > 1)
-            const LauncherKeyHint(['Ctrl', 'I'], label: 'Next reading'),
-          if (_calculator.selectedCatalogEntry != null)
-            const LauncherKeyHint(['Tab'], label: 'Insert symbol'),
-        ],
-        trailing: [
-          if (_calculator.canOpenActions)
-            const LauncherKeyHint(['Ctrl', 'K'], label: 'Actions'),
-        ],
-      );
-    }
-    return LauncherFooter(
-      singleLine: singleLine,
-      leading: [
-        if (_inClipboard)
-          for (final action in actions)
-            if (const [
-              LogicalKeyboardKey.enter,
-              LogicalKeyboardKey.keyD,
-              LogicalKeyboardKey.delete,
-            ].contains(action.key))
-              action.hint,
-        if (_scope == .all && _calculator.hasInlineResult) ...const [
-          LauncherKeyHint(['Tab'], label: 'Open in Calc'),
-          LauncherKeyHint(['↵'], label: 'Copy'),
-        ],
-        if (!_inClipboard) const LauncherKeyHint(['Esc'], label: 'Close'),
-      ],
-      trailing: [
-        if (selected?.kind == .hidden && _error == null)
-          const LauncherKeyHint(['Ctrl', 'Space'], label: 'Reveal hidden'),
-      ],
-    );
-  }
-}
-
-class _WorkspaceDialog extends StatefulWidget {
-  const _WorkspaceDialog();
+  void _rebuild(VoidCallback update) => setState(update);
 
   @override
-  State<_WorkspaceDialog> createState() => _WorkspaceDialogState();
-}
-
-class _WorkspaceDialogState extends State<_WorkspaceDialog> {
-  final _form = GlobalKey<FormState>();
-  String _value = '';
-
-  void _submit() {
-    if (_form.currentState!.validate()) Navigator.pop(context, _value.trim());
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Open on workspace'),
-    content: Form(
-      key: _form,
-      child: TextFormField(
-        autofocus: true,
-        keyboardType: .number,
-        decoration: const InputDecoration(labelText: 'Workspace number'),
-        onChanged: (value) => _value = value,
-        onFieldSubmitted: (_) => _submit(),
-        validator: (value) => (int.tryParse(value?.trim() ?? '') ?? 0) > 0
-            ? null
-            : 'Enter a positive workspace number.',
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(onPressed: _submit, child: const Text('Open')),
-    ],
-  );
-}
-
-class _Message extends StatelessWidget {
-  const _Message(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const .symmetric(horizontal: 12, vertical: 12),
-    child: Text(text, style: Theme.of(context).textTheme.bodySmall),
-  );
-}
-
-class _EditDialog extends StatefulWidget {
-  const _EditDialog(this.initial);
-
-  final String initial;
-
-  @override
-  State<_EditDialog> createState() => _EditDialogState();
-}
-
-class _EditDialogState extends State<_EditDialog> {
-  late final _editor = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _editor.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Edit before pasting'),
-    content: SizedBox(
-      width: 480,
-      child: TextField(
-        autofocus: true,
-        controller: _editor,
-        minLines: 3,
-        maxLines: 10,
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop(context, _editor.text),
-        child: const Text('Paste'),
-      ),
-    ],
-  );
-}
-
-class _SaveVariableDialog extends StatefulWidget {
-  const _SaveVariableDialog(this.expression);
-
-  final String expression;
-
-  @override
-  State<_SaveVariableDialog> createState() => _SaveVariableDialogState();
-}
-
-class _SaveVariableDialogState extends State<_SaveVariableDialog> {
-  final _name = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final trimmed = _name.text.trim();
-    if (trimmed.isEmpty) return;
-    Navigator.pop(context, trimmed);
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Save variable'),
-    content: SizedBox(
-      width: 360,
-      child: Column(
-        mainAxisSize: .min,
-        crossAxisAlignment: .stretch,
-        spacing: 12,
-        children: [
-          Text(
-            'Expression: ${widget.expression}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          TextField(
-            autofocus: true,
-            controller: _name,
-            decoration: const InputDecoration(
-              labelText: 'Variable name',
-              hintText: 'e.g. tax_rate',
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(onPressed: _submit, child: const Text('Save')),
-    ],
-  );
+  Widget build(BuildContext context) => _buildLauncher(context);
 }

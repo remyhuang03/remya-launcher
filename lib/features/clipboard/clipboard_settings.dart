@@ -8,6 +8,8 @@ import 'package:remya_ui/settings_ui.dart';
 
 import '../apps/apps_client.dart';
 import '../apps/apps_settings.dart';
+import '../web/web_client.dart';
+import '../web/web_settings.dart';
 import 'clipboard_client.dart';
 import 'clipboard_policy.dart';
 
@@ -25,6 +27,7 @@ class ClipboardSettingsWindow extends StatefulWidget {
     this.client,
     this.clipboard = const ClipboardClient(),
     this.apps,
+    this.web,
   });
 
   /// Initial settings page id; null or empty opens Clipboard.
@@ -34,6 +37,7 @@ class ClipboardSettingsWindow extends StatefulWidget {
   final SettingsClient? client;
   final ClipboardClient clipboard;
   final AppsClient? apps;
+  final WebClient? web;
 
   @override
   State<ClipboardSettingsWindow> createState() =>
@@ -43,6 +47,7 @@ class ClipboardSettingsWindow extends StatefulWidget {
 class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
   late final SettingsClient _client = widget.client ?? SettingsClient();
   late final AppsClient _apps = widget.apps ?? AppsClient();
+  late final WebClient _web = widget.web ?? WebClient();
   late final _controller = ClipboardPolicyController(
     client: _client,
     clipboard: widget.clipboard,
@@ -58,6 +63,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
     _controller.dispose();
     if (widget.client == null) unawaited(_client.close());
     if (widget.apps == null) unawaited(_apps.close());
+    if (widget.web == null) unawaited(_web.close());
     super.dispose();
   }
 
@@ -96,6 +102,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
                 builder: (_) => _ClipboardPage(controller: _controller),
               ),
               appsSettingsPage(_apps),
+              webSettingsPage(_web),
               remyaMaterialThemePage(client: _client),
             ],
             footerPages: [

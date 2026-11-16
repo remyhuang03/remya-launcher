@@ -9,6 +9,7 @@ import 'features/clipboard/clipboard_platform.dart';
 import 'features/clipboard/clipboard_settings.dart';
 import 'features/files/file_icon_palette.dart';
 import 'features/preview/launcher_examples.dart';
+import 'features/web/web_client.dart';
 
 class RemyaLauncherApp extends StatelessWidget {
   const RemyaLauncherApp({
@@ -21,6 +22,7 @@ class RemyaLauncherApp extends StatelessWidget {
     this.theme,
     this.settingsClient,
     this.appsClient,
+    this.webClient,
     super.key,
   });
 
@@ -37,6 +39,7 @@ class RemyaLauncherApp extends StatelessWidget {
   /// Remya Core connection for the settings window; null connects on demand.
   final SettingsClient? settingsClient;
   final AppsClient? appsClient;
+  final WebClient? webClient;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -67,6 +70,7 @@ class RemyaLauncherApp extends StatelessWidget {
           client: settingsClient,
           clipboard: clipboardClient,
           apps: appsClient,
+          web: webClient,
         )
       : switch (example) {
           final LauncherExample example => Scaffold(
@@ -86,6 +90,7 @@ class RemyaLauncherApp extends StatelessWidget {
               startInClipboard: startInClipboard,
               client: clipboardClient,
               appsClient: appsClient,
+              webClient: webClient,
               platform: clipboardPlatform,
             ),
           ),

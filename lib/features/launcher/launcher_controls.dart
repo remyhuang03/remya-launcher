@@ -202,6 +202,8 @@ class LauncherSearchField extends StatelessWidget {
     this.placeholder = 'Search apps, files, history…',
     this.scope = .all,
     this.trailing,
+    this.queryToken,
+    this.completionSuffix,
     this.autofocus = false,
     this.compact = false,
     this.controller,
@@ -214,7 +216,8 @@ class LauncherSearchField extends StatelessWidget {
   final String initialQuery;
   final String placeholder;
   final LauncherScope scope;
-  final Widget? trailing;
+  final Widget? trailing, queryToken;
+  final String? completionSuffix;
   final bool autofocus;
   final bool compact;
   final TextEditingController? controller;
@@ -225,6 +228,27 @@ class LauncherSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textStyle = TextStyle(fontSize: 18, color: colors.onSurface);
+    final field = Semantics(
+      label: placeholder,
+      child: TextFormField(
+        initialValue: controller == null ? initialQuery : null,
+        controller: controller,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        onChanged: onChanged,
+        onFieldSubmitted: onSubmitted,
+        cursorHeight: 24,
+        style: textStyle,
+        decoration: InputDecoration(
+          hintText: placeholder,
+          hintStyle: TextStyle(color: colors.onSurfaceVariant),
+          isCollapsed: true,
+          border: .none,
+        ),
+      ),
+    );
+    final suffix = completionSuffix;
     return Container(
       height: compact ? 46 : 56,
       padding: .only(left: scope == .all ? 16 : 12, right: 14),
@@ -239,25 +263,46 @@ class LauncherSearchField extends StatelessWidget {
             const LauncherIcon(.search, size: 24)
           else
             _ScopeToken(scope, compact: compact),
+          ?queryToken,
           Expanded(
-            child: Semantics(
-              label: placeholder,
-              child: TextFormField(
-                initialValue: controller == null ? initialQuery : null,
-                controller: controller,
-                focusNode: focusNode,
-                autofocus: autofocus,
-                onChanged: onChanged,
-                onFieldSubmitted: onSubmitted,
-                cursorHeight: 24,
-                style: TextStyle(fontSize: 18, color: colors.onSurface),
-                decoration: InputDecoration(
-                  hintText: placeholder,
-                  hintStyle: TextStyle(color: colors.onSurfaceVariant),
-                  isCollapsed: true,
-                  border: .none,
-                ),
-              ),
+            key: const ValueKey('launcher-search-field'),
+            child: Stack(
+              alignment: .centerLeft,
+              children: [
+                field,
+                if (suffix != null && controller != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ExcludeSemantics(
+                        child: Align(
+                          alignment: .centerLeft,
+                          child: Text.rich(
+                            TextSpan(
+                              style: textStyle,
+                              children: [
+                                TextSpan(
+                                  text: controller!.text,
+                                  style: const TextStyle(
+                                    color: Colors.transparent,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: suffix,
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: .clip,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           if (!compact) ?trailing,

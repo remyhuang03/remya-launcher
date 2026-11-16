@@ -16,6 +16,7 @@ class LauncherPanel extends StatelessWidget {
     this.compact = false,
     this.actions,
     this.actionsBodyHeight = 286,
+    this.actionsWidth = 300,
     super.key,
   });
 
@@ -30,7 +31,7 @@ class LauncherPanel extends StatelessWidget {
   final bool onOverlay;
   final bool compact;
   final Widget? actions;
-  final double actionsBodyHeight;
+  final double actionsBodyHeight, actionsWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +83,7 @@ class LauncherPanel extends StatelessWidget {
             child: Align(
               alignment: AlignmentDirectional.topEnd,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 300),
+                constraints: BoxConstraints(maxWidth: actionsWidth),
                 child: SingleChildScrollView(child: actions),
               ),
             ),
