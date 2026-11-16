@@ -35,6 +35,10 @@ pub enum Operation {
         values: Option<PreferencesPatch>,
     },
     Hidden {},
+    Windows {
+        #[serde(default)]
+        query: String,
+    },
 }
 
 const fn default_true() -> bool {
@@ -96,6 +100,18 @@ pub struct AppWindow {
     pub id: String,
     pub title: String,
     pub workspace: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowEntry {
+    pub id: String,
+    pub title: String,
+    pub class: String,
+    pub workspace: String,
+    pub app_id: Option<String>,
+    pub app_name: Option<String>,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

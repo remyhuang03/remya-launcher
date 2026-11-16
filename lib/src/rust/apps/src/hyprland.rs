@@ -145,16 +145,36 @@ impl HyprClient {
 }
 
 pub fn focus_known_window(address: &str) -> Result<(), String> {
+    let address = known_address(address)?;
+    dispatch_lua(
+        &format!("hl.dsp.focus({{window=\"address:{address}\"}})"),
+        "Could not focus window.",
+    )
+}
+
+/// Returns the validated address of a currently open window.
+fn known_address(address: &str) -> Result<String, String> {
     if !is_valid_address(address) {
         return Err("Invalid window address.".into());
     }
-    let clients = fetch_clients();
-    let known = clients
-        .iter()
+    fetch_clients()
+        .into_iter()
         .find(|c| c.address.eq_ignore_ascii_case(address))
-        .ok_or_else(|| "Window is no longer open.".to_owned())?;
+        .map(|c| c.address)
+        .ok_or_else(|| "Window is no longer open.".to_owned())
+}
+
+pub fn move_window_here(address: &str) -> Result<(), String> {
+    let address = known_address(address)?;
+    // The launcher is a layer surface, so the active monitor's workspace is where the user is.
     dispatch_lua(
-        &format!("hl.dsp.focus({{window=\"address:{}\"}})", known.address),
+        &format!(
+            "hl.dsp.window.move({{workspace=tostring(hl.get_active_monitor().active_workspace.id), window=\"address:{address}\"}})"
+        ),
+        "Could not move window.",
+    )?;
+    dispatch_lua(
+        &format!("hl.dsp.focus({{window=\"address:{address}\"}})"),
         "Could not focus window.",
     )
 }

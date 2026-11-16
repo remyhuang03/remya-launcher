@@ -9,6 +9,7 @@ use crate::packages::PackageCache;
 use crate::protocol::{Operation, RequestEnvelope, serialize_result};
 use crate::search::{list_hidden_apps, run_search};
 use crate::store::{Store, now_unix_secs};
+use crate::windows::list_windows;
 
 pub struct AppsService {
     catalog: Mutex<DesktopCatalog>,
@@ -106,6 +107,13 @@ impl AppsService {
                 serde_json::to_value(prefs).map_err(|e| format!("Serialization error: {e}"))
             }
             Operation::Hidden {} => self.hidden(),
+            Operation::Windows { query } => {
+                let clients = hyprland::fetch_clients();
+                let mut catalog = self.catalog.lock().unwrap();
+                catalog.refresh_if_needed();
+                let windows = list_windows(catalog.apps(), &clients, &query);
+                Ok(json!({ "windows": windows }))
+            }
         }
     }
 
@@ -170,6 +178,11 @@ impl AppsService {
                 {
                     return Ok(self.finish_launched_action(id, query));
                 }
+                Ok(json!({}))
+            }
+            "windowHere" => {
+                let addr = require_non_empty(target, "target")?;
+                hyprland::move_window_here(addr)?;
                 Ok(json!({}))
             }
             "desktopAction" => {

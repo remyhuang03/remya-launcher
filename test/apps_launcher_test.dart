@@ -30,6 +30,18 @@ final _package = AppPackage.fromJson({
   'command': 'sudo pacman -S obsidian',
 });
 
+const _windows = [
+  {
+    'id': '0xabc',
+    'title': 'Draft.txt',
+    'class': 'test-editor',
+    'workspace': '3',
+    'appId': _appId,
+    'appName': 'Test Editor',
+  },
+  {'id': '0xdef', 'title': 'htop', 'class': 'kitty', 'workspace': '1'},
+];
+
 class _Apps extends AppsClient {
   final requests = <(String, bool)>[];
   final actions = <(String, String?, String?, String?, String?)>[];
@@ -61,6 +73,15 @@ class _Apps extends AppsClient {
       hidden: hide,
     );
   }
+
+  @override
+  Future<List<LauncherWindow>> windows(String query) async => [
+    for (final json in _windows)
+      if ('${json['title']} ${json['class']}'.toLowerCase().contains(
+        query.toLowerCase(),
+      ))
+        LauncherWindow.fromJson(json),
+  ];
 
   @override
   Future<String?> perform(
@@ -230,6 +251,53 @@ void main() {
       LogicalKeyboardKey.keyH,
     );
     expect(client.actions.last.$1, 'unhide');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('# enters Windows; Enter focuses and Ctrl+Enter moves here', (
+    tester,
+  ) async {
+    final client = _Apps();
+    final platform = _Platform();
+    await tester.pumpWidget(
+      RemyaLauncherApp(appsClient: client, clipboardPlatform: platform),
+    );
+    await tester.pump();
+    await _enter(tester, '#');
+    final field = tester.widget<TextFormField>(find.byType(TextFormField));
+    expect(field.controller!.text, isEmpty);
+    expect(find.text('2 windows'), findsOneWidget);
+    expect(find.text('Workspace 3'), findsOneWidget);
+
+    await _enter(tester, 'kitty');
+    expect(find.text('Draft.txt'), findsNothing);
+    expect(find.text('htop'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(client.actions.last, ('window', null, '0xdef', null, null));
+    expect(platform.closes, 1);
+
+    await _enter(tester, '');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await _shortcut(
+      tester,
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.enter,
+    );
+    expect(client.actions.last, ('windowHere', _appId, '0xabc', null, null));
+    expect(platform.closes, 2);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+    await tester.pump();
+    expect(find.text('2 windows'), findsNothing);
+    await _shortcut(
+      tester,
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.digit7,
+    );
+    await tester.pump(_search);
+    expect(find.text('2 windows'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

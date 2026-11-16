@@ -39,6 +39,21 @@ class AppWindow {
   final String id, title, workspace;
 }
 
+/// An open Hyprland window, with the desktop app it belongs to when known.
+class LauncherWindow {
+  LauncherWindow.fromJson(Map<String, dynamic> json)
+    : id = json['id'] as String,
+      title = json['title'] as String,
+      windowClass = json['class'] as String,
+      workspace = json['workspace'].toString(),
+      appId = json['appId'] as String?,
+      appName = json['appName'] as String?,
+      icon = json['icon'] as String?;
+
+  final String id, title, windowClass, workspace;
+  final String? appId, appName, icon;
+}
+
 class AppDesktopAction {
   AppDesktopAction.fromJson(Map<String, dynamic> json)
     : id = json['id'] as String,
@@ -110,6 +125,11 @@ class AppsClient {
   Future<List<LauncherAppEntry>> hidden() async => _entries(
     (await _request('hidden', const {}))['apps'],
     LauncherAppEntry.fromJson,
+  );
+
+  Future<List<LauncherWindow>> windows(String query) async => _entries(
+    (await _request('windows', {'query': query}))['windows'],
+    LauncherWindow.fromJson,
   );
 
   Future<String?> perform(

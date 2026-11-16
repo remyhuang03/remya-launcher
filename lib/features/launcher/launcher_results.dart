@@ -218,3 +218,34 @@ class LauncherPinnedTile extends StatelessWidget {
     );
   }
 }
+
+/// Emphasizes each whitespace-separated word of [query] found in [text].
+InlineSpan launcherHighlight(String text, String query, Color color) {
+  final words = query.split(RegExp(r'\s+')).where((word) => word.isNotEmpty);
+  if (words.isEmpty) return TextSpan(text: text);
+  final pattern = RegExp(
+    words.map(RegExp.escape).join('|'),
+    caseSensitive: false,
+    unicode: true,
+  );
+  final matches = pattern.allMatches(text).toList();
+  if (matches.isEmpty) return TextSpan(text: text);
+  var start = 0;
+  final parts = <TextSpan>[];
+  for (final match in matches) {
+    parts.add(TextSpan(text: text.substring(start, match.start)));
+    parts.add(
+      TextSpan(
+        text: text.substring(match.start, match.end),
+        style: TextStyle(color: color, fontWeight: .w600),
+      ),
+    );
+    start = match.end;
+  }
+  return TextSpan(
+    children: [
+      ...parts,
+      TextSpan(text: text.substring(start)),
+    ],
+  );
+}

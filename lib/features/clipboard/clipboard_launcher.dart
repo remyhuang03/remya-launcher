@@ -14,6 +14,8 @@ import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
 import '../launcher/launcher_results.dart';
+import '../windows/windows_controller.dart';
+import '../windows/windows_results.dart';
 import 'clipboard_actions.dart';
 import 'clipboard_client.dart';
 import 'clipboard_color.dart';
@@ -94,6 +96,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     onWorkspace: _askWorkspace,
     onSearchFocus: _searchFocus.requestFocus,
   );
+  late final _windows = WindowsController(
+    client: widget.appsClient,
+    onClose: _dismiss,
+  );
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _actionsFocus = FocusNode();
@@ -122,12 +128,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   bool get _inActions => _scope == .run;
   bool get _inCalculator => _scope == .calculator;
   bool get _inApps => _scope == .apps;
+  bool get _inWindows => _scope == .windows;
 
   List<LauncherScope> get _activeScopes => [
     .all,
     if (_apps.available) .apps,
     .calculator,
     .clipboard,
+    if (_apps.available) .windows,
   ];
 
   List<ClipboardEntry> get _visibleEntries => _entries
@@ -164,6 +172,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _queryDelay?.cancel();
     _calculator.dispose();
     _apps.dispose();
+    _windows.dispose();
     _search.dispose();
     _searchFocus.dispose();
     _actionsFocus.dispose();
@@ -289,6 +298,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       cursorUtf16: _cursorUtf16(),
     );
     _apps.update(scope, nextQuery, immediate: true);
+    _windows.update(active: _inWindows, query: _search.text);
     if (_inClipboard || _inActions) {
       if (!wasWatching) _startWatch();
     } else {
@@ -303,6 +313,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     if (_scope == .all) {
       if (value == ';' || value == '>') {
         _setScope(value == ';' ? .clipboard : .run);
+        return;
+      }
+      if (value == '#' && _apps.available) {
+        _setScope(.windows);
         return;
       }
       if (value.startsWith('=')) {
@@ -326,6 +340,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _preserveSelection(0);
     });
     _apps.update(_scope, value);
+    _windows.update(active: _inWindows, query: value);
     if (_inCalculator || _scope == .all) {
       _calculator.updateQuery(_search.text, cursorUtf16: _cursorUtf16());
     }
@@ -416,6 +431,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         _setScope(.apps);
         return .handled;
       }
+      if (key == LogicalKeyboardKey.digit7 && _apps.available) {
+        _setScope(.windows);
+        return .handled;
+      }
       if (key == LogicalKeyboardKey.tab && _apps.available) {
         final scopes = _activeScopes;
         final index = scopes.indexOf(_scope);
@@ -432,6 +451,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       );
       if (handled == .handled) return handled;
     }
+    if (_inWindows && _windows.handleKey(event) == .handled) return .handled;
     if (event is KeyUpEvent) return .ignored;
 
     if (key == LogicalKeyboardKey.escape && event is KeyDownEvent) {
@@ -1124,13 +1144,17 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                     },
                     excludeFromSemantics: true,
                     child: ListenableBuilder(
-                      listenable: Listenable.merge([_calculator, _apps]),
+                      listenable: Listenable.merge([
+                        _calculator,
+                        _apps,
+                        _windows,
+                      ]),
                       builder: (context, _) => LauncherPanel(
                         width: _inClipboard ? 960 : 720,
                         scope: _scope,
                         enabledScopes: _activeScopes.toSet(),
                         onScopeSelected: _setScope,
-                        scrollBody: !_inClipboard && !_inApps,
+                        scrollBody: !_inClipboard && !_inApps && !_inWindows,
                         actionsBodyHeight: _apps.menuApp == null ? 286 : 408,
                         onOverlay: true,
                         compact: compact,
@@ -1148,12 +1172,19 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                               ? (_apps.ready
                                     ? 'Filter ${_apps.result.total} apps by name, kind or keyword…'
                                     : 'Filter apps by name, kind or keyword…')
+                              : _inWindows
+                              ? 'Filter windows by title or class…'
                               : _inActions
                               ? 'Filter actions…'
                               : 'Search launcher…',
                           onChanged: _searchChanged,
                           trailing: _inApps && _apps.ready
                               ? AppsSearchHint(_apps)
+                              : _inWindows && _windows.ready
+                              ? Text(
+                                  '${_windows.windows.length} windows',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                )
                               : _inClipboard && _error == null
                               ? Text(
                                   '${_visibleEntries.length} items',
@@ -1176,6 +1207,8 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                             ? _calculatorBody(compact: compact)
                             : _inApps
                             ? AppsResults(_apps, tileColumns: _tileColumns)
+                            : _inWindows
+                            ? WindowsResults(_windows)
                             : _shellBody(),
                         actions: _calculator.actionsOpen
                             ? _calculatorActionsOverlay()
@@ -1291,6 +1324,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
             onPressed: () => _setScope(.calculator),
           ),
           clipboardRow,
+          if (_apps.available)
+            LauncherResultRow(
+              title: const TextSpan(text: 'Windows'),
+              subtitle: 'Focus an open window or move it here',
+              leading: const LauncherSymbolTile(.window),
+              trailing: const LauncherKeyHint(['Ctrl', '7']),
+              onPressed: () => _setScope(.windows),
+            ),
         ],
       );
     }
@@ -1429,6 +1470,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         leading: [LauncherKeyHint(const [], label: status)],
       );
     }
+    if (_inWindows) return windowsFooter(_windows, singleLine: singleLine);
     if (_inApps || (_scope == .all && _apps.selected != null)) {
       return appsFooter(_apps, singleLine: singleLine);
     }

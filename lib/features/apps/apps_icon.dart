@@ -3,10 +3,21 @@ import 'package:material_ui/material_ui.dart';
 
 import 'apps_client.dart';
 
+/// A themed desktop icon, or a monogram seeded by [id] when it cannot load.
 class AppsIcon extends StatelessWidget {
-  const AppsIcon(this.app, {this.size = 32, super.key});
+  const AppsIcon({
+    required this.id,
+    required this.name,
+    this.icon,
+    this.size = 32,
+    super.key,
+  });
 
-  final LauncherAppEntry app;
+  AppsIcon.app(LauncherAppEntry app, {double size = 32, Key? key})
+    : this(id: app.id, name: app.name, icon: app.icon, size: size, key: key);
+
+  final String id, name;
+  final String? icon;
   final double size;
 
   static const _window = MethodChannel('top.remya.launcher/window');
@@ -14,8 +25,8 @@ class AppsIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = _AppMonogram(app, size: size);
-    final icon = app.icon;
+    final fallback = _AppMonogram(id, name, size: size);
+    final icon = this.icon;
     if (icon == null || icon.isEmpty) return fallback;
 
     final pixels = (size * MediaQuery.devicePixelRatioOf(context)).ceil().clamp(
@@ -62,16 +73,16 @@ class AppsIcon extends StatelessWidget {
 }
 
 class _AppMonogram extends StatelessWidget {
-  const _AppMonogram(this.app, {required this.size});
+  const _AppMonogram(this.id, this.name, {required this.size});
 
-  final LauncherAppEntry app;
+  final String id, name;
   final double size;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final hash = app.id.codeUnits.fold(
+    final hash = id.codeUnits.fold(
       0x811c9dc5,
       (hash, code) => ((hash ^ code) * 0x01000193) & 0xffffffff,
     );
@@ -80,7 +91,7 @@ class _AppMonogram extends StatelessWidget {
       1 => (colors.secondaryContainer, colors.onSecondaryContainer),
       _ => (colors.tertiaryContainer, colors.onTertiaryContainer),
     };
-    final letter = app.name.trim().characters.firstOrNull ?? '?';
+    final letter = name.trim().characters.firstOrNull ?? '?';
     return ExcludeSemantics(
       child: Container(
         width: size,

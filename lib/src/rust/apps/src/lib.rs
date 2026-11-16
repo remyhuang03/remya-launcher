@@ -7,3 +7,4 @@ pub mod protocol;
 pub mod search;
 pub mod service;
 pub mod store;
+pub mod windows;

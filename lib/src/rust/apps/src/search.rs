@@ -663,7 +663,7 @@ fn compact_ascii(s: &str) -> String {
         .collect()
 }
 
-fn subsequence_score(haystack: &str, needle: &str) -> Option<u32> {
+pub(crate) fn subsequence_score(haystack: &str, needle: &str) -> Option<u32> {
     let hay: Vec<char> = haystack.chars().collect();
     let ned: Vec<char> = needle.chars().collect();
     if ned.is_empty() || ned.len() > hay.len() {

@@ -544,6 +544,43 @@ echo ok"#,
             .contains("hl.dsp.focus({window=\"address:0xbbb\"})")
     );
 
+    // windows lists every client in MRU order with its matched app, and filters by
+    // title prefix before class/app containment.
+    let all = sidecar.request(json!({"id": 10, "op": "windows"}));
+    let all = all["data"]["windows"].as_array().unwrap();
+    assert_eq!(all.len(), 5);
+    assert_eq!(all[0]["id"], "0xaaa");
+    assert_eq!(all[0]["appId"], "code.desktop");
+    assert_eq!(all[0]["appName"], "Code");
+    assert_eq!(all[1]["id"], "0xccc");
+    assert!(all[1]["appId"].is_null());
+    let ids = |reply: Value| -> Vec<String> {
+        reply["data"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|w| w["id"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    // Contained matches keep MRU order; a title prefix outranks them.
+    let filtered = sidecar.request(json!({"id": 11, "op": "windows", "query": "oss"}));
+    assert_eq!(ids(filtered), ["0xaaa", "0xddd"]);
+    let prefix = sidecar.request(json!({"id": 16, "op": "windows", "query": "unfocused"}));
+    assert_eq!(ids(prefix), ["0xddd"]);
+    let decoy = sidecar.request(json!({"id": 15, "op": "windows", "query": "editor decoy"}));
+    assert_eq!(ids(decoy), ["0xccc"]);
+    let none = sidecar.request(json!({"id": 12, "op": "windows", "query": "zzz"}));
+    assert!(none["data"]["windows"].as_array().unwrap().is_empty());
+
+    let moved = sidecar
+        .request(json!({"id": 13, "op": "perform", "action": "windowHere", "target": "0xddd"}));
+    assert!(moved["data"].is_object());
+    let log_text = fs::read_to_string(&hypr_log).unwrap();
+    assert!(log_text.contains("hl.dsp.window.move({workspace=tostring(hl.get_active_monitor().active_workspace.id), window=\"address:0xddd\"})"));
+    let gone = sidecar
+        .request(json!({"id": 14, "op": "perform", "action": "windowHere", "target": "0x9999"}));
+    assert!(gone["error"].is_string());
+
     // window rejects invalid/unknown addresses and accepts known address.
     let bad_win =
         sidecar.request(json!({"id": 3, "op": "perform", "action": "window", "target": "0x9999"}));

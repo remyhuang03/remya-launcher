@@ -272,7 +272,7 @@ class _PinnedApp extends StatelessWidget {
     final choice = AppChoice(app, frequent: true);
     return LauncherPinnedTile(
       label: app.name,
-      icon: AppsIcon(app, size: 36),
+      icon: AppsIcon.app(app, size: 36),
       shortcut: index <= 9 ? '$index' : '',
       selected: controller.isSelected(choice),
       onPressed: () {
@@ -360,7 +360,7 @@ class _AppResultRow extends StatelessWidget {
         final kind = app.matchText ?? app.description;
         subtitle = TextSpan(
           children: [
-            _highlight(kind, query, colors.primary),
+            launcherHighlight(kind, query, colors.primary),
             const TextSpan(text: ' · matched kind'),
           ],
         );
@@ -370,7 +370,7 @@ class _AppResultRow extends StatelessWidget {
           text:
               '${description.isEmpty || description == matchText ? '' : '$description · '}matched ${app.matchKind} “',
           children: [
-            _highlight(matchText, query, colors.primary),
+            launcherHighlight(matchText, query, colors.primary),
             const TextSpan(text: '”'),
           ],
         );
@@ -421,7 +421,7 @@ class _AppResultRow extends StatelessWidget {
     return Opacity(
       opacity: app?.hidden == true && !selected ? .68 : 1,
       child: LauncherResultRow(
-        title: _highlight(title, match, colors.primary),
+        title: launcherHighlight(title, match, colors.primary),
         subtitle: description,
         subtitleSpan: error == null
             ? subtitle
@@ -430,7 +430,7 @@ class _AppResultRow extends StatelessWidget {
                 style: TextStyle(color: colors.error),
               ),
         leading: choice.isParent || app?.actionId != null
-            ? Align(alignment: .centerLeft, child: AppsIcon(app!))
+            ? Align(alignment: .centerLeft, child: AppsIcon.app(app!))
             : LauncherSymbolTile(icon, selected: selected),
         trailing: trailing.isEmpty
             ? null
@@ -445,36 +445,6 @@ class _AppResultRow extends StatelessWidget {
       ),
     );
   }
-}
-
-InlineSpan _highlight(String text, String query, Color color) {
-  final words = query.split(RegExp(r'\s+')).where((word) => word.isNotEmpty);
-  if (words.isEmpty) return TextSpan(text: text);
-  final pattern = RegExp(
-    words.map(RegExp.escape).join('|'),
-    caseSensitive: false,
-    unicode: true,
-  );
-  final matches = pattern.allMatches(text).toList();
-  if (matches.isEmpty) return TextSpan(text: text);
-  var start = 0;
-  final parts = <TextSpan>[];
-  for (final match in matches) {
-    parts.add(TextSpan(text: text.substring(start, match.start)));
-    parts.add(
-      TextSpan(
-        text: text.substring(match.start, match.end),
-        style: TextStyle(color: color, fontWeight: .w600),
-      ),
-    );
-    start = match.end;
-  }
-  return TextSpan(
-    children: [
-      ...parts,
-      TextSpan(text: text.substring(start)),
-    ],
-  );
 }
 
 class _Meta extends StatelessWidget {
