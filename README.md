@@ -2,7 +2,7 @@
   <img src="assets/icons/app_icon-full.svg" width="128" alt="Remya Launcher">
 </p>
 
-<h1 align="center">Remya Launcher</h1>
+<h1 align="center">Remy'a Launcher</h1>
 
 <h3 align="center">A Material Design 3 Expressive launcher and clipboard manager for Hyprland</h3>
 
