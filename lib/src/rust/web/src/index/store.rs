@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use std::path::Path;
-use std::time::Duration;
+use std::thread;
+use std::time::{Duration, Instant};
 
-use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+use rusqlite::{Connection, ErrorCode, OptionalExtension, TransactionBehavior, params};
 use sha2::{Digest, Sha256};
 use url::Url;
 
@@ -15,7 +16,7 @@ use super::engines::{DEFAULT_ENGINE_ID, is_supported_default_engine, validate_ur
 use super::schema::{init_schema, purge_profile_data};
 use super::util::{current_time_ms, sanitize_text};
 
-const BUSY_TIMEOUT_MS: u64 = 500;
+const BUSY_TIMEOUT: Duration = Duration::from_millis(500);
 pub(super) const MAX_LAUNCHER_OPENS: i64 = 2048;
 pub(super) const OPEN_RETENTION_MS: i64 = 90 * 86_400_000;
 
@@ -23,13 +24,14 @@ impl Index {
     /// Opens or initializes the private launcher SQLite index at `path`.
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut conn = Connection::open(path)?;
-        conn.busy_timeout(Duration::from_millis(BUSY_TIMEOUT_MS))?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
-             PRAGMA secure_delete = ON;
-             PRAGMA journal_mode = WAL;
-             PRAGMA synchronous = NORMAL;",
+             PRAGMA secure_delete = ON;",
         )?;
+        enable_wal(&conn)?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
+        conn.pragma_update(None, "synchronous", "NORMAL")?;
 
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         init_schema(&tx)?;
@@ -648,6 +650,26 @@ impl Index {
             params![id, normalized_url, host],
             |row| row.get(0),
         )
+    }
+}
+
+fn enable_wal(conn: &Connection) -> rusqlite::Result<()> {
+    let deadline = Instant::now() + BUSY_TIMEOUT;
+    loop {
+        conn.busy_timeout(deadline.saturating_duration_since(Instant::now()))?;
+        let result = conn.pragma_update(None, "journal_mode", "WAL");
+        if !result
+            .as_ref()
+            .is_err_and(|error| error.sqlite_error_code() == Some(ErrorCode::DatabaseBusy))
+        {
+            return result;
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return result;
+        }
+        // SQLite can bypass its busy handler when upgrading the journal mode.
+        thread::sleep(remaining.min(Duration::from_millis(10)));
     }
 }
 

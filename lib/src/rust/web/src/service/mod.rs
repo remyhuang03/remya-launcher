@@ -62,7 +62,7 @@ impl Drop for WebService {
 }
 
 pub fn serve_stdio(input: impl Read, mut output: impl Write) -> io::Result<()> {
-    let service = WebService::new().map_err(|_| io::Error::other("WebService init failed"))?;
+    let service = WebService::new().map_err(io::Error::other)?;
     let mut reader = BufReader::new(input);
     let mut line = String::new();
 
@@ -102,8 +102,10 @@ impl WebService {
         validate_existing_private_file(&db_path)
             .map_err(|_| "Web index database failed private ownership validation.".to_owned())?;
 
-        let index = Index::open(&db_path)
-            .map_err(|_| "Failed to open private web index database.".to_owned())?;
+        let index = Index::open(&db_path).map_err(|error| match error.sqlite_error_code() {
+            Some(code) => format!("Failed to open private web index database (SQLite {code:?})."),
+            None => "Failed to open private web index database.".to_owned(),
+        })?;
         tighten_db_permissions(&state_dir);
 
         let enabled_ids = index

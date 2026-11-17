@@ -112,7 +112,7 @@ impl TestEnv {
         cmd.args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::inherit());
         self.apply_env(&mut cmd);
         let mut child = cmd.spawn().unwrap();
         let stdout = BufReader::new(child.stdout.take().unwrap());

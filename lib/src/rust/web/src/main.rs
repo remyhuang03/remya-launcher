@@ -34,8 +34,8 @@ fn main() {
         }
     };
 
-    if remya_launcher_web::service::serve_stdio(stdin, stdout).is_err() {
-        eprintln!("Web sidecar failed.");
+    if let Err(error) = remya_launcher_web::service::serve_stdio(stdin, stdout) {
+        eprintln!("Web sidecar failed: {error}");
         std::process::exit(1);
     }
 }

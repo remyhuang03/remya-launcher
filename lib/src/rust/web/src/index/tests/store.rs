@@ -1,4 +1,7 @@
 use rusqlite::Connection;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 use tempfile::tempdir;
 use url::Url;
 
@@ -6,6 +9,34 @@ use super::{make_entry, make_profile, open_test_index};
 use crate::index::dto::EntryKind;
 use crate::index::store::{MAX_LAUNCHER_OPENS, OPEN_RETENTION_MS, compute_entry_id};
 use crate::index::{Index, Search};
+
+#[test]
+fn opening_the_index_waits_for_a_rollback_journal_writer() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("web.db");
+    let writer = Connection::open(&path).unwrap();
+    writer
+        .execute_batch(
+            "CREATE TABLE holding (id INTEGER); BEGIN IMMEDIATE; INSERT INTO holding VALUES (1);",
+        )
+        .unwrap();
+
+    let (started, wait) = mpsc::channel();
+    let opener = thread::spawn(move || {
+        started.send(()).unwrap();
+        Index::open(&path)
+    });
+    wait.recv().unwrap();
+    thread::sleep(Duration::from_millis(75));
+    writer.execute_batch("ROLLBACK").unwrap();
+    let index = opener.join().unwrap().unwrap();
+
+    let mode: String = index
+        .conn
+        .pragma_query_value(None, "journal_mode", |row| row.get(0))
+        .unwrap();
+    assert_eq!(mode, "wal");
+}
 
 #[test]
 fn deletion_reconciliation_and_disable_race() {
