@@ -33,7 +33,7 @@ Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤
 > [!CAUTION]
 > **早期開發階段**
 >
-> Apps 搜尋、Windows、Web 搜尋、Calculator 與 Clipboard 皆使用即時資料。Files 與 Emoji 範圍以及一般指令執行仍在規劃中。可使用 `--preview` 搭配範例資料探索 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)。
+> Apps 搜尋、Windows、Web 搜尋、Calculator 與 Clipboard 皆使用即時資料。Emoji 搜尋也已可用。Files 範圍以及一般指令執行仍在規劃中。可使用 `--preview` 搭配範例資料探索 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)。
 
 ## 🚀 安裝
 
@@ -87,7 +87,8 @@ python tool/install.py
 ### 規劃中的範圍與能力（設計規範）
 
 - **Files（`Ctrl+3` / `/` / `~`）**：路徑補全、檔名模糊搜尋，以及目錄、文字與圖片的預覽。
-- **Emoji（`:`）** 與 **Run（`$` / `>`）**：Emoji 與符號搜尋，以及一般指令執行。目前的即時 Run 範圍提供本機剪貼簿清除動作。
+- **Emoji（`:`）**：離線搜尋 Emoji 18.0 的七語名稱、關鍵詞、短碼或 Unicode 序列。Enter 複製，Ctrl+Right 選擇變體。
+- **Run（`>`）**：清除本機剪貼簿歷程。
 
 ## ⌨️ 開發
 

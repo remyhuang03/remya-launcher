@@ -51,7 +51,11 @@ extension _LauncherView on _ClipboardLauncherState {
                         scope: _scope,
                         enabledScopes: _activeScopes.toSet(),
                         onScopeSelected: _setScope,
-                        scrollBody: !_inClipboard && !_inApps && !_inWindows,
+                        scrollBody:
+                            !_inClipboard &&
+                            !_inApps &&
+                            !_inWindows &&
+                            !_inEmoji,
                         actionsBodyHeight: _web.menuChoice != null
                             ? 420
                             : _apps.menuApp == null
@@ -96,6 +100,10 @@ extension _LauncherView on _ClipboardLauncherState {
                                     : 'Filter apps by name, kind or keyword…')
                               : _inWindows
                               ? 'Filter windows by title or class…'
+                              : _inEmoji
+                              ? emojiSearchPlaceholder(
+                                  Localizations.localeOf(context),
+                                )
                               : _inActions
                               ? 'Filter actions…'
                               : 'Search launcher…',
@@ -135,6 +143,8 @@ extension _LauncherView on _ClipboardLauncherState {
                             ? WindowsResults(_windows)
                             : _inWeb
                             ? _webBody()
+                            : _inEmoji
+                            ? _emojiBody()
                             : _shellBody(),
                         actions: _web.menuChoice != null
                             ? WebActionsMenu(
@@ -382,6 +392,7 @@ extension _LauncherView on _ClipboardLauncherState {
       return appsFooter(_apps, singleLine: singleLine);
     }
     if (_inCalculator) return _calculatorFooter(singleLine: singleLine);
+    if (_inEmoji) return _emojiFooter(singleLine: singleLine);
     return LauncherFooter(
       singleLine: singleLine,
       leading: [

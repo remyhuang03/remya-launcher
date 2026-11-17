@@ -33,7 +33,7 @@ Remya Launcher (`top.remya.launcher`) es un lanzador de aplicaciones centrado en
 > [!CAUTION]
 > **Desarrollo temprano**
 >
-> La búsqueda de aplicaciones, Windows, la búsqueda web, Calculator y Clipboard usan datos en vivo. Los ámbitos Files y Emoji y la ejecución general de comandos siguen planificados. Usa `--preview` para explorar el [diseño en Figma](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) con datos de ejemplo.
+> La búsqueda de aplicaciones, Windows, la búsqueda web, Calculator y Clipboard usan datos en vivo. La búsqueda de emojis también está disponible. El ámbito Files y la ejecución general de comandos siguen planificados. Usa `--preview` para explorar el [diseño en Figma](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) con datos de ejemplo.
 
 ## 🚀 Instalación
 
@@ -87,7 +87,8 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
 ### Ámbitos y capacidades planificadas (especificación de diseño)
 
 - **Files (`Ctrl+3` / `/` / `~`)**: autocompletado de rutas, búsqueda difusa de nombres de archivo y vistas previas para carpetas, texto e imágenes.
-- **Emoji (`:`)** y **Run (`$` / `>`)**: búsqueda de emojis y símbolos y ejecución general de comandos. El ámbito Run en vivo actualmente ofrece la acción local de limpieza del portapapeles.
+- **Emoji (`:`)**: Busca Emoji 18.0 sin conexión por nombre, palabra clave, código corto o secuencia Unicode en siete idiomas. Pulsa Intro para copiar o Ctrl+Derecha para elegir una variante.
+- **Run (`>`)**: Borra el historial local del portapapeles.
 
 ## ⌨️ Desarrollo
 

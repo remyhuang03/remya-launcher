@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "generatorVersion": 1,
+  "generatorSha256": "fb1791ec6475b9e5b0bda272d34f52cfd7bb40185a26cb8d7128da80633b3725",
+  "aliasSha256": "ca7e42a7a65e6deb8a650884a3be972448ad744c7e9c676ac7bbd041826be71f",
+  "sourceSetSha256": "bde94a5d8716afd758c93df1f640e30249d0500670d1d28e2c9d9bd8d43d883a",
+  "catalogSha256": "94c2ee56abedaea9223b2870590a81fcd26e438e15d9cafcb840d002f0575df8",
+  "noticeSha256": "f15e203a316de126b7b15e5c77b72e833f9f56e354b67a5f48de9d7cfc0da778",
+  "sources": {
+    "unicodeEmoji": {
+      "version": "18.0",
+      "url": "https://www.unicode.org/Public/18.0.0/emoji/emoji-test.txt",
+      "file": "emoji-test.txt",
+      "sha256": "8f3735cda1f92a779d78af67cf86066bb1f07143dc22f2ac29394d9bc57ab21a",
+      "license": "Unicode-3.0"
+    },
+    "unicodeLicense": {
+      "url": "https://www.unicode.org/license.txt",
+      "file": "unicode-license.txt",
+      "sha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
+      "license": "Unicode-3.0"
+    },
+    "cldrAnnotations": {
+      "version": "49.0.0",
+      "url": "https://registry.npmjs.org/cldr-annotations-full/-/cldr-annotations-full-49.0.0.tgz",
+      "file": "cldr-annotations-full.tgz",
+      "sha256": "ce415a4898da7a4ca755437de2593863c05045fc6b1649d8da5ee05fa3bdc33b",
+      "license": "Unicode-3.0"
+    },
+    "cldrDerived": {
+      "version": "49.0.0",
+      "url": "https://registry.npmjs.org/cldr-annotations-derived-full/-/cldr-annotations-derived-full-49.0.0.tgz",
+      "file": "cldr-annotations-derived-full.tgz",
+      "sha256": "e83ab0348ec09f4b5bb27f658b9c424c9c8fbf512484b728903515b9f01c3c28",
+      "license": "Unicode-3.0"
+    },
+    "emojibase": {
+      "version": "18.0.0",
+      "url": "https://registry.npmjs.org/emojibase-data/-/emojibase-data-18.0.0.tgz",
+      "file": "emojibase-data.tgz",
+      "sha256": "ed207c64f31baab5db419686135be3696bbd196a88228a3564383d7918db8f34",
+      "license": "MIT"
+    },
+    "emojilib": {
+      "version": "4.0.3",
+      "url": "https://registry.npmjs.org/emojilib/-/emojilib-4.0.3.tgz",
+      "file": "emojilib.tgz",
+      "sha256": "7f9a6b43cff31d18985b7d65d11faba5bd971cbcc60020cf6d09322fbaaaf303",
+      "license": "MIT"
+    },
+    "emojiPickerI18n": {
+      "version": "1.1.0",
+      "url": "https://pub.dev/api/archives/emoji_picker_i18n-1.1.0.tar.gz",
+      "file": "emoji_picker_i18n.tgz",
+      "sha256": "3361c9d713ac25e08aade56d82caee413c667fd2d03d73800e59d26df3788a73",
+      "license": "MIT"
+    },
+    "unormDart": {
+      "version": "0.3.3",
+      "url": "https://pub.dev/api/archives/unorm_dart-0.3.3.tar.gz",
+      "file": "unorm_dart.tgz",
+      "sha256": "b4f4d2aff27d65a5fc37f400d4c09e55d7535359315acbe3b895a9add4de3a23",
+      "license": "MIT"
+    }
+  },
+  "count": 3963,
+  "qualificationAliases": 1272,
+  "newEmoji18Ids": [
+    "1FAEB",
+    "1FAF9",
+    "1FAF9-1F3FB",
+    "1FAF9-1F3FC",
+    "1FAF9-1F3FD",
+    "1FAF9-1F3FE",
+    "1FAF9-1F3FF",
+    "1FAFA",
+    "1FAFA-1F3FB",
+    "1FAFA-1F3FC",
+    "1FAFA-1F3FD",
+    "1FAFA-1F3FE",
+    "1FAFA-1F3FF",
+    "1FACC",
+    "1FADD",
+    "1F6D9",
+    "1FA8B",
+    "1FA8C",
+    "1FA8D"
+  ],
+  "skinToneVariants": 2040,
+  "localizations": {
+    "en": {
+      "cldr": 3963
+    },
+    "zh-Hans": {
+      "cldr": 3963
+    },
+    "zh-Hant": {
+      "cldr": 3963
+    },
+    "ja": {
+      "cldr": 3963
+    },
+    "ru": {
+      "cldr": 3963
+    },
+    "de": {
+      "cldr": 3963
+    },
+    "es": {
+      "cldr": 3963
+    }
+  },
+  "cldrDelta": {
+    "en": {
+      "keyword_changed": 787,
+      "keywords_added": 2040
+    },
+    "zh-Hans": {
+      "keyword_changed": 1820,
+      "keywords_added": 2040
+    },
+    "zh-Hant": {
+      "keyword_changed": 1694,
+      "keywords_added": 2040
+    },
+    "ja": {
+      "keyword_changed": 1811,
+      "keywords_added": 2040
+    },
+    "ru": {
+      "keyword_changed": 1346,
+      "keywords_added": 2040
+    },
+    "de": {
+      "keyword_changed": 1595,
+      "keywords_added": 2040
+    },
+    "es": {
+      "keyword_changed": 1679,
+      "keywords_added": 2040
+    }
+  },
+  "unmappedSourceEntries": 3071,
+  "unmappedSourceExamples": [
+    [
+      "cldrAnnotations",
+      "de",
+      "0021"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0023"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0024"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0025"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0026"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0027"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0029"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "002A"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "002B"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "002C"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "002D"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "002E"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "002F"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "003A"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "003B"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "003C"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "003D"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "003E"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "003F"
+    ],
+    [
+      "cldrAnnotations",
+      "de",
+      "0040"
+    ]
+  ],
+  "ambiguousShortcodes": 32
+}

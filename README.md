@@ -33,7 +33,7 @@ Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, 
 > [!CAUTION]
 > **Early Development**
 >
-> Apps search, Windows, Web search, Calculator, and Clipboard use live data. The Files and Emoji scopes and general command execution are still planned. Use `--preview` to explore the [Figma design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) with sample data.
+> Apps search, Windows, Web search, Calculator, Clipboard, and Emoji are available. The Files scope and general command execution are still planned. Use `--preview` to explore the [Figma design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) with sample data.
 
 ## 🚀 Installation
 
@@ -87,7 +87,8 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 ### Planned Scopes & Capabilities (Design Spec)
 
 - **Files (`Ctrl+3` / `/` / `~`)**: Path completion, fuzzy filename search, and previews for directories, text, and images.
-- **Emoji (`:`)** and **Run (`$` / `>`)**: Emoji and symbol search and general command execution. The live Run scope currently offers the local clipboard clear action.
+- **Emoji (`:`)**: Search Emoji 18.0 offline by name, keyword, shortcode, or Unicode sequence across seven languages. Press Enter to copy or Ctrl+Right to choose a variant.
+- **Run (`>`)**: Clear local clipboard history.
 
 ## ⌨️ Development
 

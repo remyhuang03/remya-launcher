@@ -70,6 +70,7 @@ class LauncherResultRow extends StatelessWidget {
     this.trailing,
     this.selected = false,
     this.monospaced = false,
+    this.height = 56,
     this.onPressed,
     super.key,
   });
@@ -81,6 +82,7 @@ class LauncherResultRow extends StatelessWidget {
   final Widget? trailing;
   final bool selected;
   final bool monospaced;
+  final double height;
   final VoidCallback? onPressed;
 
   @override
@@ -99,7 +101,7 @@ class LauncherResultRow extends StatelessWidget {
           customBorder: shape,
           onTap: onPressed,
           child: SizedBox(
-            height: 56,
+            height: height,
             child: Padding(
               padding: const .only(left: 8, right: 12),
               child: Row(

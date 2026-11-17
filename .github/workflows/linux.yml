@@ -81,6 +81,7 @@ jobs:
           fvm dart format --output=none --set-exit-if-changed lib test
           fvm flutter analyze --no-pub
           fvm flutter test --no-pub
+          python tool/emoji/build.py --offline-check
           python -m unittest tool/test_install.py
           cargo clippy --locked --workspace --all-targets -- -D warnings
           cargo test --locked --workspace
@@ -100,6 +101,8 @@ jobs:
           test -x build/linux/x64/release/bundle/remya-launcher-calculator
           test -x build/linux/x64/release/bundle/remya-launcher-apps
           test -x build/linux/x64/release/bundle/remya-launcher-web
+          test -f build/linux/x64/release/bundle/data/flutter_assets/assets/emoji/catalog.json
+          test -f build/linux/x64/release/bundle/data/flutter_assets/assets/emoji/THIRD_PARTY_NOTICES.txt
           commit=$(git rev-parse HEAD)
           archive="remya-launcher-linux-x86_64-${commit:0:12}.tar.zst"
           mkdir -p candidate

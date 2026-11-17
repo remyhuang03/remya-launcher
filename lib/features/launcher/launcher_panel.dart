@@ -147,6 +147,7 @@ class _ScopeStrip extends StatelessWidget {
               enabledScopes!.contains(scope))
             LauncherScopeChip(
               scope: scope,
+              prefix: scope == .emoji ? ':' : null,
               selected: scope == selected,
               onPressed:
                   onSelected == null ||

@@ -7,6 +7,7 @@ import 'features/clipboard/clipboard_client.dart';
 import 'features/clipboard/clipboard_launcher.dart';
 import 'features/clipboard/clipboard_platform.dart';
 import 'features/clipboard/clipboard_settings.dart';
+import 'features/emoji/emoji_results.dart';
 import 'features/files/file_icon_palette.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
@@ -51,6 +52,30 @@ class RemyaLauncherApp extends StatelessWidget {
             ? 'Remy\'a Launcher'
             : 'Remy\'a Launcher Settings',
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [
+          Locale('en'),
+          Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
+          Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+          Locale('ja'),
+          Locale('ru'),
+          Locale('de'),
+          Locale('es'),
+        ],
+        localeListResolutionCallback: (locales, supported) =>
+            basicLocaleListResolution(
+              locales?.map((locale) {
+                if (locale.languageCode != 'zh' || locale.scriptCode != null) {
+                  return locale;
+                }
+                return Locale.fromSubtags(
+                  languageCode: 'zh',
+                  scriptCode: emojiLocaleTag(locale).split('-').last,
+                  countryCode: locale.countryCode,
+                );
+              }).toList(),
+              supported,
+            ),
         // The settings window uses the shared theme unchanged, like Remya Settings.
         theme: settingsPage == null
             ? _launcherTheme(shared.theme(.light), shared.seedColor)

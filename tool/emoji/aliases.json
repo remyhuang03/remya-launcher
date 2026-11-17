@@ -1,0 +1,64 @@
+{
+  "en": {
+    "curated": {
+      "👩‍💻": ["woman coder", "female developer"],
+      "👨‍💻": ["man coder", "male developer"],
+      "👍🏻": ["thumb light skin", "thumbs up light skin"],
+      "🫹🏻": ["leftwards thumb light skin"],
+      "🫺🏻": ["rightwards thumb light skin"]
+    }
+  },
+  "zh-Hans": {
+    "curated": {
+      "💛": ["黄色爱心", "黄色心"],
+      "⚓": ["铁锚"],
+      "🐱": ["小猫", "猫咪"],
+      "😂": ["笑死", "笑哭", "泪目"],
+      "🤣": ["笑死", "笑翻"],
+      "🥹": ["泪目", "感动"],
+      "😭": ["泪目", "大哭"],
+      "💀": ["笑死"]
+    },
+    "romanization": {
+      "💛": ["huangse aixin", "huang xin"],
+      "🐱": ["mao mi", "mao lian"],
+      "😂": ["xiao ku", "xiao si"],
+      "🥹": ["lei mu", "gan dong"],
+      "❤️": ["hong xin", "ai xin"],
+      "🐶": ["gou gou", "gou lian"],
+      "👍": ["dian zan", "da mu zhi"],
+      "🎉": ["qing zhu"],
+      "🙏": ["he shi", "qi dao"],
+      "☕": ["ka fei"]
+    }
+  },
+  "zh-Hant": {
+    "curated": {
+      "💛": ["黃色愛心", "黃色心"],
+      "🐱": ["小貓", "貓咪"],
+      "😂": ["笑死", "笑哭", "淚目"],
+      "🤣": ["笑死", "笑翻"],
+      "🥹": ["淚目", "感動"],
+      "😭": ["淚目", "大哭"],
+      "💀": ["笑死"]
+    }
+  },
+  "ja": {
+    "curated": {
+      "🐱": ["ネコ", "猫"],
+      "🐶": ["イヌ", "犬"]
+    },
+    "romanization": {
+      "🐱": ["neko", "koneko"],
+      "🐶": ["inu", "koinu"],
+      "💛": ["kiiro haato", "kiiroi haato"],
+      "❤️": ["aka haato", "akai haato"],
+      "🎉": ["omedetou", "kurakkaa"],
+      "☕": ["koohii"],
+      "🙏": ["onegai", "gasshou"],
+      "😭": ["goukyuu"],
+      "😂": ["bakushou"],
+      "👍": ["iine"]
+    }
+  }
+}

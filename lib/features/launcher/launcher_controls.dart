@@ -126,6 +126,7 @@ enum LauncherScope {
   calculator('Calc', .calculate),
   clipboard('Clipboard', .clipboard),
   windows('Windows', .window),
+  emoji('Emoji', .mood),
   run('Run', .terminal);
 
   const LauncherScope(this.label, this.icon);

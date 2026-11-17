@@ -1,0 +1,170 @@
+{"query": "fox", "ui_locale": "en", "expected": ["🦊"], "intent": "name"}
+{"query": "狐狸", "ui_locale": "zh-Hans", "expected": ["🦊"], "intent": "name"}
+{"query": "狐狸", "ui_locale": "zh-Hant", "expected": ["🦊"], "intent": "name"}
+{"query": "キツネ", "ui_locale": "ja", "expected": ["🦊"], "intent": "name"}
+{"query": "лиса", "ui_locale": "ru", "expected": ["🦊"], "intent": "name"}
+{"query": "Fuchs", "ui_locale": "de", "expected": ["🦊"], "intent": "name"}
+{"query": "zorro", "ui_locale": "es", "expected": ["🦊"], "intent": "name"}
+{"query": "otter", "ui_locale": "en", "expected": ["🦦"], "intent": "name"}
+{"query": "水獭", "ui_locale": "zh-Hans", "expected": ["🦦"], "intent": "name"}
+{"query": "水獺", "ui_locale": "zh-Hant", "expected": ["🦦"], "intent": "name"}
+{"query": "カワウソ", "ui_locale": "ja", "expected": ["🦦"], "intent": "name"}
+{"query": "выдра", "ui_locale": "ru", "expected": ["🦦"], "intent": "name"}
+{"query": "Otter", "ui_locale": "de", "expected": ["🦦"], "intent": "name"}
+{"query": "nutria", "ui_locale": "es", "expected": ["🦦"], "intent": "name"}
+{"query": "hedgehog", "ui_locale": "en", "expected": ["🦔"], "intent": "name"}
+{"query": "刺猬", "ui_locale": "zh-Hans", "expected": ["🦔"], "intent": "name"}
+{"query": "刺蝟", "ui_locale": "zh-Hant", "expected": ["🦔"], "intent": "name"}
+{"query": "ハリネズミ", "ui_locale": "ja", "expected": ["🦔"], "intent": "name"}
+{"query": "ёж", "ui_locale": "ru", "expected": ["🦔"], "intent": "name"}
+{"query": "Igel", "ui_locale": "de", "expected": ["🦔"], "intent": "name"}
+{"query": "erizo", "ui_locale": "es", "expected": ["🦔"], "intent": "name"}
+{"query": "octopus", "ui_locale": "en", "expected": ["🐙"], "intent": "name"}
+{"query": "章鱼", "ui_locale": "zh-Hans", "expected": ["🐙"], "intent": "name"}
+{"query": "章魚", "ui_locale": "zh-Hant", "expected": ["🐙"], "intent": "name"}
+{"query": "タコ", "ui_locale": "ja", "expected": ["🐙"], "intent": "name"}
+{"query": "осьминог", "ui_locale": "ru", "expected": ["🐙"], "intent": "name"}
+{"query": "Oktopus", "ui_locale": "de", "expected": ["🐙"], "intent": "name"}
+{"query": "pulpo", "ui_locale": "es", "expected": ["🐙"], "intent": "name"}
+{"query": "turtle", "ui_locale": "en", "expected": ["🐢"], "intent": "name"}
+{"query": "乌龟", "ui_locale": "zh-Hans", "expected": ["🐢"], "intent": "name"}
+{"query": "烏龜", "ui_locale": "zh-Hant", "expected": ["🐢"], "intent": "name"}
+{"query": "カメ", "ui_locale": "ja", "expected": ["🐢"], "intent": "name"}
+{"query": "черепаха", "ui_locale": "ru", "expected": ["🐢"], "intent": "name"}
+{"query": "Schildkröte", "ui_locale": "de", "expected": ["🐢"], "intent": "name"}
+{"query": "tortuga", "ui_locale": "es", "expected": ["🐢"], "intent": "name"}
+{"query": "honeybee", "ui_locale": "en", "expected": ["🐝"], "intent": "name"}
+{"query": "蜜蜂", "ui_locale": "zh-Hans", "expected": ["🐝"], "intent": "name"}
+{"query": "蜜蜂", "ui_locale": "zh-Hant", "expected": ["🐝"], "intent": "name"}
+{"query": "ミツバチ", "ui_locale": "ja", "expected": ["🐝"], "intent": "name"}
+{"query": "пчела", "ui_locale": "ru", "expected": ["🐝"], "intent": "name"}
+{"query": "Honigbiene", "ui_locale": "de", "expected": ["🐝"], "intent": "name"}
+{"query": "abeja", "ui_locale": "es", "expected": ["🐝"], "intent": "name"}
+{"query": "watermelon", "ui_locale": "en", "expected": ["🍉"], "intent": "name"}
+{"query": "西瓜", "ui_locale": "zh-Hans", "expected": ["🍉"], "intent": "name"}
+{"query": "西瓜", "ui_locale": "zh-Hant", "expected": ["🍉"], "intent": "name"}
+{"query": "スイカ", "ui_locale": "ja", "expected": ["🍉"], "intent": "name"}
+{"query": "арбуз", "ui_locale": "ru", "expected": ["🍉"], "intent": "name"}
+{"query": "Wassermelone", "ui_locale": "de", "expected": ["🍉"], "intent": "name"}
+{"query": "sandía", "ui_locale": "es", "expected": ["🍉"], "intent": "name"}
+{"query": "pineapple", "ui_locale": "en", "expected": ["🍍"], "intent": "name"}
+{"query": "菠萝", "ui_locale": "zh-Hans", "expected": ["🍍"], "intent": "name"}
+{"query": "鳳梨", "ui_locale": "zh-Hant", "expected": ["🍍"], "intent": "name"}
+{"query": "パイナップル", "ui_locale": "ja", "expected": ["🍍"], "intent": "name"}
+{"query": "ананас", "ui_locale": "ru", "expected": ["🍍"], "intent": "name"}
+{"query": "Ananas", "ui_locale": "de", "expected": ["🍍"], "intent": "name"}
+{"query": "piña", "ui_locale": "es", "expected": ["🍍"], "intent": "name"}
+{"query": "cherries", "ui_locale": "en", "expected": ["🍒"], "intent": "name"}
+{"query": "樱桃", "ui_locale": "zh-Hans", "expected": ["🍒"], "intent": "name"}
+{"query": "櫻桃", "ui_locale": "zh-Hant", "expected": ["🍒"], "intent": "name"}
+{"query": "サクランボ", "ui_locale": "ja", "expected": ["🍒"], "intent": "name"}
+{"query": "вишня", "ui_locale": "ru", "expected": ["🍒"], "intent": "name"}
+{"query": "Kirschen", "ui_locale": "de", "expected": ["🍒"], "intent": "name"}
+{"query": "cerezas", "ui_locale": "es", "expected": ["🍒"], "intent": "name"}
+{"query": "eggplant", "ui_locale": "en", "expected": ["🍆"], "intent": "name"}
+{"query": "茄子", "ui_locale": "zh-Hans", "expected": ["🍆"], "intent": "name"}
+{"query": "茄子", "ui_locale": "zh-Hant", "expected": ["🍆"], "intent": "name"}
+{"query": "ナス", "ui_locale": "ja", "expected": ["🍆"], "intent": "name"}
+{"query": "баклажан", "ui_locale": "ru", "expected": ["🍆"], "intent": "name"}
+{"query": "Aubergine", "ui_locale": "de", "expected": ["🍆"], "intent": "name"}
+{"query": "berenjena", "ui_locale": "es", "expected": ["🍆"], "intent": "name"}
+{"query": "avocado", "ui_locale": "en", "expected": ["🥑"], "intent": "name"}
+{"query": "牛油果", "ui_locale": "zh-Hans", "expected": ["🥑"], "intent": "name"}
+{"query": "酪梨", "ui_locale": "zh-Hant", "expected": ["🥑"], "intent": "name"}
+{"query": "アボカド", "ui_locale": "ja", "expected": ["🥑"], "intent": "name"}
+{"query": "авокадо", "ui_locale": "ru", "expected": ["🥑"], "intent": "name"}
+{"query": "Avocado", "ui_locale": "de", "expected": ["🥑"], "intent": "name"}
+{"query": "aguacate", "ui_locale": "es", "expected": ["🥑"], "intent": "name"}
+{"query": "croissant", "ui_locale": "en", "expected": ["🥐"], "intent": "name"}
+{"query": "羊角面包", "ui_locale": "zh-Hans", "expected": ["🥐"], "intent": "name"}
+{"query": "可頌", "ui_locale": "zh-Hant", "expected": ["🥐"], "intent": "name"}
+{"query": "クロワッサン", "ui_locale": "ja", "expected": ["🥐"], "intent": "name"}
+{"query": "круассан", "ui_locale": "ru", "expected": ["🥐"], "intent": "name"}
+{"query": "Croissant", "ui_locale": "de", "expected": ["🥐"], "intent": "name"}
+{"query": "cruasán", "ui_locale": "es", "expected": ["🥐"], "intent": "name"}
+{"query": "magnet", "ui_locale": "en", "expected": ["🧲"], "intent": "name"}
+{"query": "磁铁", "ui_locale": "zh-Hans", "expected": ["🧲"], "intent": "name"}
+{"query": "磁鐵", "ui_locale": "zh-Hant", "expected": ["🧲"], "intent": "name"}
+{"query": "磁石", "ui_locale": "ja", "expected": ["🧲"], "intent": "name"}
+{"query": "магнит", "ui_locale": "ru", "expected": ["🧲"], "intent": "name"}
+{"query": "Magnet", "ui_locale": "de", "expected": ["🧲"], "intent": "name"}
+{"query": "imán", "ui_locale": "es", "expected": ["🧲"], "intent": "name"}
+{"query": "telescope", "ui_locale": "en", "expected": ["🔭"], "intent": "name"}
+{"query": "望远镜", "ui_locale": "zh-Hans", "expected": ["🔭"], "intent": "name"}
+{"query": "望遠鏡", "ui_locale": "zh-Hant", "expected": ["🔭"], "intent": "name"}
+{"query": "望遠鏡", "ui_locale": "ja", "expected": ["🔭"], "intent": "name"}
+{"query": "телескоп", "ui_locale": "ru", "expected": ["🔭"], "intent": "name"}
+{"query": "Teleskop", "ui_locale": "de", "expected": ["🔭"], "intent": "name"}
+{"query": "telescopio", "ui_locale": "es", "expected": ["🔭"], "intent": "name"}
+{"query": "microscope", "ui_locale": "en", "expected": ["🔬"], "intent": "name"}
+{"query": "显微镜", "ui_locale": "zh-Hans", "expected": ["🔬"], "intent": "name"}
+{"query": "顯微鏡", "ui_locale": "zh-Hant", "expected": ["🔬"], "intent": "name"}
+{"query": "顕微鏡", "ui_locale": "ja", "expected": ["🔬"], "intent": "name"}
+{"query": "микроскоп", "ui_locale": "ru", "expected": ["🔬"], "intent": "name"}
+{"query": "Mikroskop", "ui_locale": "de", "expected": ["🔬"], "intent": "name"}
+{"query": "microscopio", "ui_locale": "es", "expected": ["🔬"], "intent": "name"}
+{"query": "violin", "ui_locale": "en", "expected": ["🎻"], "intent": "name"}
+{"query": "小提琴", "ui_locale": "zh-Hans", "expected": ["🎻"], "intent": "name"}
+{"query": "小提琴", "ui_locale": "zh-Hant", "expected": ["🎻"], "intent": "name"}
+{"query": "バイオリン", "ui_locale": "ja", "expected": ["🎻"], "intent": "name"}
+{"query": "скрипка", "ui_locale": "ru", "expected": ["🎻"], "intent": "name"}
+{"query": "Geige", "ui_locale": "de", "expected": ["🎻"], "intent": "name"}
+{"query": "violín", "ui_locale": "es", "expected": ["🎻"], "intent": "name"}
+{"query": "guitar", "ui_locale": "en", "expected": ["🎸"], "intent": "name"}
+{"query": "吉他", "ui_locale": "zh-Hans", "expected": ["🎸"], "intent": "name"}
+{"query": "吉他", "ui_locale": "zh-Hant", "expected": ["🎸"], "intent": "name"}
+{"query": "ギター", "ui_locale": "ja", "expected": ["🎸"], "intent": "name"}
+{"query": "гитара", "ui_locale": "ru", "expected": ["🎸"], "intent": "name"}
+{"query": "Gitarre", "ui_locale": "de", "expected": ["🎸"], "intent": "name"}
+{"query": "guitarra", "ui_locale": "es", "expected": ["🎸"], "intent": "name"}
+{"query": "anchor", "ui_locale": "en", "expected": ["⚓"], "intent": "name"}
+{"query": "铁锚", "ui_locale": "zh-Hans", "expected": ["⚓"], "intent": "name"}
+{"query": "船錨", "ui_locale": "zh-Hant", "expected": ["⚓"], "intent": "name"}
+{"query": "いかり", "ui_locale": "ja", "expected": ["⚓"], "intent": "name"}
+{"query": "якорь", "ui_locale": "ru", "expected": ["⚓"], "intent": "name"}
+{"query": "Anker", "ui_locale": "de", "expected": ["⚓"], "intent": "name"}
+{"query": "ancla", "ui_locale": "es", "expected": ["⚓"], "intent": "name"}
+{"query": "rocket", "ui_locale": "en", "expected": ["🚀"], "intent": "name"}
+{"query": "火箭", "ui_locale": "zh-Hans", "expected": ["🚀"], "intent": "name"}
+{"query": "火箭", "ui_locale": "zh-Hant", "expected": ["🚀"], "intent": "name"}
+{"query": "ロケット", "ui_locale": "ja", "expected": ["🚀"], "intent": "name"}
+{"query": "ракета", "ui_locale": "ru", "expected": ["🚀"], "intent": "name"}
+{"query": "Rakete", "ui_locale": "de", "expected": ["🚀"], "intent": "name"}
+{"query": "cohete", "ui_locale": "es", "expected": ["🚀"], "intent": "name"}
+{"query": "compass", "ui_locale": "en", "expected": ["🧭"], "intent": "name"}
+{"query": "指南针", "ui_locale": "zh-Hans", "expected": ["🧭"], "intent": "name"}
+{"query": "指南針", "ui_locale": "zh-Hant", "expected": ["🧭"], "intent": "name"}
+{"query": "コンパス", "ui_locale": "ja", "expected": ["🧭"], "intent": "name"}
+{"query": "компас", "ui_locale": "ru", "expected": ["🧭"], "intent": "name"}
+{"query": "Kompass", "ui_locale": "de", "expected": ["🧭"], "intent": "name"}
+{"query": "brújula", "ui_locale": "es", "expected": ["🧭"], "intent": "name"}
+{"query": "猫咪", "ui_locale": "en", "expected": ["🐱"], "intent": "cross-language"}
+{"query": "貓", "ui_locale": "es", "expected": ["🐱", "🐈"], "intent": "cross-language"}
+{"query": "ねこ", "ui_locale": "de", "expected": ["🐱", "🐈"], "intent": "cross-language"}
+{"query": "neko", "ui_locale": "ru", "expected": ["🐱", "🐈"], "intent": "cross-language"}
+{"query": "кошка", "ui_locale": "ja", "expected": ["🐱", "🐈"], "intent": "cross-language"}
+{"query": "Katze", "ui_locale": "zh-Hant", "expected": ["🐱", "🐈"], "intent": "cross-language"}
+{"query": "gato", "ui_locale": "zh-Hans", "expected": ["🐱", "🐈"], "intent": "cross-language"}
+{"query": "yellow heart", "ui_locale": "ja", "expected": ["💛"], "intent": "cross-language"}
+{"query": "黄心", "ui_locale": "de", "expected": ["💛"], "intent": "cross-language"}
+{"query": "黃色愛心", "ui_locale": "es", "expected": ["💛"], "intent": "cross-language"}
+{"query": "huangse aixin", "ui_locale": "ru", "expected": ["💛"], "intent": "cross-language"}
+{"query": "mao mi", "ui_locale": "de", "expected": ["🐱"], "intent": "cross-language"}
+{"query": "kiiro haato", "ui_locale": "es", "expected": ["💛"], "intent": "cross-language"}
+{"query": "泪目", "ui_locale": "en", "expected": ["🥹", "🥲"], "intent": "cross-language"}
+{"query": "淚目", "ui_locale": "ja", "expected": ["🥹", "🥲"], "intent": "cross-language"}
+{"query": "笑死", "ui_locale": "en", "expected": ["🤣", "😂", "💀"], "intent": "cross-language"}
+{"query": "rofl", "ui_locale": "zh-Hans", "expected": ["🤣"], "intent": "cross-language"}
+{"query": ":sob:", "ui_locale": "ru", "expected": ["😭"], "intent": "cross-language"}
+{"query": ":joy:", "ui_locale": "es", "expected": ["😂"], "intent": "cross-language"}
+{"query": "yellow_heart:", "ui_locale": "zh-Hant", "expected": ["💛"], "intent": "cross-language"}
+{"query": "thumb light skin", "ui_locale": "ja", "expected": ["👍🏻"], "intent": "cross-language"}
+{"query": "erazer", "ui_locale": "es", "expected": ["🪌"], "intent": "cross-language"}
+{"query": "cracking face", "ui_locale": "ru", "expected": ["🫫"], "intent": "cross-language"}
+{"query": "pickle", "ui_locale": "de", "expected": ["🫝"], "intent": "cross-language"}
+{"query": "U+1FAEB", "ui_locale": "ja", "expected": ["🫫"], "intent": "cross-language"}
+{"query": "female developer", "ui_locale": "zh-Hans", "expected": ["👩‍💻"], "intent": "cross-language"}
+{"query": "man health worker: medium skin tone", "ui_locale": "zh-Hant", "expected": ["👨🏽‍⚕️"], "intent": "cross-language"}
+{"query": "rainbow flag", "ui_locale": "de", "expected": ["🏳️‍🌈"], "intent": "cross-language"}
+{"query": "Japan", "ui_locale": "ru", "expected": ["🇯🇵"], "intent": "cross-language"}
+{"query": "leftwards thumb light skin", "ui_locale": "ja", "expected": ["🫹🏻"], "intent": "cross-language"}

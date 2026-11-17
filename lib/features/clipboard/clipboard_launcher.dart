@@ -10,6 +10,8 @@ import '../apps/apps_search_controller.dart';
 import '../calculator/calculator_client.dart';
 import '../calculator/calculator_controller.dart';
 import '../calculator/calculator_results.dart';
+import '../emoji/emoji_results.dart';
+import '../emoji/emoji_search.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
@@ -30,6 +32,7 @@ import 'clipboard_preview.dart';
 
 part 'clipboard_launcher_calculator.dart';
 part 'clipboard_launcher_dialogs.dart';
+part 'clipboard_launcher_emoji.dart';
 part 'clipboard_launcher_keyboard.dart';
 part 'clipboard_launcher_view.dart';
 part 'clipboard_launcher_web.dart';
@@ -42,6 +45,7 @@ class ClipboardLauncher extends StatefulWidget {
     this.calculatorClient,
     this.appsClient,
     this.webClient,
+    this.loadEmojiCatalog = EmojiCatalog.load,
     super.key,
   });
 
@@ -51,6 +55,7 @@ class ClipboardLauncher extends StatefulWidget {
   final CalculatorClient? calculatorClient;
   final AppsClient? appsClient;
   final WebClient? webClient;
+  final Future<EmojiCatalog> Function() loadEmojiCatalog;
 
   @override
   State<ClipboardLauncher> createState() => _ClipboardLauncherState();
@@ -133,6 +138,18 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   StreamSubscription<void>? _subscription;
   Timer? _refreshDelay;
   Timer? _queryDelay;
+  Timer? _emojiDelay;
+  int _emojiRevision = 0;
+  Future<EmojiCatalog>? _emojiLoad;
+  EmojiCatalog? _emojiCatalog;
+  List<EmojiResult> _emojiResults = const [];
+  int _emojiSelection = 0;
+  bool _emojiLoading = false;
+  bool _emojiUnavailable = false;
+  bool _emojiCopying = false;
+  bool _emojiComposing = false;
+  String _editingText = '';
+  String _emojiLocale = 'en';
   bool _loading = false;
   bool _refreshQueued = false;
   bool _enabled = true;
@@ -156,6 +173,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   bool get _inApps => _scope == .apps;
   bool get _inWindows => _scope == .windows;
   bool get _inWeb => _scope == .web;
+  bool get _inEmoji => _scope == .emoji;
   bool get _webActiveInAll =>
       _scope == .all &&
       _web.selected != null &&
@@ -170,6 +188,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     .calculator,
     .clipboard,
     if (_apps.available) .windows,
+    .emoji,
   ];
 
   List<ClipboardEntry> get _visibleEntries => _entries
@@ -198,6 +217,15 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final locale = emojiLocaleTag(Localizations.localeOf(context));
+    if (_emojiLocale == locale) return;
+    _emojiLocale = locale;
+    if (_inEmoji) _queueEmojiSearch(_search.text);
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.platform.stopListeningForClipboard();
@@ -205,6 +233,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _subscription?.cancel();
     _refreshDelay?.cancel();
     _queryDelay?.cancel();
+    _emojiDelay?.cancel();
     _calculator.dispose();
     _apps.dispose();
     _windows.dispose();
@@ -297,6 +326,24 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   void _onSearchSelectionChanged() {
+    final value = _search.value;
+    final composing = !value.composing.isCollapsed;
+    final compositionChanged =
+        composing != _emojiComposing && value.text == _editingText;
+    _emojiComposing = composing;
+    _editingText = value.text;
+    if (compositionChanged &&
+        (_inEmoji ||
+            (!composing && _scope == .all && value.text.startsWith(':')))) {
+      // EditableText only calls onChanged when the text itself changes.
+      scheduleMicrotask(() {
+        if (mounted &&
+            _search.text == value.text &&
+            _search.value.composing == value.composing) {
+          _searchChanged(value.text);
+        }
+      });
+    }
     if ((_inWeb || _scope == .all) && _web.result?.input.completion != null) {
       setState(() {});
     }
@@ -320,6 +367,8 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
             ? _search.text
             : '');
     final wasWatching = _inClipboard || _inActions;
+    _emojiDelay?.cancel();
+    _emojiRevision++;
     setState(() {
       _scope = scope;
       _webSelectedInAll = null;
@@ -346,6 +395,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _apps.update(scope, nextQuery, immediate: true);
     _web.update(scope, nextQuery, engine: webEngine, immediate: true);
     _windows.update(active: _inWindows, query: _search.text);
+    if (_inEmoji) _queueEmojiSearch(nextQuery);
     if (_inClipboard || _inActions) {
       if (!wasWatching) _startWatch();
     } else {
@@ -357,6 +407,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   void _searchChanged(String value) {
+    if (_inEmoji) {
+      _queueEmojiSearch(value);
+      return;
+    }
+    if (_scope == .all && value.startsWith(':') && !_emojiComposing) {
+      _setScope(.emoji, initialQuery: value.substring(1));
+      return;
+    }
     if (_web.available && (_inWeb || _scope == .all)) {
       if (_scope == .all && value == '?') {
         _setScope(.web, initialQuery: '');
@@ -540,13 +598,17 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
   }
 
-  Future<void> _copyPlainText(String text) async {
-    if (text.isEmpty) return;
+  Future<void> _writePlainText(String text) async {
     try {
       await widget.client.publishText(text);
     } on Object {
       await Clipboard.setData(ClipboardData(text: text));
     }
+  }
+
+  Future<void> _copyPlainText(String text) async {
+    if (text.isEmpty) return;
+    await _writePlainText(text);
     if (mounted) {
       setState(() => _status = 'Copied $text to the clipboard.');
     }

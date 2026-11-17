@@ -33,7 +33,7 @@ Remya Launcher（`top.remya.launcher`）は、Flutter、Rust、Material Design 3
 > [!CAUTION]
 > **初期開発段階**
 >
-> アプリ検索、Windows、Web 検索、電卓、クリップボードはライブデータを使用しています。Files と Emoji スコープおよび汎用コマンド実行は引き続き計画中です。サンプルデータで [Figma デザイン](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) を確認するには、`--preview` を使用してください。
+> アプリ検索、Windows、Web 検索、電卓、クリップボードはライブデータを使用しています。絵文字検索も利用できます。Files スコープおよび汎用コマンド実行は引き続き計画中です。サンプルデータで [Figma デザイン](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) を確認するには、`--preview` を使用してください。
 
 ## 🚀 インストール
 
@@ -87,7 +87,8 @@ Launcher の設定は `remya_launcher --settings` で開きます。特定のペ
 ### 計画中のスコープと機能（デザイン仕様）
 
 - **Files（`Ctrl+3` / `/` / `~`）**：パス補完、ファイル名あいまい検索、およびディレクトリ・テキスト・画像のプレビュー。
-- **Emoji（`:`）** および **Run（`$` / `>`）**：絵文字・記号検索および汎用コマンド実行。現在のライブ Run スコープでは、ローカルのクリップボード消去アクションを提供しています。
+- **Emoji（`:`）**：7 言語の名前やキーワード、ショートコード、Unicode シーケンスで Emoji 18.0 をオフライン検索。Enter でコピーし、Ctrl+Right でバリエーションを選択できます。
+- **Run（`>`）**：ローカルのクリップボード履歴を消去します。
 
 ## ⌨️ 開発
 

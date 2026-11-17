@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  emoji_picker_i18n: 1.1.0
   flutter_svg: ^2.3.2
   material_color_utilities: ^0.13.0
   remya_client:
@@ -16,6 +17,7 @@ dependencies:
   remya_ui:
     path: ../remya-core/packages/remya_ui
   material_ui: ^1.5.0
+  unorm_dart: 0.3.3
 
 dev_dependencies:
   flutter_test:
@@ -26,6 +28,7 @@ flutter:
   uses-material-design: true
   assets:
     - LICENSE
+    - assets/emoji/
     - assets/icons/
     - assets/preview/
     - assets/licenses/

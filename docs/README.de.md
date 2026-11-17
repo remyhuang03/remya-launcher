@@ -33,7 +33,7 @@ Remya Launcher (`top.remya.launcher`) ist ein tastaturorientierter Anwendungssta
 > [!CAUTION]
 > **Frühe Entwicklung**
 >
-> Apps-Suche, Windows, Websuche, Rechner und Zwischenablage nutzen Live-Daten. Die Bereiche Files und Emoji sowie die allgemeine Befehlsausführung sind noch geplant. Nutzen Sie `--preview`, um das [Figma-Design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) mit Beispieldaten zu erkunden.
+> Apps-Suche, Windows, Websuche, Rechner und Zwischenablage nutzen Live-Daten. Die Emoji-Suche ist verfügbar. Der Bereich Files und die allgemeine Befehlsausführung sind noch geplant. Nutzen Sie `--preview`, um das [Figma-Design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) mit Beispieldaten zu erkunden.
 
 ## 🚀 Installation
 
@@ -87,7 +87,8 @@ python tool/install.py
 ### Geplante Bereiche & Funktionen (Design-Spezifikation)
 
 - **Files (`Ctrl+3` / `/` / `~`)**: Pfadvervollständigung, unscharfe Dateinamensuche sowie Vorschauen für Verzeichnisse, Text und Bilder.
-- **Emoji (`:`)** und **Run (`$` / `>`)**: Emoji- und Symbolsuche sowie allgemeine Befehlsausführung. Der aktive Bereich Run bietet derzeit die lokale Aktion zum Leeren der Zwischenablage.
+- **Emoji (`:`)**: Emoji 18.0 offline in sieben Sprachen nach Namen, Schlüsselwort, Kurzcode oder Unicode-Sequenz suchen. Enter kopiert das Emoji, Strg+Rechts öffnet die Varianten.
+- **Run (`>`)**: Den lokalen Zwischenablageverlauf löschen.
 
 ## ⌨️ Entwicklung
 

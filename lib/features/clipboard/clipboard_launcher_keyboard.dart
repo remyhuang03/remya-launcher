@@ -14,6 +14,10 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
       _maskSecret();
     }
     if (_web.menuChoice != null) return .ignored;
+    if (_emojiComposing &&
+        (_inEmoji || (_scope == .all && _search.text.startsWith(':')))) {
+      return .ignored;
+    }
     if (ctrl && !alt && event is KeyDownEvent) {
       if (key == LogicalKeyboardKey.digit4 && _web.available) {
         _setScope(.web);
@@ -27,8 +31,7 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
         _setScope(.windows);
         return .handled;
       }
-      if (key == LogicalKeyboardKey.tab &&
-          (_apps.available || _web.available)) {
+      if (key == LogicalKeyboardKey.tab) {
         final scopes = _activeScopes;
         final index = scopes.indexOf(_scope);
         _setScope(scopes[(index + (shift ? -1 : 1)) % scopes.length]);
@@ -115,6 +118,7 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
     if (key == LogicalKeyboardKey.backspace &&
         _search.text.isEmpty &&
         _scope != .all &&
+        (!_inEmoji || _searchFocus.hasPrimaryFocus) &&
         !ctrl &&
         !alt &&
         event is KeyDownEvent) {
@@ -143,6 +147,9 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
     }
     if (_inCalculator && event is KeyDownEvent) {
       return _onCalculatorKey(key, ctrl: ctrl, shift: shift, alt: alt);
+    }
+    if (_inEmoji && _searchFocus.hasPrimaryFocus) {
+      return _onEmojiKey(event, ctrl: ctrl, shift: shift, alt: alt);
     }
     if (_inActions && _showsClear && key == LogicalKeyboardKey.enter) {
       if (event is KeyDownEvent) unawaited(_clear());
