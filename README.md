@@ -79,6 +79,9 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 - **Calculator (`Ctrl+5` / `=`)**:
   - Evaluates inline basic expressions in `All` and full queries in `Calc` (`Ctrl+5` or `=`) locally via `fend-core` math, typed units, bases with width and signedness, FP32/FP16/BF16, time zones, and ECB reference snapshots fetched only on explicit refresh, with catalog completions and history.
   - Optional FP8 and general calendar arithmetic remain deferred.
+- **Emoji and Symbols (`:`)**:
+  - Search Emoji 18.0 offline across seven languages. Select **Symbols** for a separate catalog of arrows, math, currency, and other text characters.
+  - Press Enter to copy or Ctrl+Right to choose an emoji variant. In **Settings → Emoji**, enable Ctrl+Enter to paste into the previous Hyprland window, or enable and clear the local recent emoji list.
 - **Interactive Design Previews (`--preview`)**:
   - Inspect all planned UI states from a built bundle using `--preview=<name>`:
     - Launcher states: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
@@ -87,7 +90,6 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 ### Planned Scopes & Capabilities (Design Spec)
 
 - **Files (`Ctrl+3` / `/` / `~`)**: Path completion, fuzzy filename search, and previews for directories, text, and images.
-- **Emoji (`:`)**: Search Emoji 18.0 offline by name, keyword, shortcode, or Unicode sequence across seven languages. Press Enter to copy or Ctrl+Right to choose a variant.
 - **Run (`>`)**: Clear local clipboard history.
 
 ## ⌨️ Development

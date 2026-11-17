@@ -8,6 +8,7 @@ import 'package:remya_ui/settings_ui.dart';
 
 import '../apps/apps_client.dart';
 import '../apps/apps_settings.dart';
+import '../emoji/emoji_settings.dart';
 import '../web/web_client.dart';
 import '../web/web_settings.dart';
 import 'clipboard_client.dart';
@@ -103,6 +104,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
               ),
               appsSettingsPage(_apps),
               webSettingsPage(_web),
+              emojiSettingsPage(_client),
               remyaMaterialThemePage(client: _client),
             ],
             footerPages: [

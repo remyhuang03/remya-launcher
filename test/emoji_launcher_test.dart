@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:remya_client/remya_client.dart';
 import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_client.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_launcher.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_platform.dart';
+import 'package:remya_launcher/features/emoji/emoji_recents.dart';
 import 'package:remya_launcher/features/emoji/emoji_results.dart';
 import 'package:remya_launcher/features/emoji/emoji_search.dart';
+import 'package:remya_launcher/features/emoji/emoji_settings.dart';
 
 final _field = find.byType(TextFormField);
 
@@ -32,10 +35,52 @@ class _Clipboard extends ClipboardClient {
   }
 }
 
+class _PastePlatform extends _Platform {
+  _PastePlatform(this.clipboard);
+
+  final _Clipboard clipboard;
+  final attempted = <String>[];
+
+  @override
+  bool get canPasteToPreviousWindow => true;
+
+  @override
+  Future<bool> pasteToPreviousWindow() async {
+    attempted.add(clipboard.payloads.last);
+    return false;
+  }
+}
+
+class _Recents extends EmojiRecents {
+  var ids = ['U+1F469 U+200D U+1F4BB'];
+
+  @override
+  Future<List<String>> read() async => ids;
+
+  @override
+  Future<List<String>> record(String id) async =>
+      ids = [id, ...ids.where((entry) => entry != id)];
+}
+
+class _Settings extends SettingsClient {
+  @override
+  Future<Map<String, dynamic>> call(
+    String method, [
+    List<String> arguments = const [],
+  ]) async => {
+    'id': arguments.single,
+    'availability': 'available',
+    'value': false,
+  };
+}
+
 Future<void> _render(
   WidgetTester tester,
   Future<EmojiCatalog> Function() load, {
   ClipboardClient client = const ClipboardClient(),
+  ClipboardPlatform platform = const _Platform(),
+  EmojiPreferences preferences = const EmojiPreferences(),
+  EmojiRecents? recents,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -43,8 +88,10 @@ Future<void> _render(
         body: ClipboardLauncher(
           startInClipboard: false,
           client: client,
-          platform: const _Platform(),
+          platform: platform,
           loadEmojiCatalog: load,
+          loadEmojiPreferences: () async => preferences,
+          emojiRecents: recents,
         ),
       ),
     ),
@@ -173,11 +220,89 @@ void main() {
     dispatcher.localesTestValue = const [Locale('zh', 'TW')];
     addTearDown(dispatcher.clearLocalesTestValue);
     await tester.pumpWidget(
-      const RemyaLauncherApp(clipboardPlatform: _Platform()),
+      RemyaLauncherApp(
+        clipboardPlatform: const _Platform(),
+        settingsClient: _Settings(),
+      ),
     );
     await tester.pumpAndSettle();
     await tester.enterText(_field, ':');
     await tester.pump();
     expect(find.text('按名稱、情緒或短碼搜尋表情…'), findsOneWidget);
+  });
+
+  testWidgets('Only explicit paste sends the copied selection to the target', (
+    tester,
+  ) async {
+    final clipboard = _Clipboard()..available = true;
+    final platform = _PastePlatform(clipboard);
+    final recents = _Recents();
+    await _render(
+      tester,
+      () async => catalog,
+      client: clipboard,
+      platform: platform,
+      preferences: const EmojiPreferences(autoPaste: true, recents: true),
+      recents: recents,
+    );
+    await tester.enterText(_field, ':');
+    await _waitForEmoji(tester);
+    final results = tester.widget<EmojiResults>(find.byType(EmojiResults));
+    expect(results.results.first.emoji, '👩‍💻');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(clipboard.payloads, ['👩‍💻']);
+    expect(platform.attempted, isEmpty);
+
+    await tester.enterText(_field, '🫹');
+    await _waitForEmoji(tester);
+    await _ctrl(tester, LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    await _ctrl(tester, LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(platform.attempted, ['🫹🏻']);
+    expect(recents.ids, ['U+1FAF9 U+1F3FB', 'U+1F469 U+200D U+1F4BB']);
+    expect(find.text('Copied. Paste it in the target window.'), findsOneWidget);
+  });
+
+  testWidgets('Symbols have their own results and preserve bare code points', (
+    tester,
+  ) async {
+    final clipboard = _Clipboard()..available = true;
+    final platform = _PastePlatform(clipboard);
+    final recents = _Recents();
+    await _render(
+      tester,
+      () async => catalog,
+      client: clipboard,
+      platform: platform,
+      preferences: const EmojiPreferences(recents: true),
+      recents: recents,
+    );
+    await tester.enterText(_field, ':©');
+    await _waitForEmoji(tester);
+    expect(
+      tester
+          .widget<EmojiResults>(find.byType(EmojiResults))
+          .results
+          .single
+          .emoji,
+      '©️',
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Symbols'));
+    await _waitForEmoji(tester);
+    final results = tester.widget<EmojiResults>(find.byType(EmojiResults));
+    expect(results.results.single.kind, EmojiResultKind.symbol);
+    expect(results.results.single.emoji, '©');
+    await _ctrl(tester, LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(clipboard.payloads, isEmpty);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(clipboard.payloads, ['©']);
+    expect(platform.attempted, isEmpty);
+    expect(recents.ids, ['U+1F469 U+200D U+1F4BB']);
   });
 }

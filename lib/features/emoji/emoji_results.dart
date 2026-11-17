@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../launcher/launcher_controls.dart';
@@ -38,6 +39,7 @@ class EmojiResults extends StatefulWidget {
     required this.hasVariants,
     this.loading = false,
     this.unavailable = false,
+    this.symbols = false,
     super.key,
   });
 
@@ -49,6 +51,7 @@ class EmojiResults extends StatefulWidget {
   final bool Function(EmojiResult) hasVariants;
   final bool loading;
   final bool unavailable;
+  final bool symbols;
 
   @override
   State<EmojiResults> createState() => _EmojiResultsState();
@@ -107,6 +110,8 @@ class _EmojiResultsState extends State<EmojiResults> {
         child: Text(
           widget.unavailable
               ? 'Emoji search unavailable'
+              : widget.symbols
+              ? 'No matching symbols. Try a name or code point.'
               : 'No matching emoji. Try a name or shortcode.',
         ),
       );
@@ -231,24 +236,35 @@ class _EmojiGlyph extends StatelessWidget {
   );
 }
 
-Future<EmojiResult?> showEmojiVariants(
+Future<({EmojiResult item, bool paste})?> showEmojiVariants(
   BuildContext context, {
   required List<EmojiResult> variants,
-}) => showDialog<EmojiResult>(
+  required bool canPaste,
+}) => showDialog<({EmojiResult item, bool paste})>(
   context: context,
   builder: (context) => SimpleDialog(
     title: const Text('Emoji variants'),
     children: [
       for (final (index, item) in variants.indexed)
-        ListTile(
-          leading: SizedBox.square(
-            dimension: 42,
-            child: _EmojiGlyph(item.emoji),
+        CallbackShortcuts(
+          bindings: {
+            if (canPaste)
+              const SingleActivator(
+                LogicalKeyboardKey.enter,
+                control: true,
+              ): () => Navigator.of(context)
+                  .pop((item: item, paste: true)),
+          },
+          child: ListTile(
+            leading: SizedBox.square(
+              dimension: 42,
+              child: _EmojiGlyph(item.emoji),
+            ),
+            title: Text(item.name),
+            subtitle: Text(item.codePoints),
+            autofocus: index == 0,
+            onTap: () => Navigator.of(context).pop((item: item, paste: false)),
           ),
-          title: Text(item.name),
-          subtitle: Text(item.codePoints),
-          autofocus: index == 0,
-          onTap: () => Navigator.of(context).pop(item),
         ),
     ],
   ),

@@ -46,6 +46,8 @@ class ClipboardPlatform {
 
   Future<void> close() => _window.invokeMethod<void>('close');
 
+  bool get canPasteToPreviousWindow => false;
+
   Future<bool> pasteToPreviousWindow() async => false;
 
   Future<void> openLink(String link) async {
@@ -210,6 +212,9 @@ class _HyprlandClipboardPlatform extends ClipboardPlatform {
   final String address;
   final int pid;
 
+  @override
+  bool get canPasteToPreviousWindow => true;
+
   static const _terminalClasses = {
     'alacritty',
     'com.mitchellh.ghostty',
@@ -252,6 +257,11 @@ class _HyprlandClipboardPlatform extends ClipboardPlatform {
         return name is String && _terminalClasses.contains(name.toLowerCase());
       });
       await ClipboardPlatform._window.invokeMethod<void>('hide');
+      // Wait for the compositor to restore the captured window's keyboard focus.
+      if (!await _waitForPreviousWindow()) {
+        await ClipboardPlatform._window.invokeMethod<void>('show');
+        return false;
+      }
       final modifiers = terminal ? 'CTRL + SHIFT' : 'CTRL';
       final sent = await ClipboardPlatform._run('hyprctl', [
         'dispatch',
@@ -265,6 +275,21 @@ class _HyprlandClipboardPlatform extends ClipboardPlatform {
       // Copy succeeded; keep the launcher available to report manual paste.
     }
     await ClipboardPlatform._window.invokeMethod<void>('show');
+    return false;
+  }
+
+  Future<bool> _waitForPreviousWindow() async {
+    for (var attempt = 0; attempt < 4; attempt++) {
+      final result = await ClipboardPlatform._run('hyprctl', [
+        '-j',
+        'activewindow',
+      ]);
+      if (result.exitCode != 0) return false;
+      final focused =
+          jsonDecode(result.stdout as String) as Map<String, dynamic>;
+      if (focused['address'] == address && focused['pid'] == pid) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
     return false;
   }
 }

@@ -8,6 +8,7 @@ import 'features/clipboard/clipboard_launcher.dart';
 import 'features/clipboard/clipboard_platform.dart';
 import 'features/clipboard/clipboard_settings.dart';
 import 'features/emoji/emoji_results.dart';
+import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_palette.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
@@ -37,7 +38,7 @@ class RemyaLauncherApp extends StatelessWidget {
   /// Shared Remya theme; it keeps the last valid theme when reads fail.
   final SettingsThemeController? theme;
 
-  /// Remya Core connection for the settings window; null connects on demand.
+  /// Remya Core connection for app preferences; null connects on demand.
   final SettingsClient? settingsClient;
   final AppsClient? appsClient;
   final WebClient? webClient;
@@ -117,6 +118,9 @@ class RemyaLauncherApp extends StatelessWidget {
               appsClient: appsClient,
               webClient: webClient,
               platform: clipboardPlatform,
+              loadEmojiPreferences: settingsClient == null
+                  ? null
+                  : () => EmojiPreferences.read(settingsClient),
             ),
           ),
         };

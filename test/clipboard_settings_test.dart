@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:remya_client/remya_client.dart';
 import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_client.dart';
+import 'package:remya_launcher/features/emoji/emoji_settings.dart';
 import 'package:remya_launcher/main.dart';
 import 'package:remya_ui/settings_ui.dart';
 
@@ -17,6 +18,8 @@ class _Core extends SettingsClient {
     'clipboard-history': true,
     'clipboard-max-items': 500,
     'clipboard-retention-days': 30,
+    emojiAutoPasteKey: false,
+    emojiRecentsKey: false,
   };
   Object? failure = StateError('Unavailable: remyad is not running');
 
@@ -176,24 +179,79 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  test(
-    'parseSettingsPage accepts clipboard, material-theme, and empty page',
-    () {
-      expect(parseSettingsPage(const []), isNull);
-      expect(parseSettingsPage(const ['--clipboard']), isNull);
-      expect(parseSettingsPage(const ['--settings']), '');
-      expect(parseSettingsPage(const ['--settings', '--clipboard']), '');
-      expect(parseSettingsPage(const ['--settings', 'clipboard']), 'clipboard');
-      expect(
-        parseSettingsPage(const ['--settings', remyaMaterialThemePageId]),
-        remyaMaterialThemePageId,
-      );
-      expect(
-        () => parseSettingsPage(const ['--settings', 'unknown']),
-        throwsArgumentError,
-      );
-    },
-  );
+  test('parseSettingsPage accepts registered pages and an empty page', () {
+    expect(parseSettingsPage(const []), isNull);
+    expect(parseSettingsPage(const ['--clipboard']), isNull);
+    expect(parseSettingsPage(const ['--settings']), '');
+    expect(parseSettingsPage(const ['--settings', '--clipboard']), '');
+    expect(parseSettingsPage(const ['--settings', 'clipboard']), 'clipboard');
+    expect(
+      parseSettingsPage(const ['--settings', emojiSettingsPageId]),
+      emojiSettingsPageId,
+    );
+    expect(
+      parseSettingsPage(const ['--settings', remyaMaterialThemePageId]),
+      remyaMaterialThemePageId,
+    );
+    expect(
+      () => parseSettingsPage(const ['--settings', 'unknown']),
+      throwsArgumentError,
+    );
+  });
+
+  testWidgets('Emoji settings use Core for both opt-in preferences', (
+    tester,
+  ) async {
+    final core = _Core()..failure = null;
+    addTearDown(core.signals.close);
+    addTearDown(core.owners.close);
+    await tester.binding.setSurfaceSize(const Size(960, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      RemyaLauncherApp(
+        settingsPage: emojiSettingsPageId,
+        settingsClient: core,
+        clipboardClient: _Clipboard(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Finder toggle(String key) => find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(toggle(emojiAutoPasteKey)).value, isFalse);
+    expect(tester.widget<Switch>(toggle(emojiRecentsKey)).value, isFalse);
+
+    await tester.tap(toggle(emojiAutoPasteKey));
+    await tester.pumpAndSettle();
+    expect(core.writes.single, ['remya-launcher.$emojiAutoPasteKey', 'true']);
+    expect(tester.widget<Switch>(toggle(emojiAutoPasteKey)).value, isTrue);
+
+    core.values[emojiRecentsKey] = true;
+    core.signals.add((topic: 'remya-launcher.$emojiRecentsKey', value: {}));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(toggle(emojiRecentsKey)).value, isTrue);
+    await tester.tap(toggle(emojiRecentsKey));
+    await tester.pumpAndSettle();
+    expect(core.writes.last, ['remya-launcher.$emojiRecentsKey', 'false']);
+    expect(tester.widget<Switch>(toggle(emojiRecentsKey)).value, isFalse);
+
+    core.values[emojiRecentsKey] = 'invalid';
+    core.signals.add((topic: 'remya-launcher.$emojiRecentsKey', value: {}));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('invalid $emojiRecentsKey'), findsOne);
+    expect(tester.widget<Switch>(toggle(emojiRecentsKey)).value, isFalse);
+    expect(tester.widget<Switch>(toggle(emojiRecentsKey)).onChanged, isNull);
+
+    await tester.tap(find.text('Clear recents'));
+    await tester.pumpAndSettle();
+    expect(find.text('Clear recent emoji?'), findsOne);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'settings routing preserves Clipboard first and opens Material theme',

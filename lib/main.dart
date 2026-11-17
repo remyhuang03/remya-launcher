@@ -7,6 +7,7 @@ import 'package:remya_ui/settings_ui.dart';
 import 'app.dart';
 import 'features/apps/apps_client.dart';
 import 'features/clipboard/clipboard_platform.dart';
+import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_tile.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
@@ -28,6 +29,7 @@ String? parseSettingsPage(List<String> arguments) {
         'apps-preferences',
         'hidden-apps',
         'web',
+        emojiSettingsPageId,
         remyaMaterialThemePageId,
       ].contains(settingsPage)) {
     throw ArgumentError.value(settingsPage, 'page', 'Unknown settings page');

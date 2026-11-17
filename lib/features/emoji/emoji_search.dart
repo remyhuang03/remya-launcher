@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
+enum EmojiResultKind { emoji, symbol }
+
 class EmojiResult {
   const EmojiResult({
     required this.emoji,
@@ -13,6 +15,7 @@ class EmojiResult {
     required this.group,
     required this.codePoints,
     this.matchedTerm,
+    this.kind = .emoji,
   });
 
   final String emoji;
@@ -20,6 +23,7 @@ class EmojiResult {
   final String group;
   final String codePoints;
   final String? matchedTerm;
+  final EmojiResultKind kind;
 }
 
 class EmojiCatalog {
@@ -162,8 +166,22 @@ class EmojiCatalog {
     return results;
   }
 
-  List<EmojiResult> browse({String locale = 'en'}) =>
-      _browse(_language(locale)).toList();
+  List<EmojiResult> browse({
+    String locale = 'en',
+    List<String> recentIds = const [],
+  }) {
+    final language = _language(locale);
+    final recent = [
+      for (final id in recentIds)
+        if (_directMatch(id) case final entry?) _result(entry, language),
+    ];
+    final recentPayloads = recent.map((item) => item.emoji).toSet();
+    return [
+      ...recent,
+      ..._browse(language)
+          .where((item) => !recentPayloads.contains(item.emoji)),
+    ];
+  }
 
   Iterable<EmojiResult> _browse(String language) => _engine.emojis
       .where((entry) => !_parents.containsKey(entry.char))

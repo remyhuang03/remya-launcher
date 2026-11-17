@@ -79,6 +79,8 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
 - **Calculadora (`Ctrl+5` / `=`)**:
   - Evalúa expresiones básicas en línea en `All` y consultas completas en `Calc` (`Ctrl+5` o `=`) localmente mediante cálculo con `fend-core`, unidades tipadas, bases con ancho de bits y signo, FP32/FP16/BF16, zonas horarias e instantáneas de referencia del BCE obtenidas solo bajo actualización explícita, con autocompletado de catálogo e historial.
   - El soporte opcional de FP8 y la aritmética general de calendario siguen pospuestos.
+- **Emoji (`:`)**: Busca Emoji 18.0 sin conexión por nombre, palabra clave, código corto o secuencia Unicode en siete idiomas. Pulsa Intro para copiar o Ctrl+Derecha para elegir una variante.
+  - La pestaña **Symbols** abre un catálogo de símbolos separado. En **Ajustes → Emoji** puedes activar el pegado con Ctrl+Intro y la lista local de emojis recientes.
 - **Vistas previas interactivas de diseño (`--preview`)**:
   - Inspecciona todos los estados de interfaz planeados desde un paquete compilado usando `--preview=<name>`:
     - Estados del lanzador: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
@@ -87,7 +89,6 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
 ### Ámbitos y capacidades planificadas (especificación de diseño)
 
 - **Files (`Ctrl+3` / `/` / `~`)**: autocompletado de rutas, búsqueda difusa de nombres de archivo y vistas previas para carpetas, texto e imágenes.
-- **Emoji (`:`)**: Busca Emoji 18.0 sin conexión por nombre, palabra clave, código corto o secuencia Unicode en siete idiomas. Pulsa Intro para copiar o Ctrl+Derecha para elegir una variante.
 - **Run (`>`)**: Borra el historial local del portapapeles.
 
 ## ⌨️ Desarrollo

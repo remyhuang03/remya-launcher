@@ -46,3 +46,15 @@ the official data.
 | G2 — Relevance | The 170-case golden corpus achieved Recall@10 of 100% and MRR@10 of 0.985. |
 | G3 — Performance | On Arch Linux with an Intel Core Ultra 7 255H and Flutter 3.50.0/Dart 3.14.0, the focused Flutter test run measured 4.36/7.47/11.34 ms warm P50/P95/P99 for 160 samples. Index load took 357 ms in the test VM, exceeding the proposed 150 ms budget. Decoding and indexing run in an isolate after opening the Emoji scope. The catalog is about 460 KB gzip-compressed. |
 | G4 — Maintenance | The lockfile pins the package. The generator pins data archives and licenses by hash, and CI verifies the bundled files offline. |
+
+## Symbols
+
+The small, separate Symbols catalog in
+`lib/features/emoji/symbol_catalog.dart` uses character names and code
+points from [UnicodeData.txt, Unicode 18.0.0](https://www.unicode.org/Public/18.0.0/ucd/UnicodeData.txt).
+The exact source hash is pinned in
+[symbols-source.lock.json](symbols-source.lock.json). The data is covered by
+Unicode License v3, included in `assets/emoji/THIRD_PARTY_NOTICES.txt`.
+Categories and aliases are locally curated. Run
+`python tool/emoji/check_symbols.py` when editing this list to check the
+official names, duplicate code points, and separation from Emoji.

@@ -101,9 +101,11 @@ extension _LauncherView on _ClipboardLauncherState {
                               : _inWindows
                               ? 'Filter windows by title or class…'
                               : _inEmoji
-                              ? emojiSearchPlaceholder(
-                                  Localizations.localeOf(context),
-                                )
+                              ? (_inSymbols
+                                    ? 'Search symbols by name or code point…'
+                                    : emojiSearchPlaceholder(
+                                        Localizations.localeOf(context),
+                                      ))
                               : _inActions
                               ? 'Filter actions…'
                               : 'Search launcher…',

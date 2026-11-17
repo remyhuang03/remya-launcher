@@ -79,6 +79,8 @@ python tool/install.py
 - **Rechner (`Ctrl+5` / `=`)**:
   - Wertet grundlegende Ausdrücke inline in `All` sowie vollständige Abfragen in `Calc` (`Ctrl+5` oder `=`) lokal aus — mit `fend-core`-Mathematik, typisierten Einheiten, Zahlensystemen mit Bitbreite und Vorzeichen, FP32/FP16/BF16, Zeitzonen, nur auf explizite Aktualisierung abgerufenen EZB-Referenzkurs-Snapshots, Katalogvervollständigungen und Verlauf.
   - Optionales FP8 und allgemeine Kalenderarithmetik bleiben zurückgestellt.
+- **Emoji (`:`)**: Emoji 18.0 offline in sieben Sprachen nach Namen, Schlüsselwort, Kurzcode oder Unicode-Sequenz suchen. Enter kopiert das Emoji, Strg+Rechts öffnet die Varianten.
+  - Der Tab **Symbols** öffnet einen eigenen Symbolkatalog. Unter **Einstellungen → Emoji** lassen sich Einfügen mit Strg+Enter und die lokale Liste zuletzt verwendeter Emojis aktivieren.
 - **Interaktive Design-Vorschauen (`--preview`)**:
   - Prüfen Sie alle geplanten UI-Zustände aus einem gebauten Bundle mit `--preview=<name>`:
     - Launcher-Zustände: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
@@ -87,7 +89,6 @@ python tool/install.py
 ### Geplante Bereiche & Funktionen (Design-Spezifikation)
 
 - **Files (`Ctrl+3` / `/` / `~`)**: Pfadvervollständigung, unscharfe Dateinamensuche sowie Vorschauen für Verzeichnisse, Text und Bilder.
-- **Emoji (`:`)**: Emoji 18.0 offline in sieben Sprachen nach Namen, Schlüsselwort, Kurzcode oder Unicode-Sequenz suchen. Enter kopiert das Emoji, Strg+Rechts öffnet die Varianten.
 - **Run (`>`)**: Den lokalen Zwischenablageverlauf löschen.
 
 ## ⌨️ Entwicklung

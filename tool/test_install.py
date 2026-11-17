@@ -51,10 +51,11 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(registration["config"], "launcher")
         self.assertEqual(
             [page["id"] for page in registration["pages"]],
-            ["clipboard", "material-theme"],
+            ["clipboard", "emoji", "material-theme"],
         )
         self.assertEqual({key: row["default"] for key, row in registration["settings"].items()}, {
             "clipboard-history": True, "clipboard-max-items": 500, "clipboard-retention-days": 30,
+            "emoji-auto-paste": False, "emoji-recents": False,
         })
         unit = clipboard_unit(Path('/tmp/a b/clipboard'))
         for line in ["Wants=top.remya.core.service",

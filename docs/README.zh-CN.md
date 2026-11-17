@@ -78,6 +78,8 @@ python tool/install.py
 - **计算器（`Ctrl+5` / `=`）**：
   - 在 `All` 中内联求值基本表达式并在 `Calc`（`Ctrl+5` 或 `=`）中处理完整查询，基于本地 `fend-core` 数学运算、带类型单位、带位宽与符号性的进制、FP32/FP16/BF16、时区，以及仅在显式刷新时获取的 ECB 参考汇率快照，并提供目录补全与历史记录。
   - 可选的 FP8 与通用日历算术仍处于延后状态。
+- **Emoji（`:`）**：离线搜索 Emoji 18.0 的七语名称、关键词、短码或 Unicode 序列。Enter 复制，Ctrl+Right 选择变体。
+  - 切换到 **Symbols** 搜索独立符号库。在 **设置 → Emoji** 中可启用 Ctrl+Enter 粘贴和本地最近使用。
 - **交互式设计预览（`--preview`）**：
   - 从构建产物中传入 `--preview=<name>` 查看所有已规划的界面状态：
     - 启动器状态：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
@@ -86,7 +88,6 @@ python tool/install.py
 ### 规划中的范围与能力（设计规范）
 
 - **Files（`Ctrl+3` / `/` / `~`）**：路径补全、文件名模糊搜索，以及目录、文本与图片预览。
-- **Emoji（`:`）**：离线搜索 Emoji 18.0 的七语名称、关键词、短码或 Unicode 序列。Enter 复制，Ctrl+Right 选择变体。
 - **Run（`>`）**：清空本地剪贴板历史。
 
 ## ⌨️ 开发

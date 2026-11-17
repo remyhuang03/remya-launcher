@@ -10,8 +10,11 @@ import '../apps/apps_search_controller.dart';
 import '../calculator/calculator_client.dart';
 import '../calculator/calculator_controller.dart';
 import '../calculator/calculator_results.dart';
+import '../emoji/emoji_recents.dart';
 import '../emoji/emoji_results.dart';
 import '../emoji/emoji_search.dart';
+import '../emoji/emoji_settings.dart';
+import '../emoji/symbol_catalog.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
@@ -46,6 +49,8 @@ class ClipboardLauncher extends StatefulWidget {
     this.appsClient,
     this.webClient,
     this.loadEmojiCatalog = EmojiCatalog.load,
+    this.loadEmojiPreferences,
+    this.emojiRecents,
     super.key,
   });
 
@@ -56,6 +61,8 @@ class ClipboardLauncher extends StatefulWidget {
   final AppsClient? appsClient;
   final WebClient? webClient;
   final Future<EmojiCatalog> Function() loadEmojiCatalog;
+  final Future<EmojiPreferences> Function()? loadEmojiPreferences;
+  final EmojiRecents? emojiRecents;
 
   @override
   State<ClipboardLauncher> createState() => _ClipboardLauncherState();
@@ -148,6 +155,11 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   bool _emojiUnavailable = false;
   bool _emojiCopying = false;
   bool _emojiComposing = false;
+  bool _inSymbols = false;
+  int _emojiSession = 0;
+  EmojiPreferences _emojiPreferences = const EmojiPreferences();
+  List<String> _recentEmojiIds = const [];
+  late final _emojiRecents = widget.emojiRecents ?? EmojiRecents();
   String _editingText = '';
   String _emojiLocale = 'en';
   bool _loading = false;
@@ -367,10 +379,17 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
             ? _search.text
             : '');
     final wasWatching = _inClipboard || _inActions;
+    final enteringEmoji = !_inEmoji && scope == .emoji;
+    if (_scope != scope) _emojiSession++;
     _emojiDelay?.cancel();
     _emojiRevision++;
     setState(() {
       _scope = scope;
+      if (enteringEmoji) {
+        _inSymbols = false;
+        _emojiPreferences = const EmojiPreferences();
+        _recentEmojiIds = const [];
+      }
       _webSelectedInAll = null;
       if (nextQuery.isEmpty) {
         _search.clear();
@@ -396,6 +415,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _web.update(scope, nextQuery, engine: webEngine, immediate: true);
     _windows.update(active: _inWindows, query: _search.text);
     if (_inEmoji) _queueEmojiSearch(nextQuery);
+    if (enteringEmoji) unawaited(_loadEmojiOptions(_emojiSession));
     if (_inClipboard || _inActions) {
       if (!wasWatching) _startWatch();
     } else {
@@ -598,11 +618,14 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
   }
 
-  Future<void> _writePlainText(String text) async {
+  // The resident service keeps ownership after the Launcher window closes.
+  Future<bool> _writePlainText(String text) async {
     try {
       await widget.client.publishText(text);
+      return true;
     } on Object {
       await Clipboard.setData(ClipboardData(text: text));
+      return false;
     }
   }
 
