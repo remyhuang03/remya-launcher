@@ -33,6 +33,8 @@ class WindowsController extends ChangeNotifier {
   bool active = false, ready = false, busy = false, showIndices = false;
   Timer? _debounce, _poll;
   int _revision = 0;
+  int _request = 0;
+  bool _requesting = false;
   bool _disposed = false;
 
   LauncherWindow? get selected =>
@@ -53,23 +55,29 @@ class WindowsController extends ChangeNotifier {
       _debounce = Timer(const Duration(milliseconds: 30), _refresh);
       // Windows open, close and retitle while the launcher is visible.
       _poll = Timer.periodic(const Duration(seconds: 2), (_) {
-        if (!busy && _debounce?.isActive != true) unawaited(_refresh());
+        if (!_requesting && !busy && _debounce?.isActive != true) {
+          unawaited(_refresh());
+        }
       });
     }
     notifyListeners();
   }
 
   Future<void> retry() async {
+    if (!active || _disposed) return;
     error = null;
     notifyListeners();
     await _refresh();
   }
 
   Future<void> _refresh() async {
+    if (!active || _disposed) return;
     final revision = _revision;
+    final request = ++_request;
+    _requesting = true;
     try {
       final next = await client!.windows(query.trim());
-      if (_disposed || revision != _revision) return;
+      if (_disposed || revision != _revision || request != _request) return;
       final queryChanged = !ready;
       windows = next;
       ready = true;
@@ -81,8 +89,10 @@ class WindowsController extends ChangeNotifier {
         selectedId = next.firstOrNull?.id;
       }
     } on Object catch (failure) {
-      if (_disposed || revision != _revision) return;
+      if (_disposed || revision != _revision || request != _request) return;
       error = failure is AppsException ? failure.message : 'Windows failed.';
+    } finally {
+      if (request == _request) _requesting = false;
     }
     notifyListeners();
   }
@@ -104,7 +114,8 @@ class WindowsController extends ChangeNotifier {
 
   /// Focuses [window] on its workspace, or moves it to the current one first.
   Future<void> run(LauncherWindow window, {bool here = false}) async {
-    if (busy) return;
+    if (_disposed || !active || !ready || error != null || busy) return;
+    final revision = _revision;
     busy = true;
     actionError = null;
     selectedId = window.id;
@@ -116,9 +127,9 @@ class WindowsController extends ChangeNotifier {
         query: query.trim(),
         target: window.id,
       );
-      if (!_disposed) await onClose();
+      if (!_disposed && revision == _revision) await onClose();
     } on Object catch (failure) {
-      if (_disposed) return;
+      if (_disposed || revision != _revision) return;
       actionError = failure is AppsException
           ? failure.message
           : 'Could not reach the window.';
@@ -130,7 +141,7 @@ class WindowsController extends ChangeNotifier {
   }
 
   KeyEventResult handleKey(KeyEvent event) {
-    if (!active) return .ignored;
+    if (!active || !ready || error != null) return .ignored;
     final keys = HardwareKeyboard.instance;
     final key = event.logicalKey;
     final ctrl = keys.isControlPressed;

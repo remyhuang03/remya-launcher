@@ -212,8 +212,11 @@ class FileIconPalette {
       highContrast,
       neutral.toARGB32(),
     );
-    final cached = _cache[key];
-    if (cached != null) return cached;
+    final cached = _cache.remove(key);
+    if (cached != null) {
+      _cache[key] = cached;
+      return cached;
+    }
 
     final Color result;
     if (highContrast) {
@@ -243,6 +246,7 @@ class FileIconPalette {
       }
     }
 
+    if (_cache.length >= 512) _cache.remove(_cache.keys.first);
     _cache[key] = result;
     return result;
   }

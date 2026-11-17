@@ -108,7 +108,7 @@ impl AppsService {
             }
             Operation::Hidden {} => self.hidden(),
             Operation::Windows { query } => {
-                let clients = hyprland::fetch_clients();
+                let clients = hyprland::fetch_clients()?;
                 let mut catalog = self.catalog.lock().unwrap();
                 catalog.refresh_if_needed();
                 let windows = list_windows(catalog.apps(), &clients, &query);
@@ -118,33 +118,40 @@ impl AppsService {
     }
 
     fn search(&self, query: &str, allow_packages: bool) -> Result<Value, String> {
-        let clients = hyprland::fetch_clients();
+        let clients = hyprland::fetch_clients().unwrap_or_default();
         let now_secs = now_unix_secs();
-
-        let mut catalog = self.catalog.lock().unwrap();
-        catalog.refresh_if_needed();
-
-        let mut store = self.store.lock().unwrap();
-        store.refresh_if_changed();
-        let prefs = store.preferences().clone();
-
-        let data = run_search(
-            &catalog,
-            &store,
-            &clients,
-            query,
-            now_secs,
-            |q, installed_flatpak_ids| {
-                let mut pkg_cache = self.packages.lock().unwrap();
-                pkg_cache.search(q, &prefs, installed_flatpak_ids)
-            },
-            allow_packages,
-        );
+        let query = query.trim();
+        let (mut data, package_query) = {
+            let mut catalog = self.catalog.lock().unwrap();
+            catalog.refresh_if_needed();
+            let mut store = self.store.lock().unwrap();
+            store.refresh_if_changed();
+            let data = run_search(&catalog, &store, &clients, query, now_secs);
+            let prefs = store.preferences();
+            let package_query = (data.matched == 0
+                && allow_packages
+                && prefs.show_packages
+                && query.chars().count() >= 3)
+                .then(|| {
+                    let installed_flatpaks = catalog
+                        .apps()
+                        .iter()
+                        .filter(|app| app.source.as_deref() == Some("Flatpak"))
+                        .map(|app| app.desktop_id_stem_lower.clone())
+                        .collect();
+                    (prefs.clone(), installed_flatpaks)
+                });
+            (data, package_query)
+        };
+        if let Some((prefs, installed_flatpaks)) = package_query {
+            let mut cache = self.packages.lock().unwrap();
+            data.packages = cache.search(query, &prefs, &installed_flatpaks);
+        }
         serde_json::to_value(data).map_err(|e| format!("Serialization error: {e}"))
     }
 
     fn hidden(&self) -> Result<Value, String> {
-        let clients = hyprland::fetch_clients();
+        let clients = hyprland::fetch_clients().unwrap_or_default();
         let mut catalog = self.catalog.lock().unwrap();
         catalog.refresh_if_needed();
         let mut store = self.store.lock().unwrap();

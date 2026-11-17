@@ -143,8 +143,11 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   final _actionsFocus = FocusNode();
   final _historyScroll = ScrollController();
   StreamSubscription<void>? _subscription;
+  Timer? _watchRetry;
   Timer? _refreshDelay;
   Timer? _queryDelay;
+  int _watchGeneration = 0;
+  int _clipboardQueryRevision = 0;
   Timer? _emojiDelay;
   int _emojiRevision = 0;
   Future<EmojiCatalog>? _emojiLoad;
@@ -181,6 +184,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
 
   bool get _inClipboard => _scope == .clipboard;
   bool get _inActions => _scope == .run;
+  bool get _watchingClipboard => _inClipboard || _inActions;
   bool get _inCalculator => _scope == .calculator;
   bool get _inApps => _scope == .apps;
   bool get _inWindows => _scope == .windows;
@@ -242,8 +246,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     WidgetsBinding.instance.removeObserver(this);
     widget.platform.stopListeningForClipboard();
     _search.removeListener(_onSearchSelectionChanged);
-    _subscription?.cancel();
-    _refreshDelay?.cancel();
+    _stopWatch();
     _queryDelay?.cancel();
     _emojiDelay?.cancel();
     _calculator.dispose();
@@ -263,30 +266,54 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   void _startWatch() {
-    _subscription?.cancel();
+    if (!mounted || !_watchingClipboard) return;
+    _stopWatch();
+    final generation = _watchGeneration;
+    void disconnected() {
+      if (!mounted || generation != _watchGeneration) return;
+      _stopWatch();
+      _setUnavailable();
+      _watchRetry = Timer(const Duration(seconds: 1), _startWatch);
+    }
+
     _subscription = widget.client.watch().listen(
       (_) {
+        if (generation != _watchGeneration) return;
         _refreshDelay?.cancel();
         _refreshDelay = Timer(const Duration(milliseconds: 50), _refresh);
       },
-      onError: (_) => _setUnavailable(),
-      onDone: _setUnavailable,
+      onError: (_) => disconnected(),
+      onDone: disconnected,
     );
     unawaited(_refresh());
   }
 
+  void _stopWatch() {
+    _watchGeneration++;
+    _clipboardQueryRevision++;
+    unawaited(_subscription?.cancel());
+    _subscription = null;
+    _watchRetry?.cancel();
+    _refreshDelay?.cancel();
+    _queryDelay?.cancel();
+    _loading = false;
+    _refreshQueued = false;
+  }
+
   void _setUnavailable([String message = 'Clipboard service is unavailable.']) {
-    if (!mounted || !(_inClipboard || _inActions)) return;
+    if (!mounted || !_watchingClipboard) return;
     _maskSecret();
     setState(() => _error = message);
   }
 
   Future<void> _refresh() async {
-    if (!mounted || !(_inClipboard || _inActions)) return;
+    if (!mounted || !_watchingClipboard) return;
     if (_loading) {
       _refreshQueued = true;
       return;
     }
+    final generation = _watchGeneration;
+    bool isCurrent() => mounted && generation == _watchGeneration;
     final before = _visibleEntries.indexWhere((item) => item.id == _selectedId);
     setState(() => _loading = true);
     try {
@@ -294,7 +321,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         widget.client.list(),
         widget.client.isEnabled(),
       ).wait;
-      if (!mounted || !(_inClipboard || _inActions)) return;
+      if (!isCurrent()) return;
       setState(() {
         _entries = entries
           ..sort((left, right) {
@@ -306,20 +333,24 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         if (_inClipboard) _preserveSelection(before);
       });
       if (_inClipboard && _search.text.trim().isNotEmpty) {
+        _queryDelay?.cancel();
         unawaited(_updateQuery(_search.text));
       }
     } on ParallelWaitError<dynamic, dynamic> catch (error) {
+      if (!isCurrent()) return;
       final (AsyncError? history, AsyncError? _) = error.errors;
       history == null
           ? _setUnavailable('Remy\'a Core cannot provide the clipboard policy.')
           : _setUnavailable();
     } on Object {
-      _setUnavailable();
+      if (isCurrent()) _setUnavailable();
     } finally {
-      if (mounted) setState(() => _loading = false);
-      if (_refreshQueued) {
-        _refreshQueued = false;
-        unawaited(_refresh());
+      if (isCurrent()) {
+        setState(() => _loading = false);
+        if (_refreshQueued) {
+          _refreshQueued = false;
+          unawaited(_refresh());
+        }
       }
     }
   }
@@ -378,11 +409,13 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
                 ((_scope == .apps || _scope == .web) && scope == .all)
             ? _search.text
             : '');
-    final wasWatching = _inClipboard || _inActions;
+    final wasWatching = _watchingClipboard;
     final enteringEmoji = !_inEmoji && scope == .emoji;
     if (_scope != scope) _emojiSession++;
     _emojiDelay?.cancel();
     _emojiRevision++;
+    _clipboardQueryRevision++;
+    _queryDelay?.cancel();
     setState(() {
       _scope = scope;
       if (enteringEmoji) {
@@ -416,13 +449,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _windows.update(active: _inWindows, query: _search.text);
     if (_inEmoji) _queueEmojiSearch(nextQuery);
     if (enteringEmoji) unawaited(_loadEmojiOptions(_emojiSession));
-    if (_inClipboard || _inActions) {
+    if (_watchingClipboard) {
       if (!wasWatching) _startWatch();
-    } else {
-      _subscription?.cancel();
-      _subscription = null;
-      _refreshDelay?.cancel();
-      _queryDelay?.cancel();
+    } else if (wasWatching) {
+      _stopWatch();
     }
   }
 
@@ -486,6 +516,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _calculator.updateQuery(_search.text, cursorUtf16: _cursorUtf16());
     }
     if (_inClipboard) {
+      _clipboardQueryRevision++;
       _queryDelay?.cancel();
       if (value.trim().isNotEmpty) {
         _queryDelay = Timer(
@@ -497,9 +528,12 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   Future<void> _updateQuery(String value) async {
+    final revision = ++_clipboardQueryRevision;
     try {
       final matches = await widget.client.list(query: value.trim());
-      if (!mounted || !_inClipboard || _search.text != value) return;
+      if (!mounted || !_inClipboard || revision != _clipboardQueryRevision) {
+        return;
+      }
       setState(() {
         _queryIds = matches.map((entry) => entry.id).toSet();
         _preserveSelection(0);

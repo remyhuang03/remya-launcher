@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use flate2::Compression;
 use flate2::write::GzEncoder;
@@ -463,6 +463,67 @@ fn pin_hide_unhide_and_preferences_persistence() {
         .request(json!({"id": 12, "op": "perform", "action": "unhide", "appId": "one.desktop"}));
     let empty3 = sidecar2.request(json!({"id": 13, "op": "search", "query": ""}));
     assert_eq!(empty3["data"]["total"], 2);
+}
+
+#[test]
+fn a_failed_pin_does_not_change_the_live_store() {
+    let env = TestEnv::new();
+    let filename = "test.editor.desktop";
+    env.write_desktop(
+        true,
+        filename,
+        "[Desktop Entry]\nType=Application\nName=Editor\nExec=/bin/true\n",
+    );
+    env.write_script("hyprctl", "printf '[]'");
+    let mut sidecar = env.spawn_cli(&[]);
+    let search = |sidecar: &mut SidecarHandle| {
+        sidecar.request(json!({"id": 1, "op": "search", "query": "Editor"}))
+            ["data"]["apps"][0]["pinned"]
+            .clone()
+    };
+    let pin = |sidecar: &mut SidecarHandle| {
+        sidecar.request(json!({"id": 2, "op": "perform", "action": "pin", "appId": filename}))
+    };
+    assert_eq!(search(&mut sidecar), false);
+
+    let state_file = env.state_home.join("remya/launcher/apps.json");
+    fs::create_dir(&state_file).unwrap();
+    assert!(pin(&mut sidecar)["error"].is_string());
+    assert_eq!(search(&mut sidecar), false);
+
+    fs::remove_dir(state_file).unwrap();
+    assert!(pin(&mut sidecar)["error"].is_null());
+    assert_eq!(search(&mut sidecar), true);
+}
+
+#[test]
+fn window_queries_report_bad_bounded_responses_and_recover() {
+    let env = TestEnv::new();
+    env.write_script("hyprctl", "head -c 8388609 /dev/zero");
+    let mut sidecar = env.spawn_cli(&[]);
+    let oversized = sidecar.request(json!({"id": 1, "op": "windows"}));
+    assert!(
+        oversized["error"]
+            .as_str()
+            .unwrap()
+            .contains("response is too large")
+    );
+
+    let pid_file = env.root.path().join("hyprctl.pid");
+    env.write_script(
+        "hyprctl",
+        &format!("echo $$ > '{}'; exec sleep 30", pid_file.display()),
+    );
+    let start = Instant::now();
+    let timeout = sidecar.request(json!({"id": 2, "op": "windows"}));
+    assert_eq!(timeout["error"], "Hyprland did not respond in time.");
+    assert!(start.elapsed() < Duration::from_secs(5));
+    let pid = fs::read_to_string(pid_file).unwrap();
+    assert!(!Path::new("/proc").join(pid.trim()).exists());
+
+    env.write_script("hyprctl", "printf '[]'");
+    let recovered = sidecar.request(json!({"id": 3, "op": "windows"}));
+    assert_eq!(recovered["data"]["windows"], json!([]));
 }
 
 #[test]

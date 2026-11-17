@@ -110,6 +110,7 @@ class AppsSearchController extends ChangeNotifier {
   LauncherScope? _resultScope;
   Timer? _debounce, _poll;
   int _revision = 0;
+  int _request = 0;
   bool _disposed = false;
   bool _requesting = false;
   bool busy = false;
@@ -202,11 +203,12 @@ class AppsSearchController extends ChangeNotifier {
     final revision = _revision;
     final scope = _scope;
     if (scope == null || _disposed) return;
+    final request = ++_request;
     _requesting = true;
     final value = query;
     try {
       final data = await client!.search(value.trim(), packages: scope == .apps);
-      if (_disposed || revision != _revision) return;
+      if (_disposed || revision != _revision || request != _request) return;
       result = data;
       _resultQuery = value;
       _resultScope = scope;
@@ -234,13 +236,13 @@ class AppsSearchController extends ChangeNotifier {
       }
       notifyListeners();
     } on Object catch (failure) {
-      if (_disposed || revision != _revision) return;
+      if (_disposed || revision != _revision || request != _request) return;
       error = failure is AppsException
           ? failure.message
           : 'Apps search failed.';
       notifyListeners();
     } finally {
-      if (revision == _revision) _requesting = false;
+      if (request == _request) _requesting = false;
     }
   }
 

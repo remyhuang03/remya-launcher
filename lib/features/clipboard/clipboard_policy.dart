@@ -36,6 +36,7 @@ class ClipboardPolicyController extends ChangeNotifier {
 
   /// Subscribes before the first read so a concurrent write cannot be missed.
   void start() {
+    if (_disposed || _subscriptions.isNotEmpty) return;
     _subscriptions
       ..add(
         _client.changes

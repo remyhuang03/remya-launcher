@@ -1,12 +1,18 @@
-use std::io::Read;
-use std::process::{Command, Stdio};
+use std::io::{self, Read};
+use std::os::unix::process::CommandExt;
+use std::process::{ChildStdout, Command, Stdio};
 use std::time::{Duration, Instant};
 
+use rustix::event::{PollFd, PollFlags, Timespec, poll};
+use rustix::fs::{OFlags, fcntl_setfl};
+use rustix::process::{Pid, Signal, kill_process_group};
 use serde::Deserialize;
 
 use crate::protocol::AppWindow;
 
 const HYPRCTL_TIMEOUT: Duration = Duration::from_millis(1500);
+const MAX_HYPRCTL_REPLY: usize = 8 * 1024 * 1024;
+const HYPRCTL_TIMEOUT_MESSAGE: &str = "Hyprland did not respond in time.";
 
 #[derive(Debug, Clone)]
 pub struct HyprClient {
@@ -66,13 +72,10 @@ pub fn parse_positive_workspace(target: &str) -> Result<u32, String> {
     Ok(num)
 }
 
-pub fn fetch_clients() -> Vec<HyprClient> {
-    let Ok(output) = run_hyprctl(&["-j", "clients"]) else {
-        return Vec::new();
-    };
-    let Ok(raw_clients) = serde_json::from_str::<Vec<RawClient>>(&output) else {
-        return Vec::new();
-    };
+pub fn fetch_clients() -> Result<Vec<HyprClient>, String> {
+    let output = run_hyprctl(&["-j", "clients"])?;
+    let raw_clients = serde_json::from_str::<Vec<RawClient>>(&output)
+        .map_err(|_| "Hyprland returned an invalid window list.")?;
     let mut clients: Vec<HyprClient> = raw_clients
         .into_iter()
         .filter(|c| c.mapped && is_valid_address(&c.address))
@@ -97,7 +100,7 @@ pub fn fetch_clients() -> Vec<HyprClient> {
             .cmp(&mru_sort_key(b.focus_history_id))
             .then_with(|| a.address.cmp(&b.address))
     });
-    clients
+    Ok(clients)
 }
 
 fn mru_sort_key(focus_history_id: Option<i64>) -> (u8, i64) {
@@ -157,7 +160,7 @@ fn known_address(address: &str) -> Result<String, String> {
     if !is_valid_address(address) {
         return Err("Invalid window address.".into());
     }
-    fetch_clients()
+    fetch_clients()?
         .into_iter()
         .find(|c| c.address.eq_ignore_ascii_case(address))
         .map(|c| c.address)
@@ -180,7 +183,7 @@ pub fn move_window_here(address: &str) -> Result<(), String> {
 }
 
 pub fn quit_app_windows(startup_wm_class: Option<&str>, desktop_id: &str) -> Result<(), String> {
-    let clients = fetch_clients();
+    let clients = fetch_clients()?;
     let windows = match_windows(startup_wm_class, desktop_id, &clients);
     if windows.is_empty() {
         return Err("Application has no open windows.".into());
@@ -224,47 +227,73 @@ fn check_dispatch_ok(reply: &str, fallback: &str) -> Result<(), String> {
 }
 
 fn run_hyprctl(args: &[&str]) -> Result<String, String> {
+    let deadline = Instant::now() + HYPRCTL_TIMEOUT;
     let mut child = Command::new("hyprctl")
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::null())
+        .process_group(0)
         .spawn()
         .map_err(|e| format!("Hyprland control is unavailable: {e}"))?;
 
-    let mut stdout_pipe = child.stdout.take();
-    let reader = std::thread::spawn(move || {
-        let mut buf = String::new();
-        if let Some(ref mut out) = stdout_pipe {
-            let _ = out.read_to_string(&mut buf);
+    let result = (|| {
+        let stdout = child.stdout.take().expect("piped hyprctl stdout");
+        let output = read_reply(stdout, deadline).map_err(|error| match error.kind() {
+            io::ErrorKind::TimedOut => HYPRCTL_TIMEOUT_MESSAGE.to_owned(),
+            _ => format!("Could not read Hyprland response: {error}"),
+        })?;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => return Ok((status, output)),
+                Ok(None) if Instant::now() >= deadline => {
+                    return Err(HYPRCTL_TIMEOUT_MESSAGE.into());
+                }
+                Ok(None) => std::thread::sleep(Duration::from_millis(5)),
+                Err(e) => return Err(format!("Failed waiting for hyprctl: {e}")),
+            }
         }
-        buf
-    });
+    })();
+    if result.is_err() {
+        let _ = kill_process_group(Pid::from_child(&child), Signal::KILL);
+        let _ = child.wait();
+    }
+    let (status, output) = result?;
+    status
+        .success()
+        .then_some(output)
+        .ok_or_else(|| format!("hyprctl failed with status {status}"))
+}
 
-    let deadline = Instant::now() + HYPRCTL_TIMEOUT;
+fn read_reply(mut stdout: ChildStdout, deadline: Instant) -> io::Result<String> {
+    fcntl_setfl(&stdout, OFlags::NONBLOCK)?;
+    let mut reply = Vec::new();
+    let mut chunk = [0; 8192];
     loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let output = reader.join().unwrap_or_default();
-                if status.success() {
-                    return Ok(output);
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::ErrorKind::TimedOut.into());
+        }
+        match stdout.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) if reply.len() + n <= MAX_HYPRCTL_REPLY => reply.extend_from_slice(&chunk[..n]),
+            Ok(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "response is too large",
+                ));
+            }
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                let mut fds = [PollFd::new(&stdout, PollFlags::IN)];
+                let timeout = Timespec::try_from(remaining).expect("bounded duration");
+                match poll(&mut fds, Some(&timeout)) {
+                    Ok(_) | Err(rustix::io::Errno::INTR) => {}
+                    Err(error) => return Err(error.into()),
                 }
-                return Err(format!("hyprctl failed with status {status}"));
             }
-            Ok(None) => {
-                if Instant::now() >= deadline {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = reader.join();
-                    return Err("Hyprland did not respond in time.".into());
-                }
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            Err(e) => {
-                let _ = child.kill();
-                let _ = reader.join();
-                return Err(format!("Failed waiting for hyprctl: {e}"));
-            }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error),
         }
     }
+    String::from_utf8(reply).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }

@@ -713,6 +713,7 @@ class CalculatorController extends ChangeNotifier {
       );
     } on Object {
       // The preview request reports transport failures.
+    } finally {
       _loadingPreferences = null;
     }
   }
@@ -762,6 +763,8 @@ class CalculatorController extends ChangeNotifier {
 
   bool _loadingPreview = false;
   bool _loadingHistory = false;
+  int _historyRead = 0;
+  int _variablesRead = 0;
   bool _errorVisible = false;
   String? _backendError;
   String? _fxStatusMessage;
@@ -1332,13 +1335,15 @@ class CalculatorController extends ChangeNotifier {
   /// Loads persisted calculation history from the backend.
   Future<void> loadHistory() async {
     if (_disposed) return;
+    final request = ++_historyRead;
+    bool isCurrent() => !_disposed && request == _historyRead;
     _loadingHistory = true;
     notifyListeners();
     try {
       final envelope = await _ensureClient().request('historyList', {
         'limit': 20,
       });
-      if (_disposed || _scope != .calculator) {
+      if (!isCurrent() || _scope != .calculator) {
         return;
       }
       if (envelope['ok'] == true && envelope['data'] is Map) {
@@ -1359,15 +1364,20 @@ class CalculatorController extends ChangeNotifier {
         _backendError = null;
       }
     } on Object {
-      if (!_disposed && _scope == .calculator && _query.trim().isEmpty) {
+      if (isCurrent() && _scope == .calculator && _query.trim().isEmpty) {
         _backendError = 'Calculator service is unavailable.';
       }
     } finally {
-      if (!_disposed) {
+      if (isCurrent()) {
         _loadingHistory = false;
         notifyListeners();
       }
     }
+  }
+
+  void _historyChanged() {
+    _historyRead++;
+    _loadingHistory = false;
   }
 
   /// Deletes a history entry by ID and refreshes the list.
@@ -1380,6 +1390,7 @@ class CalculatorController extends ChangeNotifier {
       });
       if (_disposed) return;
       if (envelope['ok'] == true) {
+        _historyChanged();
         _historyEntries = _historyEntries
             .where((e) => e.historyId != historyId)
             .toList(growable: false);
@@ -1406,6 +1417,7 @@ class CalculatorController extends ChangeNotifier {
       });
       if (_disposed) return;
       if (envelope['ok'] == true) {
+        _historyChanged();
         final updated = [
           for (final entry in _historyEntries)
             if (entry.historyId == historyId)
@@ -1441,6 +1453,7 @@ class CalculatorController extends ChangeNotifier {
       });
       if (_disposed) return;
       if (envelope['ok'] == true) {
+        _historyChanged();
         _historyEntries = includePinned
             ? const []
             : _historyEntries.where((e) => e.isPinned).toList(growable: false);
@@ -1457,9 +1470,13 @@ class CalculatorController extends ChangeNotifier {
   /// Loads saved calculator variables from the backend.
   Future<void> loadVariables() async {
     if (_disposed) return;
+    final request = ++_variablesRead;
     try {
       final envelope = await _ensureClient().request('variablesList');
-      if (_disposed || _scope != .calculator || _query.trim().isNotEmpty) {
+      if (_disposed ||
+          request != _variablesRead ||
+          _scope != .calculator ||
+          _query.trim().isNotEmpty) {
         return;
       }
       if (envelope['ok'] == true && envelope['data'] is Map) {
@@ -1495,6 +1512,7 @@ class CalculatorController extends ChangeNotifier {
       });
       if (_disposed) return null;
       if (envelope['ok'] == true) {
+        _variablesRead++;
         _variableEntries = [
           CalculatorVariableEntry(name: trimmedName, expression: trimmedExpr),
           ..._variableEntries.where((v) => v.name != trimmedName),
@@ -1521,6 +1539,7 @@ class CalculatorController extends ChangeNotifier {
       });
       if (_disposed) return;
       if (envelope['ok'] == true) {
+        _variablesRead++;
         _variableEntries = _variableEntries
             .where((v) => v.name != name)
             .toList(growable: false);
@@ -1766,8 +1785,10 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (scope == 'calc') {
-        await (_loadingPreferences ??= _loadPreferences());
+      if (scope == 'calc' && identical(_settings, _defaultSettings)) {
+        await (_loadingPreferences ??= Future<void>.microtask(
+          _loadPreferences,
+        ));
         if (_disposed || rev != _revision) return;
       }
       final envelope = await _ensureClient().request('preview', {

@@ -216,6 +216,35 @@ void main() {
     expect(find.text('Clipboard history is empty.'), findsOneWidget);
   });
 
+  testWidgets('clipboard listens again after the service returns', (
+    tester,
+  ) async {
+    final clipboard = _TestClipboard([
+      _entry('old', 'text', 'Original', age: 1),
+    ]);
+    await tester.pumpWidget(
+      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Original'), findsWidgets);
+    await clipboard.changes!.close();
+    await tester.pump();
+    expect(find.text('Clipboard service is unavailable.'), findsOneWidget);
+
+    clipboard.entries.add(_entry('new', 'text', 'Reconnected', age: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(clipboard.watchCalls, 2);
+    expect(find.text('Reconnected'), findsWidgets);
+
+    clipboard.entries.add(_entry('latest', 'text', 'New signal', age: 1));
+    clipboard.changes!.add(null);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
+    expect(find.text('New signal'), findsWidgets);
+  });
+
   test('clipboard converts colors without losing alpha', () {
     final color = clipboardColor('#FF000080')!;
     final formats = clipboardColorFormats('#FF000080', color);
@@ -315,14 +344,19 @@ class _TestClipboard extends ClipboardClient {
   final Map<String, List<String>> filesById;
   final requests = <Map<String, Object?>>[];
   bool available = true;
+  int watchCalls = 0;
+  StreamController<void>? changes;
 
   @override
   Future<bool> isEnabled() async => true;
 
   @override
-  Stream<void> watch() => available
-      ? StreamController<void>().stream
-      : Stream<void>.error(const ClipboardServiceException('Unavailable'));
+  Stream<void> watch() {
+    watchCalls++;
+    return available
+        ? (changes = StreamController<void>()).stream
+        : Stream<void>.error(const ClipboardServiceException('Unavailable'));
+  }
 
   @override
   Future<Object?> request(

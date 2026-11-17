@@ -201,6 +201,58 @@ void main() {
       expect(controller.selectedCandidate?.primaryDisplay(), '3');
     });
 
+    test('a history read cannot restore an entry after Clear', () async {
+      final pending = Completer<Map<String, Object?>>();
+      final client = _FakeCalculatorClient((op, _) {
+        return op == 'historyList'
+            ? pending.future
+            : Future.value(_envelope(const {}));
+      });
+      final controller = CalculatorController(client: client);
+      addTearDown(controller.dispose);
+      controller.setScope(.calculator);
+      expect(controller.loadingHistory, isTrue);
+      await controller.clearHistory(includePinned: true);
+      pending.complete(
+        _envelope({
+          'entries': [
+            {'historyId': 'old', 'query': '1+1'},
+          ],
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.historyEntries, isEmpty);
+      expect(controller.loadingHistory, isFalse);
+    });
+
+    test('calculator retries incomplete programmer preferences', () async {
+      var reads = 0;
+      final widths = <Object?>[];
+      final client = _FakeCalculatorClient((op, fields) async {
+        if (op == 'status' && ++reads == 2) {
+          return _envelope({
+            'programmer': {'bitWidth': 16},
+          });
+        }
+        if (op == 'preview') {
+          widths.add((fields['settings'] as Map)['bitWidth']);
+          return _unitPreview(fields['revision'] as int?);
+        }
+        return _envelope(const {});
+      });
+      final controller = CalculatorController(
+        client: client,
+        debounceDelay: Duration.zero,
+      );
+      addTearDown(controller.dispose);
+      controller.setScope(.calculator);
+      controller.updateQuery('1+1');
+      await Future<void>.delayed(Duration.zero);
+      controller.updateQuery('2+2');
+      await Future<void>.delayed(Duration.zero);
+      expect(widths, [32, 16]);
+    });
+
     test('delays error display until 600ms or immediate reveal', () async {
       final client = _FakeCalculatorClient((op, fields) async {
         if (op == 'preview') {

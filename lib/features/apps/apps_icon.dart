@@ -21,7 +21,7 @@ class AppsIcon extends StatelessWidget {
   final double size;
 
   static const _window = MethodChannel('top.remya.launcher/window');
-  static final _icons = <(String, int), Future<Uint8List?>>{};
+  static final _icons = <(String, int), _IconLookup>{};
 
   @override
   Widget build(BuildContext context) {
@@ -53,9 +53,15 @@ class AppsIcon extends StatelessWidget {
 
   static Future<Uint8List?> _cachedIcon(String name, int size) {
     final key = (name, size);
-    if (_icons[key] case final cached?) return cached;
+    final cached = _icons.remove(key);
+    if (cached != null && !cached.expired) {
+      _icons[key] = cached;
+      return cached.bytes;
+    }
     if (_icons.length >= 128) _icons.remove(_icons.keys.first);
-    return _icons[key] = _loadIcon(name, size);
+    final lookup = _IconLookup(_loadIcon(name, size));
+    _icons[key] = lookup;
+    return lookup.bytes;
   }
 
   static Future<Uint8List?> _loadIcon(String name, int size) async {
@@ -64,12 +70,25 @@ class AppsIcon extends StatelessWidget {
         'name': name,
         'size': size,
       });
-    } on PlatformException {
-      return null;
-    } on MissingPluginException {
+    } on Object {
       return null;
     }
   }
+}
+
+class _IconLookup {
+  _IconLookup(Future<Uint8List?> future) {
+    bytes = future.then((value) {
+      final resolved = value != null && value.isNotEmpty;
+      _expires = DateTime.now().add(Duration(seconds: resolved ? 60 : 2));
+      return resolved ? value : null;
+    });
+  }
+
+  late final Future<Uint8List?> bytes;
+  DateTime? _expires;
+
+  bool get expired => _expires?.isBefore(DateTime.now()) ?? false;
 }
 
 class _AppMonogram extends StatelessWidget {

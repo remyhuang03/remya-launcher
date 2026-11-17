@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/apps/apps_client.dart';
+import 'package:remya_launcher/features/apps/apps_icon.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_platform.dart';
+import 'package:remya_launcher/features/windows/windows_controller.dart';
 
 const _search = Duration(milliseconds: 80);
 const _appId = 'test.editor.desktop';
@@ -109,6 +112,17 @@ class _Platform extends ClipboardPlatform {
   Future<void> close() async => closes++;
 }
 
+class _PendingWindows extends _Apps {
+  final reads = <Completer<List<LauncherWindow>>>[];
+
+  @override
+  Future<List<LauncherWindow>> windows(String query) {
+    final read = Completer<List<LauncherWindow>>();
+    reads.add(read);
+    return read.future;
+  }
+}
+
 Future<void> _shortcut(
   WidgetTester tester,
   LogicalKeyboardKey modifier,
@@ -127,6 +141,65 @@ Future<void> _enter(WidgetTester tester, String query) async {
 }
 
 void main() {
+  testWidgets('Apps icon retries a failed native lookup after the miss TTL', (
+    tester,
+  ) async {
+    const channel = MethodChannel('top.remya.launcher/window');
+    final messenger = tester.binding.defaultBinaryMessenger;
+    var requests = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'resolveAppIcon');
+      if (++requests == 1) throw PlatformException(code: 'unavailable');
+      return base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8'
+        'AAwMCAO+aNp8AAAAASUVORK5CYII=',
+      );
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+    Future<void> showIcon(String name) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppsIcon(id: name, name: name, icon: 'missing-for-retry-test'),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await showIcon('Alpha');
+    expect(find.text('A'), findsOneWidget);
+    await showIcon('Beta');
+    expect(requests, 1);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 2050)),
+    );
+    await showIcon('Gamma');
+    expect(requests, 2);
+    expect(find.byType(Image), findsOneWidget);
+  });
+
+  testWidgets('Windows polling waits and a late read cannot undo retry', (
+    tester,
+  ) async {
+    final client = _PendingWindows();
+    final controller = WindowsController(client: client, onClose: () async {});
+    controller.update(active: true);
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(client.reads, hasLength(1));
+    await tester.pump(const Duration(seconds: 4));
+    expect(client.reads, hasLength(1));
+
+    final retry = controller.retry();
+    final fresh = LauncherWindow.fromJson(_windows[1]);
+    client.reads[1].complete([fresh]);
+    await retry;
+    client.reads[0].completeError(const AppsException('Stale'));
+    await tester.pump();
+    expect(controller.windows.single, fresh);
+    expect(controller.error, isNull);
+    controller.dispose();
+  });
+
   testWidgets('All shows eight apps; Apps builds rows as they scroll in', (
     tester,
   ) async {

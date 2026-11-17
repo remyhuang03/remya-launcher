@@ -1,13 +1,13 @@
 use std::collections::{BTreeSet, HashMap};
 use std::env;
-use std::fs::{self, DirBuilder, OpenOptions};
+use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{self, Write};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rustix::fs::OFlags;
+use rustix::fs::{FlockOperation, OFlags, flock};
 use rustix::process::geteuid;
 use serde::{Deserialize, Serialize};
 
@@ -87,6 +87,8 @@ impl Store {
     }
 
     pub fn update_preferences(&mut self, patch: PreferencesPatch) -> Result<Preferences, String> {
+        let _lock = write_lock(&self.config_path)
+            .map_err(|e| format!("Failed to lock preferences: {e}"))?;
         self.refresh_if_changed();
         let mut next = self.preferences.clone();
         if let Some(frequent_days) = patch.frequent_days {
@@ -141,62 +143,60 @@ impl Store {
     }
 
     pub fn toggle_pin(&mut self, app_id: &str) -> Result<bool, String> {
-        self.refresh_if_changed();
-        let now_pinned = if let Some(pos) = self.state.pinned.iter().position(|id| id == app_id) {
-            self.state.pinned.remove(pos);
-            false
-        } else {
-            self.state.pinned.push(app_id.to_owned());
-            true
-        };
-        self.save_state()?;
-        Ok(now_pinned)
+        self.update_state(|state| {
+            if let Some(pos) = state.pinned.iter().position(|id| id == app_id) {
+                state.pinned.remove(pos);
+                false
+            } else {
+                state.pinned.push(app_id.to_owned());
+                true
+            }
+        })
     }
 
     pub fn set_hidden(&mut self, app_id: &str, hidden: bool) -> Result<(), String> {
-        self.refresh_if_changed();
-        if hidden {
-            if !self.state.hidden.iter().any(|id| id == app_id) {
-                self.state.hidden.push(app_id.to_owned());
+        self.update_state(|state| {
+            if hidden {
+                if !state.hidden.iter().any(|id| id == app_id) {
+                    state.hidden.push(app_id.to_owned());
+                }
+            } else {
+                state.hidden.retain(|id| id != app_id);
             }
-        } else {
-            self.state.hidden.retain(|id| id != app_id);
-        }
-        self.save_state()
+        })
     }
 
     pub fn record_usage(&mut self, app_id: &str, query: &str, now_secs: i64) -> Result<(), String> {
-        self.refresh_if_changed();
-        let cutoff = now_secs - MAX_USAGE_RETENTION_SECS;
-        for timestamps in self.state.usage.values_mut() {
-            timestamps.retain(|&ts| ts >= cutoff);
-        }
-        self.state.usage.retain(|_, ts| !ts.is_empty());
-
-        let events = self.state.usage.entry(app_id.to_owned()).or_default();
-        events.push(now_secs);
-        if events.len() > MAX_EVENTS_PER_APP {
-            let drain = events.len() - MAX_EVENTS_PER_APP;
-            events.drain(..drain);
-        }
-
-        let norm_query = query.trim().to_lowercase();
-        if !norm_query.is_empty() {
-            self.state
-                .query_winners
-                .retain(|w| !(w.query == norm_query && w.app_id == app_id));
-            self.state.query_winners.push(QueryWinner {
-                query: norm_query,
-                app_id: app_id.to_owned(),
-                last_used_at: now_secs,
-            });
-            if self.state.query_winners.len() > MAX_QUERY_WINNERS {
-                let drain = self.state.query_winners.len() - MAX_QUERY_WINNERS;
-                self.state.query_winners.drain(..drain);
+        self.update_state(|state| {
+            let cutoff = now_secs - MAX_USAGE_RETENTION_SECS;
+            for timestamps in state.usage.values_mut() {
+                timestamps.retain(|&ts| ts >= cutoff);
             }
-        }
+            state.usage.retain(|_, ts| !ts.is_empty());
 
-        self.save_state()
+            let events = state.usage.entry(app_id.to_owned()).or_default();
+            events.push(now_secs);
+            if events.len() > MAX_EVENTS_PER_APP {
+                let drain = events.len() - MAX_EVENTS_PER_APP;
+                events.drain(..drain);
+            }
+
+            let norm_query = query.trim().to_lowercase();
+            if !norm_query.is_empty() {
+                state
+                    .query_winners
+                    .retain(|w| !(w.query == norm_query && w.app_id == app_id));
+                state.query_winners.push(QueryWinner {
+                    query: norm_query,
+                    app_id: app_id.to_owned(),
+                    last_used_at: now_secs,
+                });
+                if state.query_winners.len() > MAX_QUERY_WINNERS {
+                    let drain = state.query_winners.len() - MAX_QUERY_WINNERS;
+                    state.query_winners.drain(..drain);
+                }
+            }
+        })
     }
 
     pub fn frecency(&self, app_id: &str, now_secs: i64) -> f64 {
@@ -238,11 +238,20 @@ impl Store {
             .position(|w| w.app_id == app_id)
     }
 
-    fn save_state(&mut self) -> Result<(), String> {
-        write_json_atomic(&self.state_path, &self.state)
+    fn update_state<T>(
+        &mut self,
+        update: impl FnOnce(&mut PersistedState) -> T,
+    ) -> Result<T, String> {
+        let _lock =
+            write_lock(&self.state_path).map_err(|e| format!("Failed to lock app state: {e}"))?;
+        self.refresh_if_changed();
+        let mut next = self.state.clone();
+        let result = update(&mut next);
+        write_json_atomic(&self.state_path, &next)
             .map_err(|e| format!("Failed to save app state: {e}"))?;
         self.state_mtime = file_mtime(&self.state_path).ok().flatten();
-        Ok(())
+        self.state = next;
+        Ok(result)
     }
 }
 
@@ -360,4 +369,16 @@ fn write_json_atomic<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
         return Err(err);
     }
     Ok(())
+}
+
+fn write_lock(path: &Path) -> io::Result<File> {
+    let lock = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .custom_flags(OFlags::NOFOLLOW.bits() as i32)
+        .open(path.with_extension("lock"))?;
+    flock(&lock, FlockOperation::NonBlockingLockExclusive)?;
+    Ok(lock)
 }

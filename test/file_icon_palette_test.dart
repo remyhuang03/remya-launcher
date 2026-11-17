@@ -24,6 +24,20 @@ void main() {
   );
 
   group('FileIconPalette', () {
+    test('bounds the cache across changing theme seeds', () {
+      final palette = FileIconPalette(
+        seeds: FileIconSeeds(const {'rust': Color(0xFFFF7043)}),
+      );
+      for (var index = 0; index < 1024; index++) {
+        palette.containerColor(
+          iconId: 'rust',
+          colorScheme: lightScheme,
+          appSourceSeed: Color(0xFF000000 | index),
+        );
+      }
+      expect(palette.cacheSize, 512);
+    });
+
     test('returns neutral container when icon seed is null or absent', () {
       final palette = FileIconPalette(
         seeds: FileIconSeeds(const {'editorconfig': null}),

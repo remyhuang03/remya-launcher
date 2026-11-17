@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use crate::desktop::{DesktopCatalog, IndexedAction, IndexedApp, PinyinData, PinyinUnit};
 use crate::hyprland::{HyprClient, match_windows};
-use crate::protocol::{AppEntry, AppWindow, PackageEntry, SearchData};
+use crate::protocol::{AppEntry, AppWindow, SearchData};
 use crate::store::Store;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -47,8 +47,6 @@ pub fn run_search(
     clients: &[HyprClient],
     query: &str,
     now_secs: i64,
-    packages_fn: impl FnOnce(&str, &HashSet<String>) -> Vec<PackageEntry>,
-    allow_packages: bool,
 ) -> SearchData {
     let trimmed = query.trim();
     let prefs = store.preferences();
@@ -134,24 +132,13 @@ pub fn run_search(
         };
     }
 
-    let packages = if allow_packages && prefs.show_packages && query_chars >= 3 {
-        let installed_flatpak_ids: HashSet<String> = all_apps
-            .iter()
-            .filter(|a| a.source.as_deref() == Some("Flatpak"))
-            .map(|a| a.desktop_id_stem_lower.clone())
-            .collect();
-        packages_fn(trimmed, &installed_flatpak_ids)
-    } else {
-        Vec::new()
-    };
-
     SearchData {
         total: total_visible,
         matched: 0,
         apps: Vec::new(),
         frequent: Vec::new(),
         pinned: Vec::new(),
-        packages,
+        packages: Vec::new(),
         hidden: false,
     }
 }
