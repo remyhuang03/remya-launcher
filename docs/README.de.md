@@ -31,7 +31,7 @@ Remya Launcher (`top.remya.launcher`) ist ein tastaturorientierter Anwendungssta
 - **Lokale Websuche**: Durchsuchen Sie Browserverlauf und Lesezeichen aus von Ihnen aktivierten Profilen, vervollständigen Sie URLs oder starten Sie eine Suche mit einem Schlüsselwort wie `gh `.
 
 > [!CAUTION]
-> **Frühe Entwicklung**
+> **Frühe Entwicklung (dev).** Bekannte Leistungsprobleme bestehen weiterhin.
 >
 > Apps-Suche, Windows, Websuche, Rechner und Zwischenablage nutzen Live-Daten. Die Emoji-Suche ist verfügbar. Der Bereich Files und die allgemeine Befehlsausführung sind noch geplant. Nutzen Sie `--preview`, um das [Figma-Design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) mit Beispieldaten zu erkunden.
 
@@ -147,7 +147,7 @@ python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-Belegen Sie eine Taste mit `~/.local/bin/remya_launcher --toggle`, um den Launcher zu öffnen oder zu schließen. Nutzen Sie `~/.local/bin/remya_launcher --clipboard` für ein Hyprland-`Super+V`-Tastenkürzel.
+Siehe [Tastenkürzel für Hyprland](../README.md#hyprland-shortcuts).
 
 ## 📜 Lizenz
 

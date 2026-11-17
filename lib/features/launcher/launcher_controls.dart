@@ -240,6 +240,7 @@ class LauncherSearchField extends StatelessWidget {
         onChanged: onChanged,
         onFieldSubmitted: onSubmitted,
         cursorHeight: 24,
+        cursorOpacityAnimates: true,
         style: textStyle,
         decoration: InputDecoration(
           hintText: placeholder,
@@ -270,7 +271,7 @@ class LauncherSearchField extends StatelessWidget {
             child: Stack(
               alignment: .centerLeft,
               children: [
-                field,
+                RepaintBoundary(child: field),
                 if (suffix != null && controller != null)
                   Positioned.fill(
                     child: IgnorePointer(

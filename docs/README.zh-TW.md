@@ -31,7 +31,7 @@ Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤
 - **本機 Web 搜尋**：搜尋您所啟用設定檔中的瀏覽器歷史紀錄與書籤、自動補全網址，或使用如 `gh ` 等關鍵字開始搜尋。
 
 > [!CAUTION]
-> **早期開發階段**
+> **早期開發階段（dev）。** 存在已知的效能問題。
 >
 > Apps 搜尋、Windows、Web 搜尋、Calculator 與 Clipboard 皆使用即時資料。Emoji 搜尋也已可用。Files 範圍以及一般指令執行仍在規劃中。可使用 `--preview` 搭配範例資料探索 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)。
 
@@ -147,7 +147,7 @@ python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-綁定 `~/.local/bin/remya_launcher --toggle` 以開啟或關閉啟動器，並使用 `~/.local/bin/remya_launcher --clipboard` 作為 Hyprland 的 `Super+V` 快捷鍵綁定。
+請參閱 [Hyprland 快捷鍵設定](../README.md#hyprland-shortcuts)。
 
 ## 📜 授權條款
 

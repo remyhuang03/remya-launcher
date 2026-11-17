@@ -31,7 +31,7 @@ Remya Launcher (`top.remya.launcher`) es un lanzador de aplicaciones centrado en
 - **Búsqueda web local**: busca en el historial del navegador y marcadores de los perfiles que habilites, completa URL o inicia una búsqueda con una palabra clave como `gh `.
 
 > [!CAUTION]
-> **Desarrollo temprano**
+> **Desarrollo temprano (dev).** Hay problemas de rendimiento conocidos.
 >
 > La búsqueda de aplicaciones, Windows, la búsqueda web, Calculator y Clipboard usan datos en vivo. La búsqueda de emojis también está disponible. El ámbito Files y la ejecución general de comandos siguen planificados. Usa `--preview` para explorar el [diseño en Figma](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) con datos de ejemplo.
 
@@ -147,7 +147,7 @@ python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-Vincula `~/.local/bin/remya_launcher --toggle` para abrir o cerrar el lanzador. Usa `~/.local/bin/remya_launcher --clipboard` para un atajo `Super+V` en Hyprland.
+Consulta los [atajos de Hyprland](../README.md#hyprland-shortcuts).
 
 ## 📜 Licencia
 

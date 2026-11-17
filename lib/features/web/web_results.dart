@@ -60,7 +60,7 @@ class WebResultLayout {
     final indexed = [...bookmarks, ...history];
     final seen = <String>{?directUrl};
     local = compact
-        ? indexed.where((choice) => seen.add(choice.url)).take(3).toList()
+        ? indexed.where((choice) => seen.add(choice.url)).take(8).toList()
         : const [];
     frequent = !compact && empty
         ? [

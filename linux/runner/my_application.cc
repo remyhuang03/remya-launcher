@@ -25,7 +25,7 @@ static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   auto* gtk_application = GTK_APPLICATION(application);
   if (GList* windows = gtk_application_get_windows(gtk_application)) {
-    gtk_window_present(GTK_WINDOW(windows->data));
+    show_launcher_window(GTK_WINDOW(windows->data));
     return;
   }
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(gtk_application));
@@ -92,7 +92,7 @@ static void my_application_activate(GApplication* application) {
   // Show overlay windows immediately so gtk-layer-shell receives the compositor
   // configure size before Flutter creates its initial render surface.
   if (overlay) {
-    gtk_widget_show_all(GTK_WIDGET(window));
+    show_launcher_window(window);
   } else {
     g_signal_connect(view, "first-frame", G_CALLBACK(first_frame_cb), nullptr);
     gtk_widget_realize(GTK_WIDGET(view));
@@ -120,7 +120,7 @@ static int my_application_command_line(GApplication* application,
       if (g_strv_contains(options, "--clipboard")) {
         show_launcher_clipboard(window);
       }
-      gtk_window_present(window);
+      show_launcher_window(window);
     }
     return 0;
   }

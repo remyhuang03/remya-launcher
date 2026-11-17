@@ -31,7 +31,7 @@ Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, 
 - **Local Web search**: Search browser history and bookmarks from profiles you enable, complete URLs, or start a search with a keyword like `gh `.
 
 > [!CAUTION]
-> **Early Development**
+> **Early development (dev).** Performance issues remain.
 >
 > Apps search, Windows, Web search, Calculator, Clipboard, and Emoji are available. The Files scope and general command execution are still planned. Use `--preview` to explore the [Figma design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) with sample data.
 
@@ -148,7 +148,48 @@ python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-Bind `~/.local/bin/remya_launcher --toggle` to open or close the launcher. Use `~/.local/bin/remya_launcher --clipboard` for a Hyprland `Super+V` keybinding.
+### Hyprland Shortcuts
+
+Use this Hyprland Lua snippet to replace any existing Launcher bindings. Tap either Super key alone for under 250 ms to toggle Launcher. Super+V opens clipboard history. Adjust the executable path for your installation.
+
+```lua
+local superKeys = { [133] = "SUPER_L", [134] = "SUPER_R" }
+local down, tap
+local launcher = '"$HOME/.local/bin/remya_launcher"'
+local toggle = hl.dsp.exec_cmd(launcher .. " --toggle")
+
+hl.on("input.keyboard.key", function(code, timeMs, state)
+    if state == 1 then
+        tap = nil
+        local superHeld = hl.is_key_down("Super_L") or hl.is_key_down("Super_R")
+        down = superKeys[code] and not superHeld and { code, timeMs } or nil
+    elseif state == 0 and superKeys[code] then
+        if down and code == down[1] and (timeMs - down[2]) % 4294967296 < 250 then
+            tap = code
+        end
+        down = nil
+    end
+end)
+
+for code, key in pairs(superKeys) do
+    hl.unbind("SUPER + " .. key)
+    hl.bind(key, function()
+        if tap == code then
+            tap = nil
+            hl.dispatch(toggle)
+        end
+    end, { release = true, description = "Remya: Toggle launcher" })
+end
+
+for _, key in ipairs({ "mouse:272", "mouse:273", "mouse:274", "mouse:275", "mouse:276",
+    "mouse:277", "mouse:278", "mouse:279", "mouse_up", "mouse_down", "mouse_left", "mouse_right" }) do
+    hl.bind(key, function() down, tap = nil, nil end,
+        { ignore_mods = true, transparent = true, non_consuming = true })
+end
+
+hl.bind("SUPER + V", hl.dsp.exec_cmd(launcher .. " --clipboard"),
+    { description = "Remya: Open clipboard history" })
+```
 
 ## 📜 License
 

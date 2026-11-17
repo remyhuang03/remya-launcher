@@ -31,7 +31,7 @@ Remya Launcher（`top.remya.launcher`）は、Flutter、Rust、Material Design 3
 - **ローカル Web 検索**：有効化したプロファイルのブラウザ履歴やブックマークを検索したり、URL を補完したり、`gh ` のようなキーワードで検索を開始したりできます。
 
 > [!CAUTION]
-> **初期開発段階**
+> **初期開発段階（dev）。** パフォーマンスに関する既知の問題があります。
 >
 > アプリ検索、Windows、Web 検索、電卓、クリップボードはライブデータを使用しています。絵文字検索も利用できます。Files スコープおよび汎用コマンド実行は引き続き計画中です。サンプルデータで [Figma デザイン](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) を確認するには、`--preview` を使用してください。
 
@@ -147,7 +147,7 @@ python tool/install.py
 ~/.local/bin/remya_launcher --clipboard
 ```
 
-ランチャーの開閉には `~/.local/bin/remya_launcher --toggle` をバインドしてください。Hyprland の `Super+V` キーバインドには `~/.local/bin/remya_launcher --clipboard` を指定してください。
+[Hyprland のキーバインド設定](../README.md#hyprland-shortcuts)を参照してください。
 
 ## 📜 ライセンス
 

@@ -30,7 +30,8 @@ class AppsResults extends StatefulWidget {
 }
 
 class _AppsResultsState extends State<AppsResults> {
-  int _lastScroll = 0;
+  final _inlineSelection = GlobalKey();
+  (int, bool)? _lastScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -222,14 +223,29 @@ class _AppsResultsState extends State<AppsResults> {
       );
     }
 
-    if (c.selectionRevision != _lastScroll) {
-      _lastScroll = c.selectionRevision;
+    final scroll = (c.selectionRevision, widget.selectionVisible);
+    if (scroll != _lastScroll) {
+      _lastScroll = scroll;
       var start = 0.0;
       for (final (height, _, selected) in blocks) {
         if (selected) {
           final target = start;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted || !c.scroll.hasClients) return;
+            if (!mounted || _lastScroll != scroll) return;
+            if (!c.inApps) {
+              if (_inlineSelection.currentContext case final context?) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignmentPolicy: .keepVisibleAtStart,
+                );
+                Scrollable.ensureVisible(
+                  context,
+                  alignmentPolicy: .keepVisibleAtEnd,
+                );
+              }
+              return;
+            }
+            if (!c.scroll.hasClients) return;
             final position = c.scroll.position;
             final end = target + height;
             final visibleTop = position.pixels;
@@ -251,8 +267,12 @@ class _AppsResultsState extends State<AppsResults> {
       return Column(
         crossAxisAlignment: .stretch,
         children: [
-          for (final (height, build, _) in blocks)
-            SizedBox(height: height, child: build()),
+          for (final (height, build, selected) in blocks)
+            SizedBox(
+              key: selected ? _inlineSelection : null,
+              height: height,
+              child: build(),
+            ),
         ],
       );
     }

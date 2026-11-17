@@ -131,26 +131,33 @@ class AppsSearchController extends ChangeNotifier {
       inApps && query.trim().runes.length >= 3 && result.apps.isEmpty;
   List<LauncherAppEntry> get tiles =>
       !empty ? const [] : (inApps ? result.frequent : result.pinned);
-  List<LauncherAppEntry> get apps => inApps
+  Iterable<LauncherAppEntry> get apps => inApps
       ? result.apps
       : result.hidden || empty
       ? const []
-      : result.apps.take(3).toList(growable: false);
+      : result.apps.take(8);
 
-  List<AppChoice> get choices => [
-    for (final app in tiles) AppChoice(app, frequent: true),
-    for (final app in apps) ...[
-      AppChoice(app),
-      if (expandedId == app.id && app.actionId == null) ...[
-        for (final window in app.windows) AppChoice(app, window: window),
-        for (final action in app.actions) AppChoice(app, action: action),
-      ],
-    ],
-    if (elsewhere) ...[
-      for (final package in result.packages) AppChoice.install(package),
-      const AppChoice.web(),
-    ],
-  ];
+  Iterable<AppChoice> get choices sync* {
+    for (final app in tiles) {
+      yield AppChoice(app, frequent: true);
+    }
+    for (final app in apps) {
+      yield AppChoice(app);
+      if (expandedId != app.id || app.actionId != null) continue;
+      for (final window in app.windows) {
+        yield AppChoice(app, window: window);
+      }
+      for (final action in app.actions) {
+        yield AppChoice(app, action: action);
+      }
+    }
+    if (elsewhere) {
+      for (final package in result.packages) {
+        yield AppChoice.install(package);
+      }
+      yield const AppChoice.web();
+    }
+  }
 
   AppChoice? get selected =>
       choices.where((choice) => choice.id == _selection).firstOrNull;
@@ -218,7 +225,13 @@ class AppsSearchController extends ChangeNotifier {
             .firstOrNull;
         if (menuApp == null) onSearchFocus();
       }
-      if (selected == null) _selection = choices.firstOrNull?.id;
+      if (selected == null) {
+        final nextSelection = choices.firstOrNull?.id;
+        if (_selection != nextSelection) {
+          _selection = nextSelection;
+          selectionRevision++;
+        }
+      }
       notifyListeners();
     } on Object catch (failure) {
       if (_disposed || revision != _revision) return;
@@ -241,7 +254,7 @@ class AppsSearchController extends ChangeNotifier {
   }
 
   void _move(int delta, {bool vertical = true, int tileColumns = 6}) {
-    final rows = choices;
+    final rows = choices.toList(growable: false);
     if (rows.isEmpty) return;
     final index = rows.indexWhere(isSelected);
     final count = tiles.length;
@@ -539,8 +552,7 @@ class AppsSearchController extends ChangeNotifier {
       _collapse();
       return .handled;
     }
-    final rows = choices;
-    if (!ready || rows.isEmpty) return .ignored;
+    if (!ready || choices.isEmpty) return .ignored;
     final selected = this.selected;
     final app = selected?.app;
     if ((!ctrl && !alt) &&
@@ -567,10 +579,12 @@ class AppsSearchController extends ChangeNotifier {
         (search.text.isEmpty) &&
         (key == LogicalKeyboardKey.arrowLeft ||
             key == LogicalKeyboardKey.arrowRight)) {
-      final index = rows.indexWhere(isSelected);
+      final index = tiles.indexWhere((tile) => tile.id == selected.app?.id);
       final delta = key == LogicalKeyboardKey.arrowLeft ? -1 : 1;
       final next = index + delta;
-      if (next >= 0 && next < tiles.length) select(rows[next]);
+      if (next >= 0 && next < tiles.length) {
+        select(AppChoice(tiles[next], frequent: true));
+      }
       return .handled;
     }
     if (event is! KeyDownEvent || alt) return .ignored;

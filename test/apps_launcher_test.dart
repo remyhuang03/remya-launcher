@@ -48,6 +48,7 @@ class _Apps extends AppsClient {
   Completer<AppsSearch>? delayed;
   bool fail = false;
   bool hide = false;
+  List<LauncherAppEntry>? matches;
 
   @override
   Future<AppsSearch> search(String query, {required bool packages}) async {
@@ -55,6 +56,9 @@ class _Apps extends AppsClient {
     if (query == 'slow') return delayed!.future;
     if (query == 'obsidian') {
       return AppsSearch(total: 1, packages: packages ? [_package] : []);
+    }
+    if (matches case final apps?) {
+      return AppsSearch(total: apps.length, matched: apps.length, apps: apps);
     }
     return AppsSearch(
       total: hide ? 0 : 1,
@@ -123,6 +127,48 @@ Future<void> _enter(WidgetTester tester, String query) async {
 }
 
 void main() {
+  testWidgets('All shows eight apps; Apps builds rows as they scroll in', (
+    tester,
+  ) async {
+    final client = _Apps()
+      ..matches = [
+        for (var i = 1; i <= 60; i++)
+          LauncherAppEntry.fromJson({
+            'id': 'test.$i.desktop',
+            'name': 'Test App $i',
+          }),
+      ];
+    await tester.pumpWidget(RemyaLauncherApp(appsClient: client));
+    await _enter(tester, 'test');
+    expect(find.text('Test App 9'), findsNothing);
+    final eighth = find.text('Test App 8');
+    expect(eighth.hitTestable(), findsNothing);
+    for (var i = 0; i < 7; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+    }
+    expect(eighth.hitTestable(), findsOneWidget);
+
+    await _shortcut(
+      tester,
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.digit2,
+    );
+    await tester.pump(_search);
+    await tester.pump();
+    final last = find.text('Test App 60');
+    expect(last, findsNothing);
+    await tester.scrollUntilVisible(
+      last,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(last.hitTestable(), findsOneWidget);
+  });
+
   testWidgets('All retains its query in Apps; stale responses are ignored', (
     tester,
   ) async {

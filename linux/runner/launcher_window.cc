@@ -10,6 +10,7 @@ const char kPress[] = "remya-launcher-press";
 const char kChannel[] = "remya-launcher-window-channel";
 const char kReady[] = "remya-launcher-dart-ready";
 const char kShowClipboard[] = "remya-launcher-show-clipboard";
+const char kDismissWindows[] = "remya-launcher-dismiss-windows";
 
 // The last primary press, which a later beginMove turns into a move drag.
 struct Press {
@@ -46,6 +47,70 @@ void schedule_close(GtkWidget *window) {
                   g_object_unref);
 }
 
+void configure_overlay(GtkWindow *window, const char *name,
+                       GtkLayerShellKeyboardMode keyboard_mode) {
+  auto *widget = GTK_WIDGET(window);
+  auto *visual = gdk_screen_get_rgba_visual(gtk_widget_get_screen(widget));
+  if (visual != nullptr)
+    gtk_widget_set_visual(widget, visual);
+  gtk_widget_set_app_paintable(widget, TRUE);
+  gtk_window_set_decorated(window, FALSE);
+  gtk_layer_init_for_window(window);
+  gtk_layer_set_namespace(window, name);
+  gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
+  gtk_layer_set_exclusive_zone(window, -1);
+  for (auto edge : {GTK_LAYER_SHELL_EDGE_LEFT, GTK_LAYER_SHELL_EDGE_RIGHT,
+                    GTK_LAYER_SHELL_EDGE_TOP, GTK_LAYER_SHELL_EDGE_BOTTOM}) {
+    gtk_layer_set_anchor(window, edge, TRUE);
+  }
+  gtk_layer_set_keyboard_mode(window, keyboard_mode);
+}
+
+GHashTable *dismiss_windows(GtkWidget *launcher) {
+  return static_cast<GHashTable *>(
+      g_object_get_data(G_OBJECT(launcher), kDismissWindows));
+}
+
+void destroy_dismiss_window(gpointer data) {
+  gtk_widget_destroy(GTK_WIDGET(data));
+  g_object_unref(data);
+}
+
+void add_dismiss_window(GtkWidget *launcher, GdkMonitor *monitor) {
+  auto *windows = dismiss_windows(launcher);
+  if (g_hash_table_contains(windows, monitor)) return;
+
+  auto *dismiss = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  g_hash_table_insert(windows, g_object_ref(monitor), g_object_ref(dismiss));
+  configure_overlay(GTK_WINDOW(dismiss), "remya-launcher-dismiss",
+                    GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
+  gtk_layer_set_monitor(GTK_WINDOW(dismiss), monitor);
+  gtk_window_set_accept_focus(GTK_WINDOW(dismiss), FALSE);
+  g_signal_connect(dismiss, "draw",
+                   G_CALLBACK(+[](GtkWidget *, cairo_t *cr, gpointer) {
+                     cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+                     cairo_paint(cr);
+                     return TRUE;
+                   }), nullptr);
+  gtk_widget_add_events(dismiss, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
+  g_signal_connect(dismiss, "button-release-event",
+                   G_CALLBACK(+[](GtkWidget *, GdkEventButton *, gpointer data) {
+                     schedule_close(GTK_WIDGET(data));
+                     return TRUE;
+                   }), launcher);
+  gtk_widget_show(dismiss);
+}
+
+void dismiss_monitor_added(GdkDisplay *, GdkMonitor *monitor,
+                           GtkWidget *launcher) {
+  if (gtk_widget_get_mapped(launcher)) add_dismiss_window(launcher, monitor);
+}
+
+void dismiss_monitor_removed(GdkDisplay *, GdkMonitor *monitor,
+                             GtkWidget *launcher) {
+  g_hash_table_remove(dismiss_windows(launcher), monitor);
+}
+
 gboolean on_focus_out(GtkWidget *window, GdkEvent *, gpointer) {
   if (gtk_widget_get_visible(window) &&
       !g_object_get_data(G_OBJECT(window), kHiding)) {
@@ -59,11 +124,6 @@ void hide_launcher(GtkWindow *window) {
   g_object_set_data(G_OBJECT(widget), kHiding, GINT_TO_POINTER(TRUE));
   gtk_widget_hide(widget);
   gdk_display_sync(gtk_widget_get_display(widget));
-}
-
-void show_launcher(GtkWindow *window) {
-  g_object_set_data(G_OBJECT(window), kHiding, nullptr);
-  gtk_window_present(window);
 }
 
 gint run_dialog(GtkWindow *window, GtkWidget *dialog) {
@@ -86,7 +146,7 @@ void save_file(GtkWindow *window, FlMethodCall *call, const gchar *filename) {
                                ? gtk_file_chooser_get_filename(chooser)
                                : nullptr;
   gtk_widget_destroy(dialog);
-  show_launcher(window);
+  show_launcher_window(window);
   g_autoptr(FlValue) value =
       path == nullptr ? nullptr : fl_value_new_string(path);
   fl_method_call_respond_success(call, value, nullptr);
@@ -104,7 +164,7 @@ void open_with(GtkWindow *window, FlMethodCall *call, const gchar *path) {
           ? gtk_app_chooser_get_app_info(GTK_APP_CHOOSER(dialog))
           : nullptr;
   gtk_widget_destroy(dialog);
-  show_launcher(window);
+  show_launcher_window(window);
   if (app == nullptr) {
     g_autoptr(FlValue) value = fl_value_new_bool(FALSE);
     fl_method_call_respond_success(call, value, nullptr);
@@ -173,7 +233,7 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
   if (g_str_equal(method, "hide")) {
     hide_launcher(window);
   } else if (g_str_equal(method, "show")) {
-    show_launcher(window);
+    show_launcher_window(window);
   } else if (g_str_equal(method, "close")) {
     schedule_close(widget);
   } else if (g_str_equal(method, "beginMove")) {
@@ -212,23 +272,41 @@ bool configure_launcher_overlay(GtkWindow *window) {
     return false;
 
   auto *widget = GTK_WIDGET(window);
-  auto *visual = gdk_screen_get_rgba_visual(gtk_widget_get_screen(widget));
-  if (visual != nullptr)
-    gtk_widget_set_visual(widget, visual);
-  gtk_widget_set_app_paintable(widget, TRUE);
-  gtk_window_set_decorated(window, FALSE);
-  gtk_layer_init_for_window(window);
-  gtk_layer_set_namespace(window, "remya-launcher");
-  gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_OVERLAY);
-  gtk_layer_set_exclusive_zone(window, -1);
-  for (auto edge : {GTK_LAYER_SHELL_EDGE_LEFT, GTK_LAYER_SHELL_EDGE_RIGHT,
-                    GTK_LAYER_SHELL_EDGE_TOP, GTK_LAYER_SHELL_EDGE_BOTTOM}) {
-    gtk_layer_set_anchor(window, edge, TRUE);
-  }
-  gtk_layer_set_keyboard_mode(window, GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+  configure_overlay(window, "remya-launcher",
+                    GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+  auto *windows = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+                                       g_object_unref, destroy_dismiss_window);
+  g_object_set_data_full(G_OBJECT(window), kDismissWindows, windows,
+                         [](gpointer data) {
+                           g_hash_table_unref(static_cast<GHashTable *>(data));
+                         });
+  g_signal_connect(window, "unmap",
+                   G_CALLBACK(+[](GtkWidget *, gpointer data) {
+                     g_hash_table_remove_all(static_cast<GHashTable *>(data));
+                   }), windows);
+  auto *display = gtk_widget_get_display(widget);
+  g_signal_connect_object(display, "monitor-added",
+                          G_CALLBACK(dismiss_monitor_added), window,
+                          G_CONNECT_DEFAULT);
+  g_signal_connect_object(display, "monitor-removed",
+                          G_CALLBACK(dismiss_monitor_removed), window,
+                          G_CONNECT_DEFAULT);
   g_signal_connect(window, "focus-out-event", G_CALLBACK(on_focus_out),
                    nullptr);
   return true;
+}
+
+void show_launcher_window(GtkWindow *window) {
+  auto *widget = GTK_WIDGET(window);
+  g_object_set_data(G_OBJECT(window), kHiding, nullptr);
+  if (!gtk_widget_get_mapped(widget) && dismiss_windows(widget) != nullptr) {
+    // Hyprland stacks layer surfaces in creation order. Map the click
+    // catchers first so the launcher receives input on its own monitor.
+    auto *display = gtk_widget_get_display(widget);
+    for (int i = 0; i < gdk_display_get_n_monitors(display); ++i)
+      add_dismiss_window(widget, gdk_display_get_monitor(display, i));
+  }
+  gtk_window_present(window);
 }
 
 void configure_settings_window(GtkWindow *window) {
