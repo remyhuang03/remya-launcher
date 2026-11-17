@@ -75,11 +75,7 @@ Future<void> main(List<String> arguments) async {
       : example ?? (clipboardType == null ? .empty : .clipboard);
   final settingsPage = parseSettingsPage(arguments);
   final theme = SettingsThemeController.service();
-  // Bound the on-demand startup; a late theme still applies when it arrives.
-  await Future.wait([
-    theme.start().timeout(const Duration(milliseconds: 500), onTimeout: () {}),
-    FileIconAssets.ensureLoaded(),
-  ]);
+  await Future.wait([theme.start(), FileIconAssets.ensureLoaded()]);
   runApp(
     RemyaLauncherApp(
       theme: theme,
