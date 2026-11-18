@@ -3,6 +3,7 @@
 ## Project scope
 
 - Remya Launcher is a Linux desktop application for Hyprland, built with Flutter and Rust. Its application ID is `top.remya.launcher` and its executable is `remya_launcher`.
+- Keep general shell command execution out of the Launcher search field.
 - Clipboard history and its settings pages belong to Remya Launcher. Clipboard policy is registered with and read/written only through Remya Core app preferences. Keep example data separate from reusable controls. Add system integrations only when requested. Never present examples as detected system state.
 - Keep application composition in `lib/app.dart`, startup in `lib/main.dart`, and feature code under `lib/features/<feature>/`. Extract shared widgets only when multiple call sites need them.
 - Keep the Flutter project and Cargo workspace at the repository root. Place Rust crates in `lib/src/rust/<crate>/` and keep the core crate empty until it has a concrete responsibility. Keep any future generated bridge code separate from handwritten code.
@@ -19,5 +20,5 @@
 ## Validation and delivery
 
 - Run Dart format, Flutter analyze and test, the Linux debug and release builds, Cargo format, Clippy and tests, and `git diff --check` as relevant. Run debug and release builds sequentially.
-- After application changes, rebuild and install the release bundle with `python tool/install.py`. Verify the installed application on the desktop and close verification instances. The GUI runs on demand and the clipboard service runs with the graphical session.
+- After application changes, rebuild and install the release bundle with `python tool/install.py`. Verify the installed application on the desktop and close verification instances. The GUI runs on demand and the clipboard service runs with the graphical session. Use the [desktop testing skill](.agents/skills/launcher-desktop-testing/SKILL.md) for installed-bundle smoke checks and input or Wayland debugging.
 - Develop on a separate `<type>/<short-description>` branch and use Conventional Commits. Stage only intended files. Show completed changes and validation before requesting approval to commit unless the user has already authorized it. Commit approval also authorizes merging to `main`, cleaning up the merged development branch, and pushing `main` to the private origin.
