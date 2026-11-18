@@ -19,6 +19,17 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
       return .ignored;
     }
     if (ctrl && !alt && event is KeyDownEvent) {
+      if (key == LogicalKeyboardKey.digit3 && _files.available) {
+        _setScope(.files, initialQuery: _search.text);
+        return .handled;
+      }
+      if (key == LogicalKeyboardKey.keyG &&
+          _scope == .all &&
+          _files.available) {
+        _setScope(.files, initialQuery: _search.text);
+        _switchFilesContents();
+        return .handled;
+      }
       if (key == LogicalKeyboardKey.digit4 && _web.available) {
         _setScope(.web);
         return .handled;
@@ -37,6 +48,14 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
         _setScope(scopes[(index + (shift ? -1 : 1)) % scopes.length]);
         return .handled;
       }
+    }
+    if (_emojiComposing && _inFiles) return .ignored;
+    if (_inFiles || _filesMenuEntry != null) {
+      final handled = _onFilesKey(event, ctrl: ctrl, alt: alt, shift: shift);
+      if (handled == .handled || _filesMenuEntry != null) return handled;
+    } else if (_scope == .all) {
+      final handled = _onAllFilesKey(event, ctrl: ctrl, alt: alt, shift: shift);
+      if (handled == .handled) return handled;
     }
     if (_inWeb) {
       final handled = _webShortcuts.handle(event, compact: false);
@@ -82,7 +101,7 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
         if (handled == .handled) return handled;
       }
     }
-    if (_inApps || (_scope == .all && !_webActiveInAll)) {
+    if (_inApps || (_scope == .all && !_webActiveInAll && !_filesActiveInAll)) {
       final handled = _apps.handleKey(
         event,
         _search,
@@ -103,7 +122,16 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
         _calculator.dismissError();
         return .handled;
       }
-      if (_inWeb && _web.engine != null) {
+      if (_inFiles &&
+          _search.text.isEmpty &&
+          (_files.filters.isNotEmpty ||
+              _files.contents ||
+              _files.mode == .path)) {
+        _files.filters.clear();
+        if (_files.contents) _files.toggleContents();
+        _files.clearBrowseDirectory();
+        _changeFilesQuery('');
+      } else if (_inWeb && _web.engine != null) {
         _setScope(.web, initialQuery: '');
       } else if (_search.text.isNotEmpty) {
         _search.clear();

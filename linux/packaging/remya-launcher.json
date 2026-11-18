@@ -24,6 +24,54 @@
       ]
     },
     {
+      "id": "files-search",
+      "title": "Files search",
+      "keywords": [
+        "files",
+        "search",
+        "roots",
+        "exclusions",
+        "ignore",
+        "hidden",
+        "contents"
+      ]
+    },
+    {
+      "id": "files-history",
+      "title": "Files history",
+      "keywords": [
+        "files",
+        "history",
+        "recent",
+        "xbel",
+        "zoxide",
+        "memy",
+        "retention"
+      ]
+    },
+    {
+      "id": "files-preview",
+      "title": "Files preview",
+      "keywords": [
+        "files",
+        "preview",
+        "text",
+        "image",
+        "size"
+      ]
+    },
+    {
+      "id": "files-actions",
+      "title": "Files actions",
+      "keywords": [
+        "files",
+        "actions",
+        "editor",
+        "terminal",
+        "file manager"
+      ]
+    },
+    {
       "id": "material-theme",
       "title": "Material theme",
       "keywords": [
@@ -88,6 +136,271 @@
         "type": "integer",
         "minimum": 1,
         "maximum": 365
+      }
+    },
+    "files-search": {
+      "title": "Files search",
+      "page": "files-search",
+      "keywords": [
+        "files",
+        "search",
+        "roots",
+        "exclusions",
+        "ignore",
+        "hidden",
+        "contents"
+      ],
+      "default": {
+        "roots": [
+          "~"
+        ],
+        "exclusions": [],
+        "respect_ignore": true,
+        "show_hidden": false,
+        "contents_enabled": true,
+        "contents_max_bytes": 2097152,
+        "result_limit": 200
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "roots": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^(/.*|~(/.*)?)$",
+              "not": {
+                "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+              }
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "maxItems": 64
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^(/.*|~(/.*)?)$",
+              "not": {
+                "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+              }
+            },
+            "uniqueItems": true,
+            "maxItems": 256
+          },
+          "respect_ignore": {
+            "type": "boolean"
+          },
+          "show_hidden": {
+            "type": "boolean"
+          },
+          "contents_enabled": {
+            "type": "boolean"
+          },
+          "contents_max_bytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 10485760
+          },
+          "result_limit": {
+            "type": "integer",
+            "minimum": 20,
+            "maximum": 500
+          }
+        },
+        "required": [
+          "roots",
+          "exclusions",
+          "respect_ignore",
+          "show_hidden",
+          "contents_enabled",
+          "contents_max_bytes",
+          "result_limit"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "files-history": {
+      "title": "Files history",
+      "page": "files-history",
+      "keywords": [
+        "files",
+        "history",
+        "recent",
+        "xbel",
+        "zoxide",
+        "memy",
+        "retention"
+      ],
+      "default": {
+        "enabled": false,
+        "record_local": true,
+        "read_system_xbel": false,
+        "external_enabled": false,
+        "file_provider": "memy",
+        "directory_provider": "zoxide",
+        "external_write_mode": "read_only",
+        "retention_days": 90,
+        "max_records_per_kind": 10000
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "record_local": {
+            "type": "boolean"
+          },
+          "read_system_xbel": {
+            "type": "boolean"
+          },
+          "external_enabled": {
+            "type": "boolean"
+          },
+          "file_provider": {
+            "enum": [
+              "memy",
+              "xbel"
+            ]
+          },
+          "directory_provider": {
+            "enum": [
+              "zoxide",
+              "memy",
+              "xbel"
+            ]
+          },
+          "external_write_mode": {
+            "enum": [
+              "read_only",
+              "launcher",
+              "delegate_editor"
+            ]
+          },
+          "retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650
+          },
+          "max_records_per_kind": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "enabled",
+          "record_local",
+          "read_system_xbel",
+          "external_enabled",
+          "file_provider",
+          "directory_provider",
+          "external_write_mode",
+          "retention_days",
+          "max_records_per_kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "files-preview": {
+      "title": "Files preview",
+      "page": "files-preview",
+      "keywords": [
+        "files",
+        "preview",
+        "text",
+        "image",
+        "size"
+      ],
+      "default": {
+        "show_preview": true,
+        "text_max_bytes": 10485760,
+        "image_max_bytes": 52428800
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "show_preview": {
+            "type": "boolean"
+          },
+          "text_max_bytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 134217728
+          },
+          "image_max_bytes": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 536870912
+          }
+        },
+        "required": [
+          "show_preview",
+          "text_max_bytes",
+          "image_max_bytes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "files-actions": {
+      "title": "Files actions",
+      "page": "files-actions",
+      "keywords": [
+        "files",
+        "actions",
+        "editor",
+        "terminal",
+        "file manager"
+      ],
+      "default": {
+        "editor": "",
+        "terminal": "",
+        "file_manager": ""
+      },
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "editor": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^(?:/[^;|&$`<>]*[^\\s/;|&$`<>]|[^\\s/;|&$`<>]+)?$",
+            "not": {
+              "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+            }
+          },
+          "terminal": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^(?:/[^;|&$`<>]*[^\\s/;|&$`<>]|[^\\s/;|&$`<>]+)?$",
+            "not": {
+              "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+            }
+          },
+          "file_manager": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^(?:/[^;|&$`<>]*[^\\s/;|&$`<>]|[^\\s/;|&$`<>]+)?$",
+            "not": {
+              "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]"
+            }
+          }
+        },
+        "required": [
+          "editor",
+          "terminal",
+          "file_manager"
+        ],
+        "additionalProperties": false
       }
     }
   }

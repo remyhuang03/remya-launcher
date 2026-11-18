@@ -11,6 +11,64 @@ const char kChannel[] = "remya-launcher-window-channel";
 const char kReady[] = "remya-launcher-dart-ready";
 const char kShowClipboard[] = "remya-launcher-show-clipboard";
 const char kDismissWindows[] = "remya-launcher-dismiss-windows";
+const char kFileDrag[] = "remya-launcher-file-drag";
+const char kDragUri[] = "remya-launcher-drag-uri";
+
+struct FileDragState {
+  GdkEvent *press_event = nullptr;
+  GdkDragContext *active_context = nullptr;
+
+  ~FileDragState() { clear(); }
+
+  void clear() {
+    g_clear_pointer(&press_event, gdk_event_free);
+    if (active_context != nullptr) {
+      g_object_remove_weak_pointer(
+          G_OBJECT(active_context),
+          reinterpret_cast<gpointer *>(&active_context));
+      active_context = nullptr;
+    }
+  }
+};
+
+FileDragState *file_drag_state(GtkWidget *window) {
+  return static_cast<FileDragState *>(
+      g_object_get_data(G_OBJECT(window), kFileDrag));
+}
+
+bool is_file_drag_active(GtkWidget *window) {
+  auto *state = file_drag_state(window);
+  return state != nullptr && state->active_context != nullptr;
+}
+
+void clear_file_drag_press(FileDragState *state) {
+  if (state != nullptr) {
+    g_clear_pointer(&state->press_event, gdk_event_free);
+  }
+}
+
+void on_drag_press(GtkGestureMultiPress *gesture, int, double, double,
+                   gpointer data) {
+  auto *state = static_cast<FileDragState *>(data);
+  auto *gtk_gesture = GTK_GESTURE(gesture);
+  const GdkEvent *event = gtk_gesture_get_last_event(
+      gtk_gesture, gtk_gesture_get_last_updated_sequence(gtk_gesture));
+  if (event == nullptr || event->type != GDK_BUTTON_PRESS ||
+      event->button.button != GDK_BUTTON_PRIMARY) {
+    return;
+  }
+  clear_file_drag_press(state);
+  state->press_event = gdk_event_copy(event);
+}
+
+void on_drag_release(GtkGestureMultiPress *, int, double, double,
+                     gpointer data) {
+  clear_file_drag_press(static_cast<FileDragState *>(data));
+}
+
+void on_drag_cancel(GtkGesture *, GdkEventSequence *, gpointer data) {
+  clear_file_drag_press(static_cast<FileDragState *>(data));
+}
 
 // The last primary press, which a later beginMove turns into a move drag.
 struct Press {
@@ -71,6 +129,26 @@ GHashTable *dismiss_windows(GtkWidget *launcher) {
       g_object_get_data(G_OBJECT(launcher), kDismissWindows));
 }
 
+void set_drag_passthrough(GtkWidget *window, bool enabled) {
+  auto *region = enabled ? cairo_region_create() : nullptr;
+  auto apply = [](GtkWidget *widget, cairo_region_t *shape) {
+    if (auto *surface = gtk_widget_get_window(widget)) {
+      gdk_window_input_shape_combine_region(surface, shape, 0, 0);
+      gtk_widget_queue_draw(widget);
+    }
+  };
+  apply(window, region);
+  if (auto *windows = dismiss_windows(window)) {
+    GHashTableIter iter;
+    g_hash_table_iter_init(&iter, windows);
+    gpointer dismiss;
+    while (g_hash_table_iter_next(&iter, nullptr, &dismiss)) {
+      apply(GTK_WIDGET(dismiss), region);
+    }
+  }
+  if (region != nullptr) cairo_region_destroy(region);
+}
+
 void destroy_dismiss_window(gpointer data) {
   gtk_widget_destroy(GTK_WIDGET(data));
   g_object_unref(data);
@@ -95,7 +173,9 @@ void add_dismiss_window(GtkWidget *launcher, GdkMonitor *monitor) {
   gtk_widget_add_events(dismiss, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK);
   g_signal_connect(dismiss, "button-release-event",
                    G_CALLBACK(+[](GtkWidget *, GdkEventButton *, gpointer data) {
-                     schedule_close(GTK_WIDGET(data));
+                     if (!is_file_drag_active(GTK_WIDGET(data))) {
+                       schedule_close(GTK_WIDGET(data));
+                     }
                      return TRUE;
                    }), launcher);
   gtk_widget_show(dismiss);
@@ -112,6 +192,10 @@ void dismiss_monitor_removed(GdkDisplay *, GdkMonitor *monitor,
 }
 
 gboolean on_focus_out(GtkWidget *window, GdkEvent *, gpointer) {
+  if (is_file_drag_active(window)) {
+    return GDK_EVENT_PROPAGATE;
+  }
+  clear_file_drag_press(file_drag_state(window));
   if (gtk_widget_get_visible(window) &&
       !g_object_get_data(G_OBJECT(window), kHiding)) {
     schedule_close(window);
@@ -121,6 +205,11 @@ gboolean on_focus_out(GtkWidget *window, GdkEvent *, gpointer) {
 
 void hide_launcher(GtkWindow *window) {
   auto *widget = GTK_WIDGET(window);
+  auto *state = file_drag_state(widget);
+  clear_file_drag_press(state);
+  if (state != nullptr && state->active_context != nullptr) {
+    gtk_drag_cancel(state->active_context);
+  }
   g_object_set_data(G_OBJECT(widget), kHiding, GINT_TO_POINTER(TRUE));
   gtk_widget_hide(widget);
   gdk_display_sync(gtk_widget_get_display(widget));
@@ -224,6 +313,89 @@ void resolve_app_icon(GtkWidget *widget, FlMethodCall *call, FlValue *args) {
   fl_method_call_respond_success(call, value, nullptr);
 }
 
+void on_drag_data_get(GtkWidget *, GdkDragContext *context,
+                      GtkSelectionData *selection_data, guint, guint,
+                      gpointer) {
+  auto *uri = static_cast<gchar *>(
+      g_object_get_data(G_OBJECT(context), kDragUri));
+  if (uri == nullptr) return;
+  gchar *uris[] = {uri, nullptr};
+  gtk_selection_data_set_uris(selection_data, uris);
+}
+
+gboolean on_drag_failed(GtkWidget *, GdkDragContext *, GtkDragResult,
+                        gpointer) {
+  return TRUE;
+}
+
+void on_drag_end(GtkWidget *window, GdkDragContext *context, gpointer data) {
+  auto *state = static_cast<FileDragState *>(data);
+  if (state->active_context == context) {
+    g_object_remove_weak_pointer(
+        G_OBJECT(context),
+        reinterpret_cast<gpointer *>(&state->active_context));
+    state->active_context = nullptr;
+    set_drag_passthrough(window, false);
+  }
+  clear_file_drag_press(state);
+}
+
+void begin_file_drag(GtkWindow *window, FlMethodCall *call, FlValue *args) {
+  if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_STRING) {
+    fl_method_call_respond_error(call, "invalid-arguments",
+                                 "Expected an absolute file path", nullptr,
+                                 nullptr);
+    return;
+  }
+
+  auto *widget = GTK_WIDGET(window);
+  auto *state = file_drag_state(widget);
+  const gchar *path = fl_value_get_string(args);
+  if (state == nullptr || state->active_context != nullptr ||
+      state->press_event == nullptr || !gtk_widget_get_realized(widget) ||
+      !gtk_widget_get_mapped(widget) || !gtk_widget_get_visible(widget) ||
+      gtk_widget_get_window(widget) == nullptr || path == nullptr ||
+      *path == '\0' || !g_utf8_validate(path, -1, nullptr) ||
+      !g_path_is_absolute(path)) {
+    g_autoptr(FlValue) started = fl_value_new_bool(FALSE);
+    fl_method_call_respond_success(call, started, nullptr);
+    return;
+  }
+
+  g_autofree gchar *uri = g_filename_to_uri(path, nullptr, nullptr);
+  if (uri == nullptr) {
+    g_autoptr(FlValue) started = fl_value_new_bool(FALSE);
+    fl_method_call_respond_success(call, started, nullptr);
+    return;
+  }
+
+  GtkTargetList *targets = gtk_target_list_new(nullptr, 0);
+  gtk_target_list_add_uri_targets(targets, 0);
+  g_autoptr(GdkEvent) press_event = g_steal_pointer(&state->press_event);
+  GdkDragContext *context = gtk_drag_begin_with_coordinates(
+      widget, targets, GDK_ACTION_COPY, GDK_BUTTON_PRIMARY, press_event, -1,
+      -1);
+  gtk_target_list_unref(targets);
+
+  if (context == nullptr) {
+    g_autoptr(FlValue) started = fl_value_new_bool(FALSE);
+    fl_method_call_respond_success(call, started, nullptr);
+    return;
+  }
+
+  state->active_context = context;
+  g_object_add_weak_pointer(
+      G_OBJECT(context),
+      reinterpret_cast<gpointer *>(&state->active_context));
+  g_object_set_data_full(G_OBJECT(context), kDragUri, g_steal_pointer(&uri),
+                         g_free);
+  gtk_drag_set_icon_default(context);
+  // The transparent layer surfaces otherwise intercept drops intended for apps.
+  set_drag_passthrough(widget, true);
+  g_autoptr(FlValue) started = fl_value_new_bool(TRUE);
+  fl_method_call_respond_success(call, started, nullptr);
+}
+
 void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
   auto *window = GTK_WINDOW(data);
   auto *widget = GTK_WIDGET(window);
@@ -238,6 +410,9 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
     schedule_close(widget);
   } else if (g_str_equal(method, "beginMove")) {
     begin_move(window);
+  } else if (g_str_equal(method, "beginFileDrag")) {
+    begin_file_drag(window, call, args);
+    return;
   } else if (g_str_equal(method, "readyForRequests")) {
     g_object_set_data(G_OBJECT(window), kReady, GINT_TO_POINTER(TRUE));
     g_autoptr(FlValue) pending = fl_value_new_bool(
@@ -298,6 +473,7 @@ bool configure_launcher_overlay(GtkWindow *window) {
 
 void show_launcher_window(GtkWindow *window) {
   auto *widget = GTK_WIDGET(window);
+  clear_file_drag_press(file_drag_state(widget));
   g_object_set_data(G_OBJECT(window), kHiding, nullptr);
   if (!gtk_widget_get_mapped(widget) && dismiss_windows(widget) != nullptr) {
     // Hyprland stacks layer surfaces in creation order. Map the click
@@ -325,6 +501,34 @@ void configure_settings_window(GtkWindow *window) {
 }
 
 void register_launcher_window(FlView *view, GtkWindow *window) {
+  auto *window_widget = GTK_WIDGET(window);
+  auto *view_widget = GTK_WIDGET(view);
+  auto *drag_state = new FileDragState();
+  g_object_set_data_full(
+      G_OBJECT(window), kFileDrag, drag_state,
+      [](gpointer data) { delete static_cast<FileDragState *>(data); });
+
+  auto *drag_press = gtk_gesture_multi_press_new(view_widget);
+  g_object_set_data_full(G_OBJECT(view), "remya-launcher-drag-press",
+                         drag_press, g_object_unref);
+  gtk_event_controller_set_propagation_phase(GTK_EVENT_CONTROLLER(drag_press),
+                                             GTK_PHASE_CAPTURE);
+  gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(drag_press),
+                                GDK_BUTTON_PRIMARY);
+  g_signal_connect(drag_press, "pressed", G_CALLBACK(on_drag_press),
+                   drag_state);
+  g_signal_connect(drag_press, "released", G_CALLBACK(on_drag_release),
+                   drag_state);
+  g_signal_connect(drag_press, "cancel", G_CALLBACK(on_drag_cancel),
+                   drag_state);
+
+  g_signal_connect(window_widget, "drag-data-get", G_CALLBACK(on_drag_data_get),
+                   nullptr);
+  g_signal_connect(window_widget, "drag-failed", G_CALLBACK(on_drag_failed),
+                   nullptr);
+  g_signal_connect(window_widget, "drag-end", G_CALLBACK(on_drag_end),
+                   drag_state);
+
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
       fl_engine_get_binary_messenger(fl_view_get_engine(view)),

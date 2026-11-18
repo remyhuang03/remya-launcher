@@ -445,16 +445,24 @@ class WebActionsMenu extends StatelessWidget {
 }
 
 class WebEngineToken extends StatelessWidget {
-  const WebEngineToken(this.label, {required this.onRemove, super.key});
+  const WebEngineToken(
+    this.label, {
+    required this.onRemove,
+    this.icon = .search,
+    this.removeLabel,
+    super.key,
+  });
 
   final String label;
+  final LauncherIconName icon;
+  final String? removeLabel;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Tooltip(
-      message: 'Remove $label search engine',
+      message: removeLabel ?? 'Remove $label search engine',
       child: Material(
         color: colors.tertiaryContainer,
         borderRadius: .circular(10),
@@ -467,11 +475,7 @@ class WebEngineToken extends StatelessWidget {
               mainAxisSize: .min,
               spacing: 6,
               children: [
-                LauncherIcon(
-                  .search,
-                  size: 16,
-                  color: colors.onTertiaryContainer,
-                ),
+                LauncherIcon(icon, size: 16, color: colors.onTertiaryContainer),
                 Text(
                   label,
                   style: TextStyle(
