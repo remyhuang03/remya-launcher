@@ -12,7 +12,8 @@ CLIPBOARD_SERVICE = "remya-launcher-clipboard"
 CALCULATOR_SIDECAR = "remya-launcher-calculator"
 APPS_SIDECAR = "remya-launcher-apps"
 WEB_SIDECAR = "remya-launcher-web"
-BUNDLE_BINARIES = (APP_ID, CLIPBOARD_SERVICE, CALCULATOR_SIDECAR, APPS_SIDECAR, WEB_SIDECAR)
+FILES_SIDECAR = "remya-launcher-files"
+BUNDLE_BINARIES = (APP_ID, CLIPBOARD_SERVICE, CALCULATOR_SIDECAR, APPS_SIDECAR, WEB_SIDECAR, FILES_SIDECAR)
 UNIT = f"{PACKAGE}.clipboard.service"
 APPS_UNIT = f"{PACKAGE}.apps.service"
 

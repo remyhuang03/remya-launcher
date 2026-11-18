@@ -39,7 +39,7 @@ jobs:
       - name: Install Arch Linux build dependencies
         run: |
           pacman -Syu --noconfirm --needed git curl cmake ninja clang rustup python zstd \
-            gtk3 gtk-layer-shell glib2-devel wayland libxkbcommon inter-font unzip xz
+            gtk3 gtk-layer-shell glib2-devel ripgrep wayland libxkbcommon inter-font unzip xz
 
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -101,6 +101,7 @@ jobs:
           test -x build/linux/x64/release/bundle/remya-launcher-calculator
           test -x build/linux/x64/release/bundle/remya-launcher-apps
           test -x build/linux/x64/release/bundle/remya-launcher-web
+          test -x build/linux/x64/release/bundle/remya-launcher-files
           test -f build/linux/x64/release/bundle/data/flutter_assets/assets/emoji/catalog.json
           test -f build/linux/x64/release/bundle/data/flutter_assets/assets/emoji/THIRD_PARTY_NOTICES.txt
           commit=$(git rev-parse HEAD)
