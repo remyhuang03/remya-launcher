@@ -294,27 +294,13 @@ class _FilesSectionPageState extends State<_FilesSectionPage> {
     label: SettingLabel(title, description: description),
     control: value == null
         ? const Text('Unavailable')
-        : Semantics(
+        : SettingsDropdown<String>(
             label: title,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: choices.containsKey(value) ? value : null,
-                items: [
-                  for (final entry in choices.entries)
-                    DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                ],
-                onChanged: _editable
-                    ? (next) {
-                        if (next != null && next != value) {
-                          unawaited(_save(key, next));
-                        }
-                      }
-                    : null,
-              ),
-            ),
+            selected: choices.containsKey(value) ? value : null,
+            choices: choices,
+            onSelected: _editable
+                ? (next) => unawaited(_save(key, next))
+                : null,
           ),
   );
 

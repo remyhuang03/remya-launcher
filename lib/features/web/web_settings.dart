@@ -173,31 +173,22 @@ class _WebSettingsState extends State<_WebSettings> {
           description:
               'Used by Ctrl+Enter and the first suggestion in Web search.',
         ),
-        control: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _defaultEngine,
-            items: const [
-              DropdownMenuItem(value: 'duckduckgo', child: Text('DuckDuckGo')),
-              DropdownMenuItem(value: 'google', child: Text('Google')),
-            ],
-            onChanged: _busy
-                ? null
-                : (engine) {
-                    if (engine != null) {
-                      unawaited(
-                        _update(
-                          action: () async {
-                            final defaultEngine = await widget.client
-                                .setDefaultEngine(engine);
-                            if (mounted) _defaultEngine = defaultEngine;
-                          },
-                          failure:
-                              'Could not change the default search engine.',
-                        ),
-                      );
-                    }
-                  },
-          ),
+        control: SettingsChoice<String>(
+          label: 'Default search engine',
+          selected: _defaultEngine,
+          choices: const {'duckduckgo': 'DuckDuckGo', 'google': 'Google'},
+          onSelected: _busy
+              ? null
+              : (engine) => unawaited(
+                  _update(
+                    action: () async {
+                      final defaultEngine = await widget.client
+                          .setDefaultEngine(engine);
+                      if (mounted) _defaultEngine = defaultEngine;
+                    },
+                    failure: 'Could not change the default search engine.',
+                  ),
+                ),
         ),
       ),
     ],
