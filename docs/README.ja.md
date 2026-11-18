@@ -23,17 +23,15 @@
   <strong>日本語</strong>
 </p>
 
+> [!CAUTION]
+> **初期開発段階（dev）。** 不具合（バグ）が含まれる可能性があり、互換性の保証はありません。パフォーマンスや安定性の問題が発生する可能性があり、各種インタラクションも現在調整中です。
+
 Remya Launcher（`top.remya.launcher`）は、Flutter、Rust、Material Design 3 Expressive を用いて構築された、Hyprland 向けのキーボードファーストなアプリケーションランチャー、クイックスイッチャー、Wayland クリップボード履歴マネージャーです。
 
 - **キーボードファーストのワークフロー**：メインキー領域から手を離さずに操作できるよう設計されており、自然なプレフィックススコープ、`Alt+1–9` クイックピック、コンテキストに応じたフッターキーヒントを備えています。
 - **アプリ検索**：`All` でインストール済みアプリケーションを検索するか、`Ctrl+2` を押して `Apps` に切り替えます。`Enter` または `Ctrl+Enter` で新しいアプリウィンドウを開きます。`Ctrl+Right` で開いているウィンドウやデスクトップアクションを展開し、ウィンドウ上で `Enter` を押すとそのウィンドウにフォーカスします。インストール候補はローカルのパッケージメタデータから取得されます。
 - **内蔵 Wayland クリップボード履歴**：バックグラウンドの Rust ウォッチャーがコピーしたテキスト、コード、リンク、カラー、ファイル、画像サムネイルを永続化し、機密データのマスク処理や Remya Core のポリシーストレージに対応します。
 - **ローカル Web 検索**：有効化したプロファイルのブラウザ履歴やブックマークを検索したり、URL を補完したり、`gh ` のようなキーワードで検索を開始したりできます。
-
-> [!CAUTION]
-> **初期開発段階（dev）。** パフォーマンスに関する既知の問題があります。
->
-> アプリ検索、Windows、Web 検索、電卓、クリップボードはライブデータを使用しています。絵文字検索も利用できます。Files スコープおよび汎用コマンド実行は引き続き計画中です。サンプルデータで [Figma デザイン](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) を確認するには、`--preview` を使用してください。
 
 ## 🚀 インストール
 
@@ -53,13 +51,17 @@ cd remya-launcher-candidate
 python tool/install.py
 ```
 
-Launcher の設定は `remya_launcher --settings` で開きます。特定のページを直接開くには、`remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps`、または `material-theme` を指定します。
+Launcher の設定は `remya_launcher --settings` で開きます。特定のページを直接開くには、`remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps`、`files-search`、`files-history`、`files-preview`、`files-actions`、または `material-theme` を指定します。
 
 ## ✨ 機能
 
 ### 現在利用可能
 
-- **All と Apps（`Ctrl+2`）**：インストール済みアプリケーションを検索し、`Enter` で開きます。Apps では `Ctrl+Right` でアプリの開いているウィンドウとデスクトップアクションを展開できます。一致するアプリがない場合、インストール候補はローカルのパッケージメタデータから取得されます。All では対応するインライン計算や最大 3 件のローカル Web 結果、URL 入力に対する直接アクションも表示されます。
+- **All と Apps（`Ctrl+2`）**：インストール済みアプリケーションを検索し、`Enter` で開きます。Apps では `Ctrl+Right` でアプリの開いているウィンドウとデスクトップアクションを展開できます。一致するアプリがない場合、インストール候補はローカルのパッケージメタデータから取得されます。All では対応するインライン計算や最大 3 件の一致ファイル、最大 3 件のローカル Web 結果、URL 入力に対する直接アクションも表示されます。
+- **Files（`Ctrl+3` / `/` / `~`）**：
+  - ファイル名検索、`Tab` によるパス補完、`Ctrl+G` によるファイル内容検索に対応しています。`ext:md` や `in:~/Documents` などのフィルターで結果を絞り込めます。
+  - 選択したファイルをプレビューし、`Ctrl+K` でファイルアクションを開けます。ピン留めしたファイルは All にも表示されます。
+  - **Launcher の設定 → Files → History** で、最近のファイルや外部履歴プロバイダーの連携をオプトインで有効化できます（各履歴ソースは対応するオプションの有効化が必要です）。
 - **Web（`Ctrl+4` / `?`）**：
   - **Launcher Settings → Web** で Firefox 系または Chromium 系のプロファイルを有効化します。プロファイルを有効化していない場合でも、入力した URL を開いたり検索エンジンで検索したりできます。Launcher は有効化されたプロファイルから最近の履歴とブックマークを読み取り、プライベートのローカルインデックスを保持します。ファビコンはローカルのブラウザデータから読み取り、利用できない場合はモノグラムを表示します。
   - **Launcher の設定 → Web** で既定の検索エンジンに DuckDuckGo または Google を選べます。キーワードで指定したエンジンは現在の検索にのみ適用されます。
@@ -82,14 +84,9 @@ Launcher の設定は `remya_launcher --settings` で開きます。特定のペ
 - **Emoji（`:`）**：7 言語の名前やキーワード、ショートコード、Unicode シーケンスで Emoji 18.0 をオフライン検索。Enter でコピーし、Ctrl+Right でバリエーションを選択できます。
   - **Symbols** タブで記号を検索できます。**設定 → Emoji** で Ctrl+Enter による貼り付けとローカルの最近使った絵文字を有効にできます。
 - **インタラクティブデザインプレビュー（`--preview`）**：
-  - ビルド済みバンドルから `--preview=<name>` を指定して、計画中の全 UI 状態を確認できます：
+  - ビルド済みバンドルから `--preview=<name>` を指定して、サンプルデータで [Figma デザイン](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) の UI 状態例を確認できます：
     - ランチャー状態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
     - クリップボード種別プレビュー：`clipboard-text`、`clipboard-code`、`clipboard-image`、`clipboard-link`、`clipboard-color`、`clipboard-files`、`clipboard-hidden`
-
-### 計画中のスコープと機能（デザイン仕様）
-
-- **Files（`Ctrl+3` / `/` / `~`）**：パス補完、ファイル名あいまい検索、およびディレクトリ・テキスト・画像のプレビュー。
-- **Run（`>`）**：ローカルのクリップボード履歴を消去します。
 
 ## ⌨️ 開発
 
@@ -99,18 +96,20 @@ Launcher の設定は `remya_launcher --settings` で開きます。特定のペ
   - `lib/app.dart` ＆ `lib/main.dart`：アプリケーション構成、CLI フラグ処理（`--clipboard`、`--settings`、`--preview=...`）、ライセンス登録。
   - `lib/features/launcher/`：ランチャーパネル、検索フィールド、スコープチップ、結果／ピン留め行、キーキャップヒント、計算カード、ファイルプレビュー、アクションメニュー。
   - `lib/features/clipboard/`：ライブクリップボードページ、Unix ソケットクライアント、種別プレビュー、クリップボードアクション。
+  - `lib/features/files/`：ファイル名・パス・内容検索、ファイルアクション、プレビュー、設定。
   - `lib/features/web/`：Web 検索結果、キーボードアクション、プロファイル設定、Web サイドカークライアント。
   - `lib/features/preview/`：再利用可能なコントロールから組み立てられたインタラクティブデザイン例。
 - **バックエンド**：リポジトリルートの Rust（`edition = "2024"`、`resolver = "3"`）ワークスペース：
   - `lib/src/rust/clipboard/`：Wayland クリップボードウォッチャーデーモン（`remya-launcher-clipboard`）、SQLite 永続化、IPC サーバー。
   - `lib/src/rust/apps/`：常駐アプリケーションインデックス、パッケージ検索、Hyprland ウィンドウアクション。
   - `lib/src/rust/calculator/`：ローカル評価、補完、電卓履歴。
+  - `lib/src/rust/files/`：検索、プレビュー、アクション、オプトイン履歴を担うオンデマンドの Files サイドカー。
   - `lib/src/rust/web/`：ブラウザリーダー、プライベート SQLite インデックス、ブラウザ起動ディスパッチを備えたオンデマンド Web サイドカー。
   - `lib/src/rust/core/`：コア Rust クレート（共有ランチャーバックエンドロジック用に予約）。
 
 ### 前提条件とセットアップ
 
-Flutter が `remya_client` と `remya_ui` を解決できるよう、このリポジトリと並べて `../remya-core` として Remya Core のチェックアウトを配置してください。GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM、および `rust-toolchain.toml` で指定された Rust ツールチェーンをインストールしてください。
+Flutter が `remya_client` と `remya_ui` を解決できるよう、このリポジトリと並べて `../remya-core` として Remya Core のチェックアウトを配置してください。GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM、および `rust-toolchain.toml` で指定された Rust ツールチェーンをインストールしてください。Files の内容検索には `ripgrep`、Wayland でのファイルコピーには `wl-clipboard` の `wl-copy` を使用します。
 
 ```bash
 fvm install
@@ -140,7 +139,7 @@ fvm flutter build linux --debug
 fvm flutter build linux --release
 ```
 
-リリースバンドル、デスクトップエントリ、および `top.remya.launcher.clipboard.service` と `top.remya.launcher.apps.service` systemd ユーザーユニットを `$XDG_DATA_HOME` 配下にインストールします。Calculator と Web はオンデマンドで実行されます。
+リリースバンドル、デスクトップエントリ、および `top.remya.launcher.clipboard.service` と `top.remya.launcher.apps.service` systemd ユーザーユニットを `$XDG_DATA_HOME` 配下にインストールします。Calculator、Files、Web はオンデマンドで実行されます。
 
 ```bash
 python tool/install.py

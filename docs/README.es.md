@@ -23,17 +23,15 @@
   <a href="README.ja.md">日本語</a>
 </p>
 
+> [!CAUTION]
+> **Desarrollo temprano (dev).** Es de esperar que haya errores y no existe garantía de compatibilidad. Pueden producirse problemas de rendimiento y estabilidad, y las interacciones aún se están refinando.
+
 Remya Launcher (`top.remya.launcher`) es un lanzador de aplicaciones centrado en el teclado, selector rápido y gestor de historial del portapapeles en Wayland diseñado para Hyprland con Flutter, Rust y Material Design 3 Expressive.
 
 - **Flujo centrado en el teclado**: diseñado para que tus manos permanezcan en la zona principal de teclas, con ámbitos por prefijo natural, selección rápida `Alt+1–9` e indicaciones contextuales en el pie.
 - **Búsqueda de aplicaciones**: busca aplicaciones instaladas en All o pulsa `Ctrl+2` para Apps. Abre una nueva ventana de la aplicación con Enter o `Ctrl+Enter`. Expande sus ventanas y acciones de escritorio con `Ctrl+Right` y pulsa Enter sobre una ventana para enfocarla. Los candidatos de instalación provienen de los metadatos de paquetes locales.
 - **Historial del portapapeles en Wayland integrado**: un observador en Rust en segundo plano guarda texto, código, enlaces, colores, archivos y miniaturas de imágenes copiados, con enmascarado de datos sensibles y almacenamiento de políticas de Remya Core.
 - **Búsqueda web local**: busca en el historial del navegador y marcadores de los perfiles que habilites, completa URL o inicia una búsqueda con una palabra clave como `gh `.
-
-> [!CAUTION]
-> **Desarrollo temprano (dev).** Hay problemas de rendimiento conocidos.
->
-> La búsqueda de aplicaciones, Windows, la búsqueda web, Calculator y Clipboard usan datos en vivo. La búsqueda de emojis también está disponible. El ámbito Files y la ejecución general de comandos siguen planificados. Usa `--preview` para explorar el [diseño en Figma](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) con datos de ejemplo.
 
 ## 🚀 Instalación
 
@@ -53,13 +51,17 @@ cd remya-launcher-candidate
 python tool/install.py
 ```
 
-Abre la configuración de Launcher con `remya_launcher --settings`. Abre una página directamente con `remya_launcher --settings web`, `clipboard`, `apps`, `hidden-apps` o `material-theme`.
+Abre la configuración de Launcher con `remya_launcher --settings`. Abre una página directamente con `remya_launcher --settings web`, `clipboard`, `apps`, `hidden-apps`, `files-search`, `files-history`, `files-preview`, `files-actions` o `material-theme`.
 
 ## ✨ Características
 
 ### Disponible actualmente
 
-- **All y Apps (`Ctrl+2`)**: busca aplicaciones instaladas y ábrelas con `Enter`. En Apps, `Ctrl+Right` expande las ventanas abiertas y acciones de escritorio de una aplicación. Si no hay aplicaciones coincidentes, los candidatos de instalación provienen de los metadatos de paquetes locales. All también muestra cálculos en línea compatibles y hasta tres resultados web locales, además de una acción directa para entradas de URL.
+- **All y Apps (`Ctrl+2`)**: busca aplicaciones instaladas y ábrelas con `Enter`. En Apps, `Ctrl+Right` expande las ventanas abiertas y acciones de escritorio de una aplicación. Si no hay aplicaciones coincidentes, los candidatos de instalación provienen de los metadatos de paquetes locales. All también muestra cálculos en línea compatibles, hasta tres archivos coincidentes y hasta tres resultados web locales, además de una acción directa para entradas de URL.
+- **Files (`Ctrl+3` / `/` / `~`)**:
+  - Busca por nombre de archivo, completa una ruta con `Tab` o pulsa `Ctrl+G` para buscar en el contenido de los archivos. Refina los resultados con filtros como `ext:md` o `in:~/Documents`.
+  - Obtén una vista previa del archivo seleccionado y pulsa `Ctrl+K` para abrir las acciones de archivo. Los archivos fijados también aparecen en All.
+  - Activa opcionalmente los archivos recientes o conecta proveedores de historial externos en **Ajustes de Launcher → Files → History**. Cada fuente de historial requiere su opción correspondiente.
 - **Web (`Ctrl+4` / `?`)**:
   - Habilita perfiles de la familia Firefox o Chromium en **Launcher Settings → Web**. Sin perfiles habilitados, aún puedes abrir una URL escrita o buscar con un motor. Launcher lee el historial reciente y los marcadores de los perfiles habilitados y mantiene un índice local privado. Lee los favicons de los datos locales del navegador y muestra un monograma cuando no hay ninguno disponible.
   - En **Ajustes de Launcher → Web** puedes elegir DuckDuckGo o Google como buscador predeterminado. Las palabras clave solo cambian el buscador de la consulta actual.
@@ -82,14 +84,9 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
 - **Emoji (`:`)**: Busca Emoji 18.0 sin conexión por nombre, palabra clave, código corto o secuencia Unicode en siete idiomas. Pulsa Intro para copiar o Ctrl+Derecha para elegir una variante.
   - La pestaña **Symbols** abre un catálogo de símbolos separado. En **Ajustes → Emoji** puedes activar el pegado con Ctrl+Intro y la lista local de emojis recientes.
 - **Vistas previas interactivas de diseño (`--preview`)**:
-  - Inspecciona todos los estados de interfaz planeados desde un paquete compilado usando `--preview=<name>`:
+  - Explora los estados de ejemplo de la interfaz del [diseño en Figma](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) con datos de ejemplo desde un paquete compilado usando `--preview=<name>`:
     - Estados del lanzador: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
     - Vistas previas por tipo de portapapeles: `clipboard-text`, `clipboard-code`, `clipboard-image`, `clipboard-link`, `clipboard-color`, `clipboard-files`, `clipboard-hidden`
-
-### Ámbitos y capacidades planificadas (especificación de diseño)
-
-- **Files (`Ctrl+3` / `/` / `~`)**: autocompletado de rutas, búsqueda difusa de nombres de archivo y vistas previas para carpetas, texto e imágenes.
-- **Run (`>`)**: Borra el historial local del portapapeles.
 
 ## ⌨️ Desarrollo
 
@@ -99,18 +96,20 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
   - `lib/app.dart` y `lib/main.dart`: composición de la aplicación, manejo de opciones CLI (`--clipboard`, `--settings`, `--preview=...`) y registro de licencias.
   - `lib/features/launcher/`: panel del lanzador, campo de búsqueda, chips de ámbito, filas de resultados y fijados, indicaciones de teclas, tarjeta de calculadora, vista previa de archivos y menú de acciones.
   - `lib/features/clipboard/`: página del portapapeles en vivo, cliente de socket Unix, vistas previas por tipo y acciones del portapapeles.
+  - `lib/features/files/`: búsqueda por nombre de archivo, ruta y contenido, acciones de archivo, vistas previas y ajustes.
   - `lib/features/web/`: resultados web, acciones de teclado, configuración de perfiles y el cliente sidecar de Web.
   - `lib/features/preview/`: ejemplos interactivos de diseño ensamblados con controles reutilizables.
 - **Backend**: espacio de trabajo Rust (`edition = "2024"`, `resolver = "3"`) en la raíz del repositorio:
   - `lib/src/rust/clipboard/`: demonio observador de portapapeles Wayland (`remya-launcher-clipboard`), persistencia SQLite y servidor IPC.
   - `lib/src/rust/apps/`: índice residente de aplicaciones, consultas de paquetes y acciones de ventanas en Hyprland.
   - `lib/src/rust/calculator/`: evaluación local, autocompletado e historial de la calculadora.
+  - `lib/src/rust/files/`: sidecar de Files bajo demanda para búsqueda, vistas previas, acciones e historial opcional.
   - `lib/src/rust/web/`: sidecar de Web bajo demanda con lectores de navegadores, índice SQLite privado y envío al navegador.
   - `lib/src/rust/core/`: crate principal de Rust (reservado para lógica compartida del backend del lanzador).
 
 ### Requisitos previos y configuración
 
-Coloca el repositorio clonado de Remya Core junto a este repositorio como `../remya-core` para que Flutter pueda resolver `remya_client` y `remya_ui`. Instala GTK 3, `gtk-layer-shell`, CMake, Ninja, Clang, Python 3, `inter-font`, FVM y el toolchain de Rust indicado en `rust-toolchain.toml`.
+Coloca el repositorio clonado de Remya Core junto a este repositorio como `../remya-core` para que Flutter pueda resolver `remya_client` y `remya_ui`. Instala GTK 3, `gtk-layer-shell`, CMake, Ninja, Clang, Python 3, `inter-font`, FVM y el toolchain de Rust indicado en `rust-toolchain.toml`. La búsqueda de contenido en Files usa `ripgrep`, y copiar archivos usa `wl-copy` de `wl-clipboard` en Wayland.
 
 ```bash
 fvm install
@@ -140,7 +139,7 @@ fvm flutter build linux --debug
 fvm flutter build linux --release
 ```
 
-Instala el paquete release, el acceso directo de escritorio y las unidades de usuario de systemd `top.remya.launcher.clipboard.service` y `top.remya.launcher.apps.service` bajo `$XDG_DATA_HOME`. Calculator y Web se ejecutan bajo demanda.
+Instala el paquete release, el acceso directo de escritorio y las unidades de usuario de systemd `top.remya.launcher.clipboard.service` y `top.remya.launcher.apps.service` bajo `$XDG_DATA_HOME`. Calculator, Files y Web se ejecutan bajo demanda.
 
 ```bash
 python tool/install.py
