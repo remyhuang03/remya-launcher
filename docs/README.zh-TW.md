@@ -26,12 +26,9 @@
 > [!CAUTION]
 > **早期開發階段（dev）。** 可能存在錯誤（bug），不提供相容性保證，可能出現效能與穩定性問題，且各項互動仍在持續調整中。
 
-Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤優先應用程式啟動器、快速切換器與 Wayland 剪貼簿歷史管理器，使用 Flutter、Rust 與 Material Design 3 Expressive 打造。
+Remya Launcher是一款專為 Hyprland 設計的鍵盤優先應用程式啟動器、快速切換器與 Wayland 剪貼簿歷史管理器，使用 Flutter、Rust 與 Material Design 3 Expressive 打造。
 
-- **鍵盤優先的工作流程**：雙手無需離開主鍵區即可完成操作，提供自然前綴範圍、`Alt+1–9` 快速選取與情境式底部按鍵提示。
-- **應用程式搜尋**：在 All 中搜尋已安裝的應用程式，或按 `Ctrl+2` 切換至 Apps。按 Enter 或 `Ctrl+Enter` 開啟新的應用程式視窗；按 `Ctrl+Right` 展開其視窗與桌面動作，並在視窗上按 Enter 將其聚焦。安裝候選項目來自本機套件中繼資料。
-- **內建 Wayland 剪貼簿歷史**：背景 Rust 監聽程式會保存複製的文字、程式碼、連結、色彩、檔案與圖片縮圖，並支援敏感資料遮罩與 Remya Core 原則儲存。
-- **本機 Web 搜尋**：搜尋您所啟用設定檔中的瀏覽器歷史紀錄與書籤、自動補全網址，或使用如 `gh ` 等關鍵字開始搜尋。
+- **鍵盤優先的工作流程**：雙手無需離開主鍵區即可完成操作，提供自然前綴範圍。
 
 ## 🚀 安裝
 
@@ -41,13 +38,12 @@ Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤
 
 ### 發行壓縮檔
 
-針對由本儲存庫 Linux CI 工作流程建置的 Linux x86_64 候選版本，請下載並解壓縮該候選產物，其中包含 `remya-launcher-linux-x86_64-<commit>.tar.zst` 壓縮檔與 `SHA256SUMS`。在包含這些檔案的目錄中執行：
+安裝 Remya Core `0.2.0` 後，從 [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) 下載 `remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst` 和 `SHA256SUMS`。在存放這兩個檔案的目錄中執行以下指令。
 
 ```bash
 sha256sum -c SHA256SUMS
-mkdir -p remya-launcher-candidate
-tar --zstd -xf remya-launcher-linux-x86_64-*.tar.zst -C remya-launcher-candidate
-cd remya-launcher-candidate
+tar --zstd -xf remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst
+cd remya_launcher-0.1.0-dev.20261118.0-linux-x86_64
 python tool/install.py
 ```
 
@@ -55,22 +51,26 @@ python tool/install.py
 
 ## ✨ 功能特色
 
-### 目前已提供
-
 - **All 與 Apps（`Ctrl+2`）**：搜尋已安裝的應用程式並按 `Enter` 開啟。在 Apps 中，按 `Ctrl+Right` 可展開應用程式已開啟的視窗與桌面動作。若無符合的應用程式，安裝候選項目將來自本機套件中繼資料。All 亦會顯示支援的內嵌計算結果、最多三個相符檔案、最多三筆本機 Web 結果，以及針對網址輸入的直接動作。
+
 - **Files（`Ctrl+3` / `/` / `~`）**：
+
   - 依檔名搜尋、按 `Tab` 補全路徑，或按 `Ctrl+G` 搜尋檔案內容。可使用 `ext:md` 或 `in:~/Documents` 等篩選條件縮小結果。
   - 預覽所選檔案，並按 `Ctrl+K` 開啟檔案動作。已釘選的檔案也會顯示於 All 中。
   - 在 **Launcher 設定 → Files → History** 中按需啟用近期檔案或連結外部歷程記錄提供者；各項歷程記錄來源皆須啟用對應選項。
+
 - **Web（`Ctrl+4` / `?`）**：
+
   - 在 **Launcher Settings → Web** 中啟用 Firefox 或 Chromium 系列設定檔。即使未啟用任何設定檔，仍可開啟輸入的網址或使用搜尋引擎搜尋。Launcher 會從已啟用的設定檔讀取近期歷史紀錄與書籤，並維護私密的本機索引；它會從本機瀏覽器資料讀取網站圖示，若無可用圖示則顯示字首縮寫。
   - 可在 **Launcher 設定 → Web** 中選擇 DuckDuckGo 或 Google 作為預設搜尋引擎。關鍵字只會切換目前查詢的引擎。
   - 空白輸入時會顯示常用網站（`Alt+1–6`）與近期頁面。搜尋時會顯示依相關性與使用頻率排序的書籤與歷史紀錄，接著是搜尋引擎建議。按 `Tab` 接受網址補全；按 `Enter` 開啟輸入的網址或選取的項目；按 `Ctrl+Enter` 則改為進行搜尋。
   - 輸入搜尋引擎關鍵字並加上空格，例如 `gh ` 代表 GitHub、`aw ` 代表 ArchWiki，或 `yt ` 代表 YouTube。選取搜尋引擎後，按 `Tab` 可循環切換引擎，查詢為空時按 `Backspace` 可移除該關鍵字標記。
   - 按 `Ctrl+K` 可開啟頁面的動作選單：在支援的瀏覽器或私密視窗中開啟、複製網址或 Markdown 連結、搜尋該網站、釘選，或從 Launcher 中隱藏。Launcher 絕不會修改瀏覽器歷史紀錄或書籤；關閉設定檔將會從 Launcher 移除其索引。
+
 - **Windows（`Ctrl+7` / `#`）**：依標題或類別篩選 Hyprland 視窗。按 `Enter` 聚焦視窗，或按 `Ctrl+Enter` 將其移至目前工作區。
 
 - **即時剪貼簿歷史（`remya_launcher --clipboard` / `Ctrl+6` / `;`）**：
+
   - 背景 Rust 監聽程式（`remya-launcher-clipboard`）作為 `top.remya.launcher.clipboard.service` systemd 使用者單元隨圖形工作階段執行。
   - 預設於 `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3`（預設 `~/.local/state/remya/launcher/clipboard.sqlite3`）保存最多 500 筆未釘選項目（最長 30 天）；已釘選項目不受自動清理影響。
   - 擷取上限 64 MiB 的選取內容與上限 2,400 萬像素的解碼圖片（PNG、JPEG、WebP、GIF、BMP）；超過 20 MB 但在上述限制內的圖片會保留縮圖。
@@ -78,12 +78,17 @@ python tool/install.py
   - 於 `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` 提供同使用者歷史紀錄操作與 `clear`。原則會從 `top.remya.Core1` 讀取並於 `Changed` 時重新整理；當原則無法取得或無效時，擷取與自動歷史清理將暫停。
   - 安裝 `remya/apps/remya-launcher.json` 與桌面 `settings` 動作。剪貼簿單元會在 `top.remya.core.service` 之後啟動並宣告對其的相依。
   - *已知 Wayland 限制*：Wayland data-control 無法辨識剪貼簿選取內容是由哪個應用程式提供，因此設計中的來源應用程式標籤與依應用程式排除黑名單無法可靠實作。
+
 - **計算機（`Ctrl+5` / `=`）**：
+
   - 在 `All` 中內嵌求值基本算式並在 `Calc`（`Ctrl+5` 或 `=`）中處理完整查詢，透過本機 `fend-core` 數學運算、具型別單位、含位寬與正負號的進位制、FP32/FP16/BF16、時區，以及僅於明確重新整理時擷取的 ECB 參考匯率快照，並提供目錄補全與歷史紀錄。
   - 選用的 FP8 與一般行事曆算術仍處於延後狀態。
+
 - **Emoji（`:`）**：離線搜尋 Emoji 18.0 的七語名稱、關鍵詞、短碼或 Unicode 序列。Enter 複製，Ctrl+Right 選擇變體。
   - 切換到 **Symbols** 搜尋獨立符號庫。在 **設定 → Emoji** 中可啟用 Ctrl+Enter 貼上和本機最近使用。
+
 - **互動式設計預覽（`--preview`）**：
+
   - 使用 `--preview=<name>` 從建置完成的 bundle 搭配範例資料檢視 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) 中的範例 UI 狀態：
     - 啟動器狀態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
     - 剪貼簿類型預覽：`clipboard-text`、`clipboard-code`、`clipboard-image`、`clipboard-link`、`clipboard-color`、`clipboard-files`、`clipboard-hidden`

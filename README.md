@@ -26,12 +26,9 @@
 > [!CAUTION]
 > **Early development (dev).** Bugs may occur and compatibility is not guaranteed. You may encounter performance and stability issues. User interaction is still being refined.
 
-Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
+Remya Launcher is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
 
-- **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes, `Alt+1–9` quick pick, and contextual footer key hints.
-- **Apps search**: Search installed applications in All or press `Ctrl+2` for Apps. Open a new app window with Enter or `Ctrl+Enter`. Expand its windows and desktop actions with `Ctrl+Right`, then press Enter on a window to focus it. Install candidates come from local package metadata.
-- **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Core policy storage.
-- **Local Web search**: Search browser history and bookmarks from profiles you enable, complete URLs, or start a search with a keyword like `gh `.
+- **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes.
 
 ## 🚀 Installation
 
@@ -41,13 +38,12 @@ Install **Remya Core** first. On Arch Linux, follow [Prerequisites & Setup](#pre
 
 ### Release Archive
 
-For a Linux x86_64 candidate built by the repository’s Linux CI workflow, download and unzip the candidate artifact. It contains a `remya-launcher-linux-x86_64-<commit>.tar.zst` archive and `SHA256SUMS`. From the directory with those files:
+With Remya Core `0.2.0` installed, download `remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst` and `SHA256SUMS` from [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases). Run these commands from the directory containing both files.
 
 ```bash
 sha256sum -c SHA256SUMS
-mkdir -p remya-launcher-candidate
-tar --zstd -xf remya-launcher-linux-x86_64-*.tar.zst -C remya-launcher-candidate
-cd remya-launcher-candidate
+tar --zstd -xf remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst
+cd remya_launcher-0.1.0-dev.20261118.0-linux-x86_64
 python tool/install.py
 ```
 
@@ -55,22 +51,26 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 
 ## ✨ Features
 
-### Currently Available
-
 - **All and Apps (`Ctrl+2`)**: Search installed applications and open them with `Enter`. In Apps, `Ctrl+Right` expands an app’s open windows and desktop actions. If there are no matching apps, install candidates come from local package metadata. All also shows supported inline calculations, up to three matching local files, up to three local Web results, and a direct action for URL input.
+
 - **Files (`Ctrl+3` / `/` / `~`)**:
+
   - Search by name, complete a path with `Tab`, or press `Ctrl+G` to search file contents. Refine results with filters such as `ext:md` or `in:~/Documents`.
   - Preview the selected file and press `Ctrl+K` for file actions. Pinned files also appear in All.
   - Enable recent files or connect external history providers in **Launcher Settings → Files → History**. Each history source requires its corresponding option.
+
 - **Web (`Ctrl+4` / `?`)**:
+
   - Enable Firefox or Chromium family profiles in **Launcher Settings → Web**. With no profiles enabled, you can still open a typed URL or search with an engine. Launcher reads recent history and bookmarks from enabled profiles and keeps a private local index. It reads favicons from local browser data and shows a monogram when none is available.
   - Choose DuckDuckGo or Google as the default in **Launcher Settings → Web**. Engine keywords apply to the current query.
   - Empty input shows frequent sites (`Alt+1–6`) and recent pages. Search shows bookmarks and history ranked by relevance and use, followed by engine suggestions. `Tab` accepts URL completion; `Enter` opens the typed URL or selected row; `Ctrl+Enter` searches instead.
   - Type an engine keyword followed by a space, such as `gh ` for GitHub, `aw ` for ArchWiki, or `yt ` for YouTube. With an engine selected, `Tab` cycles engines and `Backspace` removes the token when the query is empty.
   - `Ctrl+K` opens actions for a page: open in a supported browser or private window, copy the URL or Markdown link, search the site, pin it, or hide it from Launcher. Launcher never changes browser history or bookmarks. Turning off a profile removes its index from Launcher.
+
 - **Windows (`Ctrl+7` / `#`)**: Filter Hyprland windows by title or class. Press `Enter` to focus a window or `Ctrl+Enter` to move it to the current workspace.
 
 - **Live Clipboard History (`remya_launcher --clipboard` / `Ctrl+6` / `;`)**:
+
   - Background Rust watcher (`remya-launcher-clipboard`) running as the `top.remya.launcher.clipboard.service` systemd user unit with the graphical session.
   - Persists up to 500 unpinned items for 30 days by default in `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3` (default `~/.local/state/remya/launcher/clipboard.sqlite3`); pinned items are exempt from automatic pruning.
   - Captures selections up to 64 MiB and decoded images up to 24 megapixels (PNG, JPEG, WebP, GIF, BMP); images larger than 20 MB within those limits retain a thumbnail.
@@ -78,13 +78,19 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
   - Exposes same-user history operations and `clear` at `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock`. Policy is read from `top.remya.Core1` and refreshed on `Changed`; while unavailable or invalid, capture and automatic history cleanup pause.
   - Installs `remya/apps/remya-launcher.json` and a desktop `settings` action. The clipboard unit starts after and wants `top.remya.core.service`.
   - *Known Wayland limitation*: Wayland data-control does not identify which application provided a clipboard selection, so source app labels and per-application exclusion blacklists in the design cannot be implemented reliably.
+
 - **Calculator (`Ctrl+5` / `=`)**:
+
   - Evaluates inline basic expressions in `All` and full queries in `Calc` (`Ctrl+5` or `=`) locally via `fend-core` math, typed units, bases with width and signedness, FP32/FP16/BF16, time zones, and ECB reference snapshots fetched only on explicit refresh, with catalog completions and history.
   - Optional FP8 and general calendar arithmetic remain deferred.
+
 - **Emoji and Symbols (`:`)**:
+
   - Search Emoji 18.0 offline across seven languages. Select **Symbols** for a separate catalog of arrows, math, currency, and other text characters.
   - Press Enter to copy or Ctrl+Right to choose an emoji variant. In **Settings → Emoji**, enable Ctrl+Enter to paste into the previous Hyprland window, or enable and clear the local recent emoji list.
+
 - **Interactive Design Previews (`--preview`)**:
+
   - Explore example UI states from the [Figma design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) with sample data using `--preview=<name>`.
     - Launcher states: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
     - Clipboard type previews: `clipboard-text`, `clipboard-code`, `clipboard-image`, `clipboard-link`, `clipboard-color`, `clipboard-files`, `clipboard-hidden`

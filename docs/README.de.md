@@ -26,12 +26,9 @@
 > [!CAUTION]
 > **Frühe Entwicklung (dev).** Rechnen Sie mit Bugs; es besteht keine Kompatibilitätsgarantie. Leistungs- und Stabilitätsprobleme können auftreten, und Interaktionen werden noch verfeinert.
 
-Remya Launcher (`top.remya.launcher`) ist ein tastaturorientierter Anwendungsstarter, Schnellwechsler und Wayland-Zwischenablage-Manager für Hyprland, entwickelt mit Flutter, Rust und Material Design 3 Expressive.
+Remya Launcher ist ein tastaturorientierter Anwendungsstarter, Schnellwechsler und Wayland-Zwischenablage-Manager für Hyprland, entwickelt mit Flutter, Rust und Material Design 3 Expressive.
 
-- **Tastaturzentrierter Workflow**: So gestaltet, dass Ihre Hände im Haupttastenfeld bleiben – mit natürlichen Präfix-Bereichen, `Alt+1–9`-Direktauswahl und kontextbezogenen Tastenhinweisen in der Fußzeile.
-- **Apps-Suche**: Durchsuchen Sie installierte Anwendungen in All oder drücken Sie `Ctrl+2` für Apps. Öffnen Sie ein neues Anwendungsfenster mit Enter oder `Ctrl+Enter`. Klappen Sie die zugehörigen Fenster und Desktop-Aktionen mit `Ctrl+Right` aus und drücken Sie auf einem Fenster Enter, um es zu fokussieren. Installationskandidaten stammen aus lokalen Paketmetadaten.
-- **Integrierter Wayland-Zwischenablageverlauf**: Ein Rust-Hintergrunddienst speichert kopierten Text, Code, Links, Farben, Dateien und Bild-Miniaturansichten dauerhaft – inklusive Maskierung sensibler Daten und Richtlinienspeicherung über Remya Core.
-- **Lokale Websuche**: Durchsuchen Sie Browserverlauf und Lesezeichen aus von Ihnen aktivierten Profilen, vervollständigen Sie URLs oder starten Sie eine Suche mit einem Schlüsselwort wie `gh `.
+- **Tastaturzentrierter Workflow**: So gestaltet, dass Ihre Hände im Haupttastenfeld bleiben – mit natürlichen Präfix-Bereichen.
 
 ## 🚀 Installation
 
@@ -41,13 +38,12 @@ Installieren Sie zuerst **Remya Core**. Folgen Sie unter Arch Linux den Abschnit
 
 ### Release-Archiv
 
-Laden Sie für einen vom Linux-CI-Workflow des Repositorys gebauten Linux-x86_64-Kandidaten das Kandidaten-Artefakt herunter und entpacken Sie es. Es enthält ein `remya-launcher-linux-x86_64-<commit>.tar.zst`-Archiv und `SHA256SUMS`. Im Verzeichnis mit diesen Dateien:
+Laden Sie nach der Installation von Remya Core `0.2.0` die Dateien `remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst` und `SHA256SUMS` von [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) herunter. Führen Sie die folgenden Befehle im Verzeichnis mit beiden Dateien aus.
 
 ```bash
 sha256sum -c SHA256SUMS
-mkdir -p remya-launcher-candidate
-tar --zstd -xf remya-launcher-linux-x86_64-*.tar.zst -C remya-launcher-candidate
-cd remya-launcher-candidate
+tar --zstd -xf remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst
+cd remya_launcher-0.1.0-dev.20261118.0-linux-x86_64
 python tool/install.py
 ```
 
@@ -55,22 +51,26 @@ python tool/install.py
 
 ## ✨ Funktionen
 
-### Derzeit verfügbar
-
 - **All und Apps (`Ctrl+2`)**: Durchsuchen Sie installierte Anwendungen und öffnen Sie sie mit `Enter`. In Apps klappt `Ctrl+Right` die geöffneten Fenster und Desktop-Aktionen einer App aus. Wenn keine passenden Apps vorhanden sind, stammen Installationskandidaten aus lokalen Paketmetadaten. All zeigt außerdem unterstützte Inline-Berechnungen, bis zu drei passende Dateien und bis zu drei lokale Web-Ergebnisse sowie eine direkte Aktion für URL-Eingaben.
+
 - **Files (`Ctrl+3` / `/` / `~`)**:
+
   - Suchen Sie nach Dateinamen, vervollständigen Sie einen Pfad mit `Tab` oder drücken Sie `Ctrl+G`, um Dateiinhalte zu durchsuchen. Grenzen Sie Ergebnisse mit Filtern wie `ext:md` oder `in:~/Documents` ein.
   - Sehen Sie sich die Vorschau der ausgewählten Datei an und drücken Sie `Ctrl+K` für Dateiaktionen. Angeheftete Dateien erscheinen auch in All.
   - Aktivieren Sie optional zuletzt verwendete Dateien oder verbinden Sie externe Verlaufsquellen unter **Launcher-Einstellungen → Files → History**. Jede Verlaufsquelle erfordert die entsprechende Option.
+
 - **Web (`Ctrl+4` / `?`)**:
+
   - Aktivieren Sie Firefox- oder Chromium-Familienprofile unter **Launcher-Einstellungen → Web**. Auch ohne aktivierte Profile können Sie eine eingegebene URL öffnen oder mit einer Suchmaschine suchen. Launcher liest den aktuellen Verlauf und die Lesezeichen aus aktivierten Profilen und führt einen privaten lokalen Index. Favicons werden aus lokalen Browserdaten gelesen; ist keines verfügbar, wird ein Monogramm angezeigt.
   - Unter **Launcher-Einstellungen → Web** lässt sich DuckDuckGo oder Google als Standardsuchmaschine wählen. Suchkürzel gelten für die aktuelle Anfrage.
   - Bei leerer Eingabe werden häufig besuchte Websites (`Alt+1–6`) und zuletzt besuchte Seiten angezeigt. Die Suche zeigt Lesezeichen und Verlauf nach Relevanz und Nutzung sortiert, gefolgt von Suchmaschinenvorschlägen. `Tab` übernimmt die URL-Vervollständigung; `Enter` öffnet die eingegebene URL oder den ausgewählten Eintrag; `Ctrl+Enter` sucht stattdessen.
   - Geben Sie ein Suchmaschinen-Schlüsselwort gefolgt von einem Leerzeichen ein, z. B. `gh ` für GitHub, `aw ` für ArchWiki oder `yt ` für YouTube. Ist eine Suchmaschine ausgewählt, wechselt `Tab` durch die Suchmaschinen und `Backspace` entfernt das Token, wenn die Suchanfrage leer ist.
   - `Ctrl+K` öffnet Aktionen für eine Seite: In einem unterstützten Browser oder privaten Fenster öffnen, URL oder Markdown-Link kopieren, die Website durchsuchen, anheften oder in Launcher ausblenden. Launcher verändert niemals den Browserverlauf oder die Lesezeichen. Das Deaktivieren eines Profils entfernt dessen Index aus Launcher.
+
 - **Windows (`Ctrl+7` / `#`)**: Filtern Sie Hyprland-Fenster nach Titel oder Klasse. Drücken Sie `Enter`, um ein Fenster zu fokussieren, oder `Ctrl+Enter`, um es auf den aktuellen Arbeitsbereich zu verschieben.
 
 - **Live-Zwischenablageverlauf (`remya_launcher --clipboard` / `Ctrl+6` / `;`)**:
+
   - Rust-Hintergrunddienst (`remya-launcher-clipboard`), der als systemd-Benutzereinheit `top.remya.launcher.clipboard.service` mit der grafischen Sitzung läuft.
   - Speichert standardmäßig bis zu 500 nicht angeheftete Einträge für 30 Tage in `$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3` (Standard `~/.local/state/remya/launcher/clipboard.sqlite3`); angeheftete Einträge sind von der automatischen Bereinigung ausgenommen.
   - Erfasst Auswahlen bis 64 MiB und dekodierte Bilder bis 24 Megapixel (PNG, JPEG, WebP, GIF, BMP); Bilder über 20 MB innerhalb dieser Grenzen behalten eine Miniaturansicht.
@@ -78,12 +78,17 @@ python tool/install.py
   - Stellt Verlaufsvorgänge für denselben Benutzer sowie `clear` unter `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` bereit. Die Richtlinie wird aus `top.remya.Core1` gelesen und bei `Changed` aktualisiert; solange sie nicht verfügbar oder ungültig ist, pausieren Erfassung und automatische Verlaufsbereinigung.
   - Installiert `remya/apps/remya-launcher.json` und eine Desktop-Aktion `settings`. Die Zwischenablage-Einheit startet nach `top.remya.core.service` und benötigt diese (`Wants`).
   - *Bekannte Wayland-Einschränkung*: Wayland data-control identifiziert nicht, welche Anwendung eine Zwischenablage-Auswahl bereitgestellt hat; Quell-App-Labels und App-Ausschlusslisten aus dem Design lassen sich daher nicht zuverlässig umsetzen.
+
 - **Rechner (`Ctrl+5` / `=`)**:
+
   - Wertet grundlegende Ausdrücke inline in `All` sowie vollständige Abfragen in `Calc` (`Ctrl+5` oder `=`) lokal aus — mit `fend-core`-Mathematik, typisierten Einheiten, Zahlensystemen mit Bitbreite und Vorzeichen, FP32/FP16/BF16, Zeitzonen, nur auf explizite Aktualisierung abgerufenen EZB-Referenzkurs-Snapshots, Katalogvervollständigungen und Verlauf.
   - Optionales FP8 und allgemeine Kalenderarithmetik bleiben zurückgestellt.
+
 - **Emoji (`:`)**: Emoji 18.0 offline in sieben Sprachen nach Namen, Schlüsselwort, Kurzcode oder Unicode-Sequenz suchen. Enter kopiert das Emoji, Strg+Rechts öffnet die Varianten.
   - Der Tab **Symbols** öffnet einen eigenen Symbolkatalog. Unter **Einstellungen → Emoji** lassen sich Einfügen mit Strg+Enter und die lokale Liste zuletzt verwendeter Emojis aktivieren.
+
 - **Interaktive Design-Vorschauen (`--preview`)**:
+
   - Erkunden Sie beispielhafte UI-Zustände aus dem [Figma-Design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) mit Beispieldaten aus einem gebauten Bundle über `--preview=<name>`:
     - Launcher-Zustände: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
     - Zwischenablage-Typvorschauen: `clipboard-text`, `clipboard-code`, `clipboard-image`, `clipboard-link`, `clipboard-color`, `clipboard-files`, `clipboard-hidden`

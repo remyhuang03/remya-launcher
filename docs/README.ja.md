@@ -26,12 +26,9 @@
 > [!CAUTION]
 > **初期開発段階（dev）。** 不具合（バグ）が含まれる可能性があり、互換性の保証はありません。パフォーマンスや安定性の問題が発生する可能性があり、各種インタラクションも現在調整中です。
 
-Remya Launcher（`top.remya.launcher`）は、Flutter、Rust、Material Design 3 Expressive を用いて構築された、Hyprland 向けのキーボードファーストなアプリケーションランチャー、クイックスイッチャー、Wayland クリップボード履歴マネージャーです。
+Remya Launcherは、Flutter、Rust、Material Design 3 Expressive を用いて構築された、Hyprland 向けのキーボードファーストなアプリケーションランチャー、クイックスイッチャー、Wayland クリップボード履歴マネージャーです。
 
-- **キーボードファーストのワークフロー**：メインキー領域から手を離さずに操作できるよう設計されており、自然なプレフィックススコープ、`Alt+1–9` クイックピック、コンテキストに応じたフッターキーヒントを備えています。
-- **アプリ検索**：`All` でインストール済みアプリケーションを検索するか、`Ctrl+2` を押して `Apps` に切り替えます。`Enter` または `Ctrl+Enter` で新しいアプリウィンドウを開きます。`Ctrl+Right` で開いているウィンドウやデスクトップアクションを展開し、ウィンドウ上で `Enter` を押すとそのウィンドウにフォーカスします。インストール候補はローカルのパッケージメタデータから取得されます。
-- **内蔵 Wayland クリップボード履歴**：バックグラウンドの Rust ウォッチャーがコピーしたテキスト、コード、リンク、カラー、ファイル、画像サムネイルを永続化し、機密データのマスク処理や Remya Core のポリシーストレージに対応します。
-- **ローカル Web 検索**：有効化したプロファイルのブラウザ履歴やブックマークを検索したり、URL を補完したり、`gh ` のようなキーワードで検索を開始したりできます。
+- **キーボードファーストのワークフロー**：メインキー領域から手を離さずに操作できるよう設計されており、自然なプレフィックススコープを備えています。
 
 ## 🚀 インストール
 
@@ -41,13 +38,12 @@ Remya Launcher（`top.remya.launcher`）は、Flutter、Rust、Material Design 3
 
 ### リリースアーカイブ
 
-リポジトリの Linux CI ワークフローでビルドされた Linux x86_64 候補を使用する場合は、候補アーティファクトをダウンロードして展開してください。これには `remya-launcher-linux-x86_64-<commit>.tar.zst` アーカイブと `SHA256SUMS` が含まれています。これらのファイルがあるディレクトリで以下を実行します：
+Remya Core `0.2.0` をインストールした後、[GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) から `remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst` と `SHA256SUMS` をダウンロードします。両方のファイルがあるディレクトリで次のコマンドを実行します。
 
 ```bash
 sha256sum -c SHA256SUMS
-mkdir -p remya-launcher-candidate
-tar --zstd -xf remya-launcher-linux-x86_64-*.tar.zst -C remya-launcher-candidate
-cd remya-launcher-candidate
+tar --zstd -xf remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst
+cd remya_launcher-0.1.0-dev.20261118.0-linux-x86_64
 python tool/install.py
 ```
 
@@ -55,22 +51,26 @@ Launcher の設定は `remya_launcher --settings` で開きます。特定のペ
 
 ## ✨ 機能
 
-### 現在利用可能
-
 - **All と Apps（`Ctrl+2`）**：インストール済みアプリケーションを検索し、`Enter` で開きます。Apps では `Ctrl+Right` でアプリの開いているウィンドウとデスクトップアクションを展開できます。一致するアプリがない場合、インストール候補はローカルのパッケージメタデータから取得されます。All では対応するインライン計算や最大 3 件の一致ファイル、最大 3 件のローカル Web 結果、URL 入力に対する直接アクションも表示されます。
+
 - **Files（`Ctrl+3` / `/` / `~`）**：
+
   - ファイル名検索、`Tab` によるパス補完、`Ctrl+G` によるファイル内容検索に対応しています。`ext:md` や `in:~/Documents` などのフィルターで結果を絞り込めます。
   - 選択したファイルをプレビューし、`Ctrl+K` でファイルアクションを開けます。ピン留めしたファイルは All にも表示されます。
   - **Launcher の設定 → Files → History** で、最近のファイルや外部履歴プロバイダーの連携をオプトインで有効化できます（各履歴ソースは対応するオプションの有効化が必要です）。
+
 - **Web（`Ctrl+4` / `?`）**：
+
   - **Launcher Settings → Web** で Firefox 系または Chromium 系のプロファイルを有効化します。プロファイルを有効化していない場合でも、入力した URL を開いたり検索エンジンで検索したりできます。Launcher は有効化されたプロファイルから最近の履歴とブックマークを読み取り、プライベートのローカルインデックスを保持します。ファビコンはローカルのブラウザデータから読み取り、利用できない場合はモノグラムを表示します。
   - **Launcher の設定 → Web** で既定の検索エンジンに DuckDuckGo または Google を選べます。キーワードで指定したエンジンは現在の検索にのみ適用されます。
   - 入力が空のときはよく使うサイト（`Alt+1–6`）と最近のページを表示します。検索時にはブックマークと履歴が関連性と使用頻度順に表示され、その後に検索エンジンの候補が続きます。`Tab` で URL 補完を確定し、`Enter` で入力した URL または選択中の行を開きます。`Ctrl+Enter` を押すと代わりに検索を実行します。
   - GitHub なら `gh `、ArchWiki なら `aw `、YouTube なら `yt ` のように、検索エンジンのキーワードに続けてスペースを入力します。検索エンジンが選択された状態で `Tab` を押すと検索エンジンを切り替えられ、クエリが空のときに `Backspace` を押すとトークンを削除できます。
   - `Ctrl+K` でページに対するアクションを開きます：対応ブラウザまたはプライベートウィンドウで開く、URL または Markdown リンクをコピーする、そのサイト内を検索する、ピン留めする、Launcher から非表示にするといった操作が可能です。Launcher がブラウザの履歴やブックマークを変更することはありません。プロファイルをオフにすると、そのインデックスは Launcher から削除されます。
+
 - **Windows（`Ctrl+7` / `#`）**：Hyprland のウィンドウをタイトルまたはクラスで絞り込みます。`Enter` でウィンドウにフォーカスし、`Ctrl+Enter` で現在のワークスペースに移動します。
 
 - **ライブクリップボード履歴（`remya_launcher --clipboard` / `Ctrl+6` / `;`）**：
+
   - バックグラウンドの Rust ウォッチャー（`remya-launcher-clipboard`）が systemd ユーザーユニット `top.remya.launcher.clipboard.service` としてグラフィカルセッションとともに稼働します。
   - デフォルトで最大 500 件のピン留めされていない項目を 30 日間、`$XDG_STATE_HOME/remya/launcher/clipboard.sqlite3`（デフォルト `~/.local/state/remya/launcher/clipboard.sqlite3`）に保存します。ピン留めされた項目は自動削除の対象外です。
   - 最大 64 MiB の選択データと最大 24 メガピクセルのデコード画像（PNG、JPEG、WebP、GIF、BMP）をキャプチャし、制限内で 20 MB を超える画像はサムネイルを保持します。
@@ -78,12 +78,17 @@ Launcher の設定は `remya_launcher --settings` で開きます。特定のペ
   - `$XDG_RUNTIME_DIR/remya-launcher/clipboard.sock` で同一ユーザー向けの履歴操作と `clear` を公開しています。ポリシーは `top.remya.Core1` から読み取られ、`Changed` で更新されます。利用不可または無効な間は、キャプチャと自動履歴クリーンアップが一時停止します。
   - `remya/apps/remya-launcher.json` とデスクトップの `settings` アクションをインストールします。クリップボードユニットは `top.remya.core.service` の後に起動し、`top.remya.core.service` を必要（wants）とします。
   - *既知の Wayland 制限*：Wayland data-control はクリップボードの提供元アプリケーションを識別できないため、設計にあるソースアプリラベルやアプリごとの除外ブラックリストは確実に実装できません。
+
 - **電卓（`Ctrl+5` / `=`）**：
+
   - `All` での基本式のインライン評価および `Calc`（`Ctrl+5` または `=`）でのフルクエリを、ローカルの `fend-core` 演算、型付き単位、ビット幅・符号付き対応の進数、FP32/FP16/BF16、タイムゾーン、明示的な更新時のみ取得する ECB 参照スナップショット、カタログ補完、履歴とともに処理します。
   - オプションの FP8 および一般的なカレンダー演算は引き続き延期されています。
+
 - **Emoji（`:`）**：7 言語の名前やキーワード、ショートコード、Unicode シーケンスで Emoji 18.0 をオフライン検索。Enter でコピーし、Ctrl+Right でバリエーションを選択できます。
   - **Symbols** タブで記号を検索できます。**設定 → Emoji** で Ctrl+Enter による貼り付けとローカルの最近使った絵文字を有効にできます。
+
 - **インタラクティブデザインプレビュー（`--preview`）**：
+
   - ビルド済みバンドルから `--preview=<name>` を指定して、サンプルデータで [Figma デザイン](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) の UI 状態例を確認できます：
     - ランチャー状態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
     - クリップボード種別プレビュー：`clipboard-text`、`clipboard-code`、`clipboard-image`、`clipboard-link`、`clipboard-color`、`clipboard-files`、`clipboard-hidden`
