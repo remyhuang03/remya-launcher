@@ -414,7 +414,7 @@ extension _FilesLauncher on _ClipboardLauncherState {
           spacing: 8,
           children: [
             if (_files.contents)
-              WebEngineToken(
+              LauncherQueryToken(
                 'Contents',
                 icon: .text,
                 removeLabel: 'Exit contents search',

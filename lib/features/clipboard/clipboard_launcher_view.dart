@@ -92,8 +92,10 @@ extension _LauncherView on _ClipboardLauncherState {
                           queryToken: _inFiles
                               ? _filesQueryTokens(constraints.maxWidth * .36)
                               : _inWeb && _web.engine != null
-                              ? WebEngineToken(
+                              ? LauncherQueryToken(
                                   _web.engine!.label,
+                                  removeLabel:
+                                      'Remove ${_web.engine!.label} search engine',
                                   onRemove: () => _setScope(
                                     .web,
                                     initialQuery: _search.text,

@@ -213,7 +213,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   int _tileColumns = 6;
 
   bool get _inClipboard => _scope == .clipboard;
-  bool get _inActions => _scope == .run;
+  bool get _inActions => _scope == .actions;
   bool get _watchingClipboard => _inClipboard || _inActions;
   bool get _inCalculator => _scope == .calculator;
   bool get _inApps => _scope == .apps;
@@ -549,7 +549,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
     if (_scope == .all) {
       if (value == ';' || value == '>') {
-        _setScope(value == ';' ? .clipboard : .run);
+        _setScope(value == ';' ? .clipboard : .actions);
         return;
       }
       if (value == '#' && _apps.available) {

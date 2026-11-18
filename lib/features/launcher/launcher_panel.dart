@@ -144,7 +144,7 @@ class _ScopeStrip extends StatelessWidget {
         for (final scope in LauncherScope.values)
           if (scope == selected ||
               enabledScopes == null ||
-              (scope != .run && !compact) ||
+              (scope != .actions && !compact) ||
               enabledScopes!.contains(scope))
             LauncherScopeChip(
               scope: scope,
