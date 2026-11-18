@@ -118,6 +118,54 @@ class LauncherKeyHint extends StatelessWidget {
   );
 }
 
+class LauncherQueryToken extends StatelessWidget {
+  const LauncherQueryToken(
+    this.label, {
+    required this.onRemove,
+    this.icon = .search,
+    required this.removeLabel,
+    super.key,
+  });
+
+  final String label;
+  final LauncherIconName icon;
+  final String removeLabel;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: removeLabel,
+      child: Material(
+        color: colors.tertiaryContainer,
+        borderRadius: .circular(10),
+        child: InkWell(
+          borderRadius: .circular(10),
+          onTap: onRemove,
+          child: Padding(
+            padding: const .symmetric(horizontal: 10, vertical: 7),
+            child: Row(
+              mainAxisSize: .min,
+              spacing: 6,
+              children: [
+                LauncherIcon(icon, size: 16, color: colors.onTertiaryContainer),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: colors.onTertiaryContainer,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 enum LauncherScope {
   all('All', .search),
   apps('Apps', .apps),
@@ -127,7 +175,7 @@ enum LauncherScope {
   clipboard('Clipboard', .clipboard),
   windows('Windows', .window),
   emoji('Emoji', .mood),
-  run('Run', .terminal);
+  actions('Actions', .bolt);
 
   const LauncherScope(this.label, this.icon);
 

@@ -9,6 +9,8 @@ import 'features/apps/apps_client.dart';
 import 'features/clipboard/clipboard_platform.dart';
 import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_tile.dart';
+import 'features/files/files_client.dart';
+import 'features/files/files_preferences.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
 
@@ -29,6 +31,8 @@ String? parseSettingsPage(List<String> arguments) {
         'apps-preferences',
         'hidden-apps',
         'web',
+        'files',
+        ...FilesPreferences.ids,
         emojiSettingsPageId,
         remyaMaterialThemePageId,
       ].contains(settingsPage)) {
@@ -85,6 +89,9 @@ Future<void> main(List<String> arguments) async {
           ? AppsClient()
           : null,
       webClient: selectedExample == null ? WebClient() : null,
+      filesClient: selectedExample == null && settingsPage == null
+          ? FilesClient()
+          : null,
       clipboardType: clipboardType ?? 'command',
       startInClipboard: arguments.contains('--clipboard'),
       clipboardPlatform: selectedExample == null && settingsPage == null

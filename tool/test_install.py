@@ -14,6 +14,7 @@ from tool.install import (
     BUNDLE_BINARIES,
     CALCULATOR_SIDECAR,
     CLIPBOARD_SERVICE,
+    FILES_SIDECAR,
     PACKAGE,
     UNIT,
     apps_unit,
@@ -51,9 +52,9 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(registration["config"], "launcher")
         self.assertEqual(
             [page["id"] for page in registration["pages"]],
-            ["clipboard", "emoji", "material-theme"],
+            ["clipboard", "emoji", "files-search", "files-history", "files-preview", "files-actions", "material-theme"],
         )
-        self.assertEqual({key: row["default"] for key, row in registration["settings"].items()}, {
+        self.assertEqual({key: row["default"] for key, row in registration["settings"].items() if not key.startswith("files-")}, {
             "clipboard-history": True, "clipboard-max-items": 500, "clipboard-retention-days": 30,
             "emoji-auto-paste": False, "emoji-recents": False,
         })
@@ -126,6 +127,7 @@ class PackagingTest(unittest.TestCase):
             self.assertEqual((destination / CLIPBOARD_SERVICE).read_text(), CLIPBOARD_SERVICE)
             self.assertEqual((destination / CALCULATOR_SIDECAR).read_text(), CALCULATOR_SIDECAR)
             self.assertEqual((destination / APPS_SIDECAR).read_text(), APPS_SIDECAR)
+            self.assertEqual((destination / FILES_SIDECAR).read_text(), FILES_SIDECAR)
             self.assertEqual((destination / "data/licenses/rust-notices.txt").read_text(), "notice text")
 
             bin_dir = home / ".local/bin"
@@ -133,6 +135,7 @@ class PackagingTest(unittest.TestCase):
             self.assertEqual((bin_dir / APP_ID).resolve(), (destination / APP_ID).resolve())
             self.assertFalse((bin_dir / CALCULATOR_SIDECAR).exists())
             self.assertFalse((bin_dir / APPS_SIDECAR).exists())
+            self.assertFalse((bin_dir / FILES_SIDECAR).exists())
             self.assertFalse((bin_dir / CLIPBOARD_SERVICE).exists())
 
             units_dir = data / "systemd/user"

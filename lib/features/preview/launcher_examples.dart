@@ -121,7 +121,7 @@ class LauncherExampleView extends StatelessWidget {
     search: const LauncherSearchField(
       initialQuery: 'code',
       autofocus: true,
-      trailing: _Meta('9 results'),
+      trailing: _Meta('5 results'),
     ),
     body: _Sections(
       children: [
@@ -143,7 +143,7 @@ class LauncherExampleView extends StatelessWidget {
           meta: 'App',
           pick: quickPick ? 2 : null,
         ),
-        _group('FILES', '3', quickPick),
+        _group('FILES', '2', quickPick),
         _fileRow(
           'code',
           '~/code',
@@ -160,7 +160,7 @@ class LauncherExampleView extends StatelessWidget {
           match: 'code',
           pick: quickPick ? 4 : null,
         ),
-        _group('WEB HISTORY', '4', quickPick),
+        _group('WEB HISTORY', '1', quickPick),
         _row(
           'Visual Studio Code — Keyboard shortcuts for Linux',
           'code.visualstudio.com/docs/getstarted/keybindings',
@@ -169,20 +169,12 @@ class LauncherExampleView extends StatelessWidget {
           match: 'Code',
           pick: quickPick ? 5 : null,
         ),
-        _group('COMMANDS', '8', quickPick),
-        _row(
-          'Run “code” in terminal',
-          r'$ code',
-          .terminal,
-          match: 'code',
-          pick: quickPick ? 6 : null,
-        ),
       ],
     ),
     footer: quickPick
         ? const LauncherFooter(
             leading: [
-              LauncherKeyHint(['Alt', '1–6'], label: 'Run that row directly'),
+              LauncherKeyHint(['Alt', '1–5'], label: 'Open result'),
             ],
             trailing: [
               LauncherKeyHint(['Alt', '⇧', 'n'], label: 'Secondary action'),

@@ -1,5 +1,5 @@
 [workspace]
-members = ["lib/src/rust/core", "lib/src/rust/clipboard", "lib/src/rust/calculator", "lib/src/rust/apps", "lib/src/rust/web"]
+members = ["lib/src/rust/core", "lib/src/rust/clipboard", "lib/src/rust/calculator", "lib/src/rust/apps", "lib/src/rust/web", "lib/src/rust/files"]
 resolver = "3"
 
 [workspace.package]

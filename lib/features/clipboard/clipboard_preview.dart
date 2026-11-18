@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../launcher/launcher_controls.dart';
+import '../launcher/launcher_preview.dart';
 
 class ClipboardPreview extends StatelessWidget {
   const ClipboardPreview({
@@ -24,12 +25,8 @@ class ClipboardPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
-      padding: .all(compact ? 10 : 16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: .circular(20),
-      ),
+    return LauncherPreviewFrame(
+      compact: compact,
       child: Column(
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
@@ -58,33 +55,7 @@ class ClipboardPreview extends StatelessWidget {
             ],
           ),
           content,
-          Column(
-            spacing: 6,
-            children: [
-              for (final entry in metadata.entries)
-                Row(
-                  crossAxisAlignment: .start,
-                  mainAxisAlignment: .spaceBetween,
-                  spacing: 8,
-                  children: [
-                    Flexible(
-                      child: Text(entry.key, style: theme.textTheme.bodySmall),
-                    ),
-                    Flexible(
-                      flex: 2,
-                      child: Text(
-                        entry.value,
-                        textAlign: .end,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: .w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
+          LauncherPreviewMetadata(metadata),
           Divider(height: 1, thickness: 1, color: colors.outlineVariant),
           Column(crossAxisAlignment: .start, spacing: 8, children: hints),
         ],

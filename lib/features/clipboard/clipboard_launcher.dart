@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show ProcessException;
+import 'dart:io' show Platform, Process, ProcessException, pid;
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -15,6 +15,14 @@ import '../emoji/emoji_results.dart';
 import '../emoji/emoji_search.dart';
 import '../emoji/emoji_settings.dart';
 import '../emoji/symbol_catalog.dart';
+import '../files/files_actions_menu.dart';
+import '../files/files_client.dart';
+import '../files/files_controller.dart';
+import '../files/files_models.dart';
+import '../files/files_preferences.dart';
+import '../files/files_preview.dart';
+import '../files/files_query.dart';
+import '../files/files_results.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
 import '../launcher/launcher_panel.dart';
@@ -37,6 +45,8 @@ part 'clipboard_launcher_calculator.dart';
 part 'clipboard_launcher_dialogs.dart';
 part 'clipboard_launcher_emoji.dart';
 part 'clipboard_launcher_keyboard.dart';
+part 'clipboard_launcher_files.dart';
+part 'clipboard_launcher_files_keys.dart';
 part 'clipboard_launcher_view.dart';
 part 'clipboard_launcher_web.dart';
 
@@ -48,6 +58,8 @@ class ClipboardLauncher extends StatefulWidget {
     this.calculatorClient,
     this.appsClient,
     this.webClient,
+    this.filesClient,
+    this.filesPreferences,
     this.loadEmojiCatalog = EmojiCatalog.load,
     this.loadEmojiPreferences,
     this.emojiRecents,
@@ -60,6 +72,8 @@ class ClipboardLauncher extends StatefulWidget {
   final CalculatorClient? calculatorClient;
   final AppsClient? appsClient;
   final WebClient? webClient;
+  final FilesClient? filesClient;
+  final FilesPreferences? filesPreferences;
   final Future<EmojiCatalog> Function() loadEmojiCatalog;
   final Future<EmojiPreferences> Function()? loadEmojiPreferences;
   final EmojiRecents? emojiRecents;
@@ -137,7 +151,23 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         _setScope(.web, initialQuery: text, webEngine: engine),
     showEngines: () => unawaited(_showWebEngines()),
   );
+  late final _files = FilesController(
+    client: widget.filesClient,
+    preferences: widget.filesPreferences ?? FilesPreferences(),
+  );
   bool? _webSelectedInAll;
+  bool? _filesSelectedInAll;
+  bool _filesShowIndexes = false;
+  bool _filesChoosingApp = false;
+  bool _filesMenuLoading = false;
+  bool _filesSetDefault = false;
+  int _filesMenuIndex = 0;
+  int _fileOperation = 0;
+  final _fileSession = '$pid-${DateTime.now().microsecondsSinceEpoch}';
+  FileEntry? _filesMenuEntry;
+  Map<String, dynamic> _filesMenuData = const {};
+  final _filesMenuQuery = TextEditingController();
+  final _filesMenuFocus = FocusNode();
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   final _actionsFocus = FocusNode();
@@ -183,23 +213,34 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   int _tileColumns = 6;
 
   bool get _inClipboard => _scope == .clipboard;
-  bool get _inActions => _scope == .run;
+  bool get _inActions => _scope == .actions;
   bool get _watchingClipboard => _inClipboard || _inActions;
   bool get _inCalculator => _scope == .calculator;
   bool get _inApps => _scope == .apps;
   bool get _inWindows => _scope == .windows;
+  bool get _inFiles => _scope == .files;
   bool get _inWeb => _scope == .web;
   bool get _inEmoji => _scope == .emoji;
   bool get _webActiveInAll =>
       _scope == .all &&
+      !_filesActiveInAll &&
       _web.selected != null &&
       (_webSelectedInAll ??
           (_web.layout.direct != null ||
               (_apps.selected == null && !_calculator.hasInlineResult)));
 
+  bool get _filesActiveInAll =>
+      _scope == .all &&
+      (_filesSelectedInAll ??
+          (_files.selected != null &&
+              _apps.selected == null &&
+              _web.selected == null &&
+              !_calculator.hasInlineResult));
+
   List<LauncherScope> get _activeScopes => [
     .all,
     if (_apps.available) .apps,
+    if (_files.available) .files,
     if (_web.available) .web,
     .calculator,
     .clipboard,
@@ -224,6 +265,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _startWatch();
     }
     _apps.update(_scope, '', immediate: true);
+    _updateFiles('', immediate: true);
     unawaited(_web.loadEngines());
     unawaited(
       widget.platform.listenForClipboard(() {
@@ -253,6 +295,9 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _apps.dispose();
     _windows.dispose();
     _web.dispose();
+    _files.dispose();
+    _filesMenuQuery.dispose();
+    _filesMenuFocus.dispose();
     _search.dispose();
     _searchFocus.dispose();
     _actionsFocus.dispose();
@@ -377,7 +422,10 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _editingText = value.text;
     if (compositionChanged &&
         (_inEmoji ||
-            (!composing && _scope == .all && value.text.startsWith(':')))) {
+            _inFiles ||
+            (!composing &&
+                _scope == .all &&
+                (value.text.startsWith(':') || filesStartsPath(value.text))))) {
       // EditableText only calls onChanged when the text itself changes.
       scheduleMicrotask(() {
         if (mounted &&
@@ -390,6 +438,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     if ((_inWeb || _scope == .all) && _web.result?.input.completion != null) {
       setState(() {});
     }
+    if (_inFiles && _files.completion != null) setState(() {});
     if (!_inCalculator || _calculator.actionsOpen) return;
     if (_search.text == _calculator.query) {
       _calculator.updateCursor(_cursorUtf16());
@@ -406,9 +455,11 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         initialQuery ??
         (scope == .apps ||
                 scope == .web ||
+                scope == .files ||
                 ((_scope == .apps || _scope == .web) && scope == .all)
             ? _search.text
             : '');
+    _closeFilesMenu(restoreFocus: false);
     final wasWatching = _watchingClipboard;
     final enteringEmoji = !_inEmoji && scope == .emoji;
     if (_scope != scope) _emojiSession++;
@@ -424,6 +475,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
         _recentEmojiIds = const [];
       }
       _webSelectedInAll = null;
+      _filesSelectedInAll = null;
       if (nextQuery.isEmpty) {
         _search.clear();
       } else {
@@ -446,6 +498,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     );
     _apps.update(scope, nextQuery, immediate: true);
     _web.update(scope, nextQuery, engine: webEngine, immediate: true);
+    _updateFiles(nextQuery, immediate: true);
     _windows.update(active: _inWindows, query: _search.text);
     if (_inEmoji) _queueEmojiSearch(nextQuery);
     if (enteringEmoji) unawaited(_loadEmojiOptions(_emojiSession));
@@ -457,6 +510,21 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   void _searchChanged(String value) {
+    if (_inFiles) {
+      _filesSearchChanged(value);
+      return;
+    }
+    if (_files.available && _scope == .all && !_emojiComposing) {
+      if (filesStartsPath(value)) {
+        _setScope(.files, initialQuery: value);
+        return;
+      }
+      if (value.startsWith('rg ')) {
+        _setScope(.files, initialQuery: value);
+        _filesSearchChanged(value);
+        return;
+      }
+    }
     if (_inEmoji) {
       _queueEmojiSearch(value);
       return;
@@ -481,7 +549,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     }
     if (_scope == .all) {
       if (value == ';' || value == '>') {
-        _setScope(value == ';' ? .clipboard : .run);
+        _setScope(value == ';' ? .clipboard : .actions);
         return;
       }
       if (value == '#' && _apps.available) {
@@ -507,10 +575,12 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
       _queryIds = null;
       if (_inCalculator || _inWeb || _scope == .all) _status = null;
       _webSelectedInAll = null;
+      _filesSelectedInAll = null;
       _preserveSelection(0);
     });
     _apps.update(_scope, value);
     _web.update(_scope, value, engine: _web.engine);
+    if (!_emojiComposing) _updateFiles(value);
     _windows.update(active: _inWindows, query: value);
     if (_inCalculator || _scope == .all) {
       _calculator.updateQuery(_search.text, cursorUtf16: _cursorUtf16());

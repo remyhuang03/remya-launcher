@@ -34,8 +34,9 @@ git diff --check
 ```
 
 Test changes that depend on the compositor, hardware or session services in a
-real Hyprland session when possible. State what you verified and share only
-sanitized logs and attachments.
+real Hyprland session when possible. The [desktop testing skill](.agents/skills/launcher-desktop-testing/SKILL.md)
+includes an installed-bundle smoke check and input troubleshooting. State what
+you verified and share only sanitized logs and attachments.
 
 Maintainers can run **Linux CI** from the Actions tab on `main` to build a
 Linux x86_64 candidate. The workflow uploads the archive, build information, and

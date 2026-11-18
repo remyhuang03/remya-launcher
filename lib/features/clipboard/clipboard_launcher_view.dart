@@ -37,6 +37,7 @@ extension _LauncherView on _ClipboardLauncherState {
                       if (_calculator.actionsOpen) _closeCalculatorActions();
                       _apps.closeMenu();
                       _web.closeMenu();
+                      _closeFilesMenu();
                     },
                     excludeFromSemantics: true,
                     child: ListenableBuilder(
@@ -45,23 +46,41 @@ extension _LauncherView on _ClipboardLauncherState {
                         _apps,
                         _windows,
                         _web,
+                        _files,
                       ]),
                       builder: (context, _) => LauncherPanel(
-                        width: _inClipboard ? 960 : 720,
+                        width: _inClipboard
+                            ? 960
+                            : _inFiles && _files.showPreview
+                            ? 880
+                            : 720,
                         scope: _scope,
                         enabledScopes: _activeScopes.toSet(),
                         onScopeSelected: _setScope,
                         scrollBody:
                             !_inClipboard &&
+                            !_inFiles &&
                             !_inApps &&
                             !_inWindows &&
                             !_inEmoji,
-                        actionsBodyHeight: _web.menuChoice != null
+                        actionsBodyHeight: _filesMenuEntry != null
+                            ? 390
+                            : _web.menuChoice != null
                             ? 420
                             : _apps.menuApp == null
                             ? 286
                             : 408,
-                        actionsWidth: _web.menuChoice != null ? 344 : 300,
+                        actionsWidth:
+                            _web.menuChoice != null || _filesMenuEntry != null
+                            ? 344
+                            : 300,
+                        actionsEnd:
+                            _inFiles &&
+                                _files.showPreview &&
+                                constraints.maxWidth >= 610 &&
+                                height >= 510
+                            ? 269
+                            : 21,
                         onOverlay: true,
                         compact: compact,
                         search: LauncherSearchField(
@@ -70,9 +89,13 @@ extension _LauncherView on _ClipboardLauncherState {
                           focusNode: _searchFocus,
                           autofocus: true,
                           compact: compact,
-                          queryToken: _inWeb && _web.engine != null
-                              ? WebEngineToken(
+                          queryToken: _inFiles
+                              ? _filesQueryTokens(constraints.maxWidth * .36)
+                              : _inWeb && _web.engine != null
+                              ? LauncherQueryToken(
                                   _web.engine!.label,
+                                  removeLabel:
+                                      'Remove ${_web.engine!.label} search engine',
                                   onRemove: () => _setScope(
                                     .web,
                                     initialQuery: _search.text,
@@ -80,15 +103,21 @@ extension _LauncherView on _ClipboardLauncherState {
                                 )
                               : null,
                           completionSuffix:
-                              (_inWeb || _scope == .all) &&
+                              (_inFiles || _inWeb || _scope == .all) &&
                                   _searchFocus.hasFocus &&
                                   _search.selection.isCollapsed &&
                                   _search.selection.extentOffset ==
                                       _search.text.length &&
                                   _search.value.composing.isCollapsed
-                              ? _web.completionSuffix(_search.text)
+                              ? (_inFiles
+                                    ? _files.completionSuffix
+                                    : _web.completionSuffix(_search.text))
                               : null,
-                          placeholder: _inWeb
+                          placeholder: _inFiles
+                              ? (_files.contents
+                                    ? 'Search inside files…'
+                                    : 'Search files by name, or start with / or ~…')
+                              : _inWeb
                               ? 'Search history & bookmarks, or type a URL…'
                               : _inClipboard
                               ? 'Filter clipboard…'
@@ -110,7 +139,9 @@ extension _LauncherView on _ClipboardLauncherState {
                               ? 'Filter actions…'
                               : 'Search launcher…',
                           onChanged: _searchChanged,
-                          trailing: _inWeb
+                          trailing: _inFiles && !compact
+                              ? _filesSearchHint()
+                              : _inWeb
                               ? _webSearchHint(context)
                               : _inApps && _apps.ready
                               ? AppsSearchHint(_apps)
@@ -137,6 +168,8 @@ extension _LauncherView on _ClipboardLauncherState {
                                 actions,
                                 compact: compact,
                               )
+                            : _inFiles
+                            ? _filesBody(compact: compact)
                             : _inCalculator
                             ? _calculatorBody(compact: compact)
                             : _inApps
@@ -148,7 +181,9 @@ extension _LauncherView on _ClipboardLauncherState {
                             : _inEmoji
                             ? _emojiBody()
                             : _shellBody(),
-                        actions: _web.menuChoice != null
+                        actions: _filesMenuEntry != null
+                            ? _filesMenu(_filesMenuEntry!)
+                            : _web.menuChoice != null
                             ? WebActionsMenu(
                                 _web,
                                 onKey: _webShortcuts.handleMenu,
@@ -204,13 +239,18 @@ extension _LauncherView on _ClipboardLauncherState {
         crossAxisAlignment: .stretch,
         spacing: 8,
         children: [
-          AppsResults(_apps, tileColumns: _tileColumns),
+          AppsResults(
+            _apps,
+            tileColumns: _tileColumns,
+            selectionVisible: !_filesActiveInAll,
+          ),
           CalculatorInlineResult(
             controller: _calculator,
             onOpenInCalc: () =>
                 _setScope(.calculator, initialQuery: _search.text),
             onCopy: () => unawaited(_copyCalculatorResult()),
           ),
+          if (_files.groups.isNotEmpty) _filesBody(compact: false, all: true),
           clipboardRow,
         ],
       );
@@ -220,7 +260,12 @@ extension _LauncherView on _ClipboardLauncherState {
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
         children: [
-          AppsResults(_apps, tileColumns: _tileColumns),
+          AppsResults(
+            _apps,
+            tileColumns: _tileColumns,
+            selectionVisible: !_filesActiveInAll,
+          ),
+          if (_files.groups.isNotEmpty) _filesBody(compact: false, all: true),
           LauncherResultRow(
             title: const TextSpan(text: 'Calculator'),
             subtitle: 'Math, unit conversions, programmer bases, floats, time, currency',
@@ -247,13 +292,14 @@ extension _LauncherView on _ClipboardLauncherState {
         AppsResults(
           _apps,
           tileColumns: _tileColumns,
-          selectionVisible: !_webActiveInAll,
+          selectionVisible: !_webActiveInAll && !_filesActiveInAll,
         ),
         if (_web.layout.direct == null &&
             (_web.layout.choices.isNotEmpty ||
                 (_apps.choices.isEmpty &&
                     _web.result?.enabledProfileCount == 0)))
           _webBody(),
+        if (_files.groups.isNotEmpty) _filesBody(compact: false, all: true),
         clipboardRow,
       ],
     );
@@ -380,11 +426,16 @@ extension _LauncherView on _ClipboardLauncherState {
     ClipboardEntry? selected, {
     required bool singleLine,
   }) {
-    if ((_status ?? ((_inWeb || _webActiveInAll) ? _web.status : null))
+    if ((_status ??
+            ((_inFiles || _filesActiveInAll) ? _files.status : null) ??
+            ((_inWeb || _webActiveInAll) ? _web.status : null))
         case final status?) {
       return LauncherFooter(
         leading: [LauncherKeyHint(const [], label: status)],
       );
+    }
+    if (_inFiles || _filesActiveInAll || _filesMenuEntry != null) {
+      return _filesFooter(singleLine);
     }
     if (_inWeb || _webActiveInAll) {
       return webFooter(_web, singleLine: singleLine);

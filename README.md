@@ -23,17 +23,15 @@
   <a href="docs/README.ja.md">日本語</a>
 </p>
 
+> [!CAUTION]
+> **Early development (dev).** Bugs may occur and compatibility is not guaranteed. You may encounter performance and stability issues. User interaction is still being refined.
+
 Remya Launcher (`top.remya.launcher`) is a keyboard-first application launcher, quick switcher, and Wayland clipboard history manager designed for Hyprland using Flutter, Rust, and Material Design 3 Expressive.
 
 - **Keyboard-first workflow**: Designed so your hands stay on the main key zone, with natural prefix scopes, `Alt+1–9` quick pick, and contextual footer key hints.
 - **Apps search**: Search installed applications in All or press `Ctrl+2` for Apps. Open a new app window with Enter or `Ctrl+Enter`. Expand its windows and desktop actions with `Ctrl+Right`, then press Enter on a window to focus it. Install candidates come from local package metadata.
 - **Built-in Wayland clipboard history**: A background Rust watcher persists copied text, code, links, colors, files, and image thumbnails with sensitive-data masking and Remya Core policy storage.
 - **Local Web search**: Search browser history and bookmarks from profiles you enable, complete URLs, or start a search with a keyword like `gh `.
-
-> [!CAUTION]
-> **Early development (dev).** Performance issues remain.
->
-> Apps search, Windows, Web search, Calculator, Clipboard, and Emoji are available. The Files scope and general command execution are still planned. Use `--preview` to explore the [Figma design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) with sample data.
 
 ## 🚀 Installation
 
@@ -53,13 +51,17 @@ cd remya-launcher-candidate
 python tool/install.py
 ```
 
-Open Launcher settings with `remya_launcher --settings`. Open a page directly with `remya_launcher --settings web`, `clipboard`, `apps`, `hidden-apps`, or `material-theme`.
+Open Launcher settings with `remya_launcher --settings`. Open a page directly with `remya_launcher --settings web`, `clipboard`, `apps`, `hidden-apps`, `files-search`, `files-history`, `files-preview`, `files-actions`, or `material-theme`.
 
 ## ✨ Features
 
 ### Currently Available
 
-- **All and Apps (`Ctrl+2`)**: Search installed applications and open them with `Enter`. In Apps, `Ctrl+Right` expands an app’s open windows and desktop actions. If there are no matching apps, install candidates come from local package metadata. All also shows supported inline calculations and up to three local Web results, plus a direct action for URL input.
+- **All and Apps (`Ctrl+2`)**: Search installed applications and open them with `Enter`. In Apps, `Ctrl+Right` expands an app’s open windows and desktop actions. If there are no matching apps, install candidates come from local package metadata. All also shows supported inline calculations, up to three matching local files, up to three local Web results, and a direct action for URL input.
+- **Files (`Ctrl+3` / `/` / `~`)**:
+  - Search by name, complete a path with `Tab`, or press `Ctrl+G` to search file contents. Refine results with filters such as `ext:md` or `in:~/Documents`.
+  - Preview the selected file and press `Ctrl+K` for file actions. Pinned files also appear in All.
+  - Enable recent files or connect external history providers in **Launcher Settings → Files → History**. Each history source requires its corresponding option.
 - **Web (`Ctrl+4` / `?`)**:
   - Enable Firefox or Chromium family profiles in **Launcher Settings → Web**. With no profiles enabled, you can still open a typed URL or search with an engine. Launcher reads recent history and bookmarks from enabled profiles and keeps a private local index. It reads favicons from local browser data and shows a monogram when none is available.
   - Choose DuckDuckGo or Google as the default in **Launcher Settings → Web**. Engine keywords apply to the current query.
@@ -83,14 +85,9 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
   - Search Emoji 18.0 offline across seven languages. Select **Symbols** for a separate catalog of arrows, math, currency, and other text characters.
   - Press Enter to copy or Ctrl+Right to choose an emoji variant. In **Settings → Emoji**, enable Ctrl+Enter to paste into the previous Hyprland window, or enable and clear the local recent emoji list.
 - **Interactive Design Previews (`--preview`)**:
-  - Inspect all planned UI states from a built bundle using `--preview=<name>`:
+  - Explore example UI states from the [Figma design](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) with sample data using `--preview=<name>`.
     - Launcher states: `empty`, `results`, `calculator`, `files`, `web`, `actions`, `quick-pick`, `clipboard`
     - Clipboard type previews: `clipboard-text`, `clipboard-code`, `clipboard-image`, `clipboard-link`, `clipboard-color`, `clipboard-files`, `clipboard-hidden`
-
-### Planned Scopes & Capabilities (Design Spec)
-
-- **Files (`Ctrl+3` / `/` / `~`)**: Path completion, fuzzy filename search, and previews for directories, text, and images.
-- **Run (`>`)**: Clear local clipboard history.
 
 ## ⌨️ Development
 
@@ -100,18 +97,20 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
   - `lib/app.dart` & `lib/main.dart`: Application composition, CLI flag handling (`--clipboard`, `--settings`, `--preview=...`), and license registration.
   - `lib/features/launcher/`: Launcher panel, search field, scope chips, result/pinned rows, keycap hints, calculator card, file preview, and action menu.
   - `lib/features/clipboard/`: Live clipboard page, Unix socket client, type previews, and clipboard actions.
+  - `lib/features/files/`: Filename, path, and content search, file actions, previews, and settings.
   - `lib/features/web/`: Web results, keyboard actions, profile settings, and the Web sidecar client.
   - `lib/features/preview/`: Interactive design examples assembled from reusable controls.
 - **Backend**: Rust (`edition = "2024"`, `resolver = "3"`) workspace at the repository root:
   - `lib/src/rust/clipboard/`: Wayland clipboard watcher daemon (`remya-launcher-clipboard`), SQLite persistence, and IPC server.
   - `lib/src/rust/apps/`: Resident application index, package lookups, and Hyprland window actions.
   - `lib/src/rust/calculator/`: Local evaluation, completions, and calculator history.
+  - `lib/src/rust/files/`: On-demand Files sidecar for search, previews, actions, and opted-in history.
   - `lib/src/rust/web/`: On-demand Web sidecar with browser readers, a private SQLite index, and browser dispatch.
   - `lib/src/rust/core/`: Core Rust crate (reserved for shared launcher backend logic).
 
 ### Prerequisites & Setup
 
-Place the Remya Core checkout alongside this repository as `../remya-core` so Flutter can resolve `remya_client` and `remya_ui`. Install GTK 3, `gtk-layer-shell`, CMake, Ninja, Clang, Python 3, `inter-font`, FVM, and the Rust toolchain in `rust-toolchain.toml`.
+Place the Remya Core checkout alongside this repository as `../remya-core` so Flutter can resolve `remya_client` and `remya_ui`. Install GTK 3, `gtk-layer-shell`, CMake, Ninja, Clang, Python 3, `inter-font`, FVM, and the Rust toolchain in `rust-toolchain.toml`. Files content search uses `ripgrep`, and Copy file uses `wl-copy` from `wl-clipboard` on Wayland.
 
 ```bash
 fvm install
@@ -141,7 +140,7 @@ fvm flutter build linux --debug
 fvm flutter build linux --release
 ```
 
-Install the release bundle, desktop entry, and the `top.remya.launcher.clipboard.service` and `top.remya.launcher.apps.service` systemd user units under `$XDG_DATA_HOME`. Calculator and Web run on demand.
+Install the release bundle, desktop entry, and the `top.remya.launcher.clipboard.service` and `top.remya.launcher.apps.service` systemd user units under `$XDG_DATA_HOME`. Calculator, Files, and Web run on demand.
 
 ```bash
 python tool/install.py

@@ -10,6 +10,8 @@ import 'features/clipboard/clipboard_settings.dart';
 import 'features/emoji/emoji_results.dart';
 import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_palette.dart';
+import 'features/files/files_client.dart';
+import 'features/files/files_preferences.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
 
@@ -25,6 +27,7 @@ class RemyaLauncherApp extends StatelessWidget {
     this.settingsClient,
     this.appsClient,
     this.webClient,
+    this.filesClient,
     super.key,
   });
 
@@ -42,6 +45,7 @@ class RemyaLauncherApp extends StatelessWidget {
   final SettingsClient? settingsClient;
   final AppsClient? appsClient;
   final WebClient? webClient;
+  final FilesClient? filesClient;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -117,6 +121,8 @@ class RemyaLauncherApp extends StatelessWidget {
               client: clipboardClient,
               appsClient: appsClient,
               webClient: webClient,
+              filesClient: filesClient,
+              filesPreferences: FilesPreferences(client: settingsClient),
               platform: clipboardPlatform,
               loadEmojiPreferences: settingsClient == null
                   ? null

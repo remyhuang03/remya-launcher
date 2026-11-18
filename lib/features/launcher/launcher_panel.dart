@@ -17,6 +17,7 @@ class LauncherPanel extends StatelessWidget {
     this.actions,
     this.actionsBodyHeight = 286,
     this.actionsWidth = 300,
+    this.actionsEnd = 21,
     super.key,
   });
 
@@ -31,7 +32,7 @@ class LauncherPanel extends StatelessWidget {
   final bool onOverlay;
   final bool compact;
   final Widget? actions;
-  final double actionsBodyHeight, actionsWidth;
+  final double actionsBodyHeight, actionsWidth, actionsEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +79,7 @@ class LauncherPanel extends StatelessWidget {
           PositionedDirectional(
             top: 53,
             start: 21,
-            end: 21,
+            end: actionsEnd,
             bottom: 18,
             child: Align(
               alignment: AlignmentDirectional.topEnd,
@@ -143,7 +144,7 @@ class _ScopeStrip extends StatelessWidget {
         for (final scope in LauncherScope.values)
           if (scope == selected ||
               enabledScopes == null ||
-              (scope != .run && !compact) ||
+              (scope != .actions && !compact) ||
               enabledScopes!.contains(scope))
             LauncherScopeChip(
               scope: scope,
@@ -169,7 +170,7 @@ class LauncherFooter extends StatelessWidget {
   });
 
   final List<LauncherKeyHint> leading;
-  final List<LauncherKeyHint> trailing;
+  final List<Widget> trailing;
   final bool singleLine;
 
   @override

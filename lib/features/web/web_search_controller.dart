@@ -444,50 +444,6 @@ class WebActionsMenu extends StatelessWidget {
   }
 }
 
-class WebEngineToken extends StatelessWidget {
-  const WebEngineToken(this.label, {required this.onRemove, super.key});
-
-  final String label;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: 'Remove $label search engine',
-      child: Material(
-        color: colors.tertiaryContainer,
-        borderRadius: .circular(10),
-        child: InkWell(
-          borderRadius: .circular(10),
-          onTap: onRemove,
-          child: Padding(
-            padding: const .symmetric(horizontal: 10, vertical: 7),
-            child: Row(
-              mainAxisSize: .min,
-              spacing: 6,
-              children: [
-                LauncherIcon(
-                  .search,
-                  size: 16,
-                  color: colors.onTertiaryContainer,
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: colors.onTertiaryContainer,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 LauncherFooter webFooter(WebSearchController web, {required bool singleLine}) =>
     LauncherFooter(
       singleLine: singleLine,

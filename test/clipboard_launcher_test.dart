@@ -113,6 +113,12 @@ void main() {
     await tester.pumpWidget(RemyaLauncherApp(clipboardClient: clipboard));
     await tester.enterText(find.byType(TextFormField), '>');
     await tester.pumpAndSettle();
+    final search = find.byType(TextFormField);
+    await tester.enterText(search, 'echo example');
+    await tester.pumpAndSettle();
+    expect(find.text('No matching actions.'), findsOneWidget);
+    await tester.enterText(search, '');
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Clear clipboard history'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));

@@ -23,17 +23,15 @@
   <a href="README.ja.md">日本語</a>
 </p>
 
+> [!CAUTION]
+> **早期开发阶段（dev）。** 可能存在缺陷（bug），不提供兼容性保证，可能出现性能与稳定性问题，交互也仍在持续打磨中。
+
 Remya Launcher（`top.remya.launcher`）是一款专为 Hyprland 设计的键盘优先应用启动器、快速切换器与 Wayland 剪贴板历史管理器，基于 Flutter、Rust 与 Material Design 3 Expressive 构建。
 
 - **键盘优先的工作流**：手不离主键区即可完成全部操作，支持自然前缀范围、`Alt+1–9` 直达选择与上下文底部按键提示。
 - **应用搜索**：在 All 中搜索已安装的应用，或按 `Ctrl+2` 切换至 Apps。按 Enter 或 `Ctrl+Enter` 打开新的应用窗口。按 `Ctrl+Right` 展开应用的已打开窗口与桌面操作，然后选中窗口按 Enter 即可聚焦。安装候选项来自本地软件包元数据。
 - **内置 Wayland 剪贴板历史**：后台 Rust 监听守护进程持久化保存复制的文本、代码、链接、颜色、文件与图片缩略图，支持敏感数据遮罩与 Remya Core 策略存储。
 - **本地 Web 搜索**：从已启用的浏览器配置中搜索浏览历史与书签、补全 URL，或使用 `gh ` 等关键词发起搜索。
-
-> [!CAUTION]
-> **早期开发阶段（dev）。** 存在已知的性能问题。
->
-> 应用搜索、Windows、Web 搜索、计算器与剪贴板均使用实时数据。Emoji 搜索也已可用。Files 范围以及通用命令执行仍在规划中。可使用 `--preview` 搭配示例数据浏览 [Figma 设计稿](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)。
 
 ## 🚀 安装
 
@@ -53,13 +51,17 @@ cd remya-launcher-candidate
 python tool/install.py
 ```
 
-运行 `remya_launcher --settings` 打开 Launcher 设置。使用 `remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps` 或 `material-theme` 可直接打开对应页面。
+运行 `remya_launcher --settings` 打开 Launcher 设置。使用 `remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps`、`files-search`、`files-history`、`files-preview`、`files-actions` 或 `material-theme` 可直接打开对应页面。
 
 ## ✨ 功能特性
 
 ### 当前已可用
 
-- **All 与 Apps（`Ctrl+2`）**：搜索已安装的应用并按 `Enter` 打开。在 Apps 中，按 `Ctrl+Right` 可展开应用的已打开窗口与桌面操作。若无匹配应用，安装候选项将来自本地软件包元数据。All 还会显示支持的内联计算结果、最多三条本地 Web 结果，以及针对 URL 输入的直接操作。
+- **All 与 Apps（`Ctrl+2`）**：搜索已安装的应用并按 `Enter` 打开。在 Apps 中，按 `Ctrl+Right` 可展开应用的已打开窗口与桌面操作。若无匹配应用，安装候选项将来自本地软件包元数据。All 还会显示支持的内联计算结果、最多三条匹配文件、最多三条本地 Web 结果，以及针对 URL 输入的直接操作。
+- **Files（`Ctrl+3` / `/` / `~`）**：
+  - 按文件名搜索、按 `Tab` 补全路径，或按 `Ctrl+G` 搜索文件内容。可使用 `ext:md` 或 `in:~/Documents` 等筛选条件缩小结果范围。
+  - 预览选中的文件，并按 `Ctrl+K` 打开文件操作。已置顶的文件也会显示在 All 中。
+  - 在 **Launcher 设置 → Files → History** 中按需启用最近文件或接入外部历史提供方，各项历史来源均需开启对应选项。
 - **Web（`Ctrl+4` / `?`）**：
   - 在 **Launcher Settings → Web** 中启用 Firefox 或 Chromium 系列浏览器配置。即使未启用任何配置，仍可直接打开输入的 URL 或使用搜索引擎进行搜索。Launcher 会从已启用的配置中读取近期历史与书签，并维护私有本地索引；它会从本地浏览器数据读取网站图标，若无可用图标则显示首字母徽标。
   - 可在 **Launcher 设置 → Web** 中选择 DuckDuckGo 或 Google 作为默认搜索引擎。关键词仅切换当前查询的引擎。
@@ -81,14 +83,9 @@ python tool/install.py
 - **Emoji（`:`）**：离线搜索 Emoji 18.0 的七语名称、关键词、短码或 Unicode 序列。Enter 复制，Ctrl+Right 选择变体。
   - 切换到 **Symbols** 搜索独立符号库。在 **设置 → Emoji** 中可启用 Ctrl+Enter 粘贴和本地最近使用。
 - **交互式设计预览（`--preview`）**：
-  - 从构建产物中传入 `--preview=<name>` 查看所有已规划的界面状态：
+  - 从构建产物中传入 `--preview=<name>`，结合示例数据浏览 [Figma 设计稿](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) 中的示例界面状态：
     - 启动器状态：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
     - 剪贴板类型预览：`clipboard-text`、`clipboard-code`、`clipboard-image`、`clipboard-link`、`clipboard-color`、`clipboard-files`、`clipboard-hidden`
-
-### 规划中的范围与能力（设计规范）
-
-- **Files（`Ctrl+3` / `/` / `~`）**：路径补全、文件名模糊搜索，以及目录、文本与图片预览。
-- **Run（`>`）**：清空本地剪贴板历史。
 
 ## ⌨️ 开发
 
@@ -98,18 +95,20 @@ python tool/install.py
   - `lib/app.dart` 与 `lib/main.dart`：应用装配、CLI 参数处理（`--clipboard`、`--settings`、`--preview=...`）及许可证注册。
   - `lib/features/launcher/`：启动器面板、搜索框、范围 chip、结果/置顶行、键帽提示、计算卡片、文件预览与操作菜单。
   - `lib/features/clipboard/`：实时剪贴板页面、Unix 套接字客户端、类型预览与剪贴板操作。
+  - `lib/features/files/`：文件名、路径与文件内容搜索、文件操作、预览与设置。
   - `lib/features/web/`：Web 搜索结果、键盘操作、配置设置与 Web 伴生进程客户端。
   - `lib/features/preview/`：基于可复用控件组装的交互式设计示例。
 - **后端**：位于仓库根目录的 Rust（`edition = "2024"`，`resolver = "3"`）工作区：
   - `lib/src/rust/clipboard/`：Wayland 剪贴板监听守护进程（`remya-launcher-clipboard`）、SQLite 持久化与 IPC 服务。
   - `lib/src/rust/apps/`：常驻应用索引、软件包查询与 Hyprland 窗口操作。
   - `lib/src/rust/calculator/`：本地求值、补全与计算器历史记录。
+  - `lib/src/rust/files/`：按需启动的 Files 伴生进程，提供搜索、预览、操作与按需启用的历史记录。
   - `lib/src/rust/web/`：按需启动的 Web 伴生进程，包含浏览器读取器、私有 SQLite 索引与浏览器分发。
   - `lib/src/rust/core/`：核心 Rust crate（预留用于共享启动器后端逻辑）。
 
 ### 前置依赖与环境配置
 
-请将 Remya Core 仓库检出并放置在本仓库同级目录 `../remya-core`，以便 Flutter 解析 `remya_client` 与 `remya_ui`。请确保系统已安装 GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM 以及 `rust-toolchain.toml` 指定的 Rust 工具链。
+请将 Remya Core 仓库检出并放置在本仓库同级目录 `../remya-core`，以便 Flutter 解析 `remya_client` 与 `remya_ui`。请确保系统已安装 GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM 以及 `rust-toolchain.toml` 指定的 Rust 工具链。Files 内容搜索依赖 `ripgrep`，Wayland 下的复制文件功能依赖 `wl-clipboard` 中的 `wl-copy`。
 
 ```bash
 fvm install
@@ -139,7 +138,7 @@ fvm flutter build linux --debug
 fvm flutter build linux --release
 ```
 
-将 Release 包、桌面入口文件以及 `top.remya.launcher.clipboard.service` 和 `top.remya.launcher.apps.service` systemd 用户单元安装至 `$XDG_DATA_HOME`。Calculator 与 Web 按需运行。
+将 Release 包、桌面入口文件以及 `top.remya.launcher.clipboard.service` 和 `top.remya.launcher.apps.service` systemd 用户单元安装至 `$XDG_DATA_HOME`。Calculator、Files 与 Web 按需运行。
 
 ```bash
 python tool/install.py

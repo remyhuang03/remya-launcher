@@ -23,17 +23,15 @@
   <a href="README.ja.md">日本語</a>
 </p>
 
+> [!CAUTION]
+> **早期開發階段（dev）。** 可能存在錯誤（bug），不提供相容性保證，可能出現效能與穩定性問題，且各項互動仍在持續調整中。
+
 Remya Launcher（`top.remya.launcher`）是一款專為 Hyprland 設計的鍵盤優先應用程式啟動器、快速切換器與 Wayland 剪貼簿歷史管理器，使用 Flutter、Rust 與 Material Design 3 Expressive 打造。
 
 - **鍵盤優先的工作流程**：雙手無需離開主鍵區即可完成操作，提供自然前綴範圍、`Alt+1–9` 快速選取與情境式底部按鍵提示。
 - **應用程式搜尋**：在 All 中搜尋已安裝的應用程式，或按 `Ctrl+2` 切換至 Apps。按 Enter 或 `Ctrl+Enter` 開啟新的應用程式視窗；按 `Ctrl+Right` 展開其視窗與桌面動作，並在視窗上按 Enter 將其聚焦。安裝候選項目來自本機套件中繼資料。
 - **內建 Wayland 剪貼簿歷史**：背景 Rust 監聽程式會保存複製的文字、程式碼、連結、色彩、檔案與圖片縮圖，並支援敏感資料遮罩與 Remya Core 原則儲存。
 - **本機 Web 搜尋**：搜尋您所啟用設定檔中的瀏覽器歷史紀錄與書籤、自動補全網址，或使用如 `gh ` 等關鍵字開始搜尋。
-
-> [!CAUTION]
-> **早期開發階段（dev）。** 存在已知的效能問題。
->
-> Apps 搜尋、Windows、Web 搜尋、Calculator 與 Clipboard 皆使用即時資料。Emoji 搜尋也已可用。Files 範圍以及一般指令執行仍在規劃中。可使用 `--preview` 搭配範例資料探索 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher)。
 
 ## 🚀 安裝
 
@@ -53,13 +51,17 @@ cd remya-launcher-candidate
 python tool/install.py
 ```
 
-使用 `remya_launcher --settings` 開啟 Launcher 設定。亦可透過 `remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps` 或 `material-theme` 直接開啟特定頁面。
+使用 `remya_launcher --settings` 開啟 Launcher 設定。亦可透過 `remya_launcher --settings web`、`clipboard`、`apps`、`hidden-apps`、`files-search`、`files-history`、`files-preview`、`files-actions` 或 `material-theme` 直接開啟特定頁面。
 
 ## ✨ 功能特色
 
 ### 目前已提供
 
-- **All 與 Apps（`Ctrl+2`）**：搜尋已安裝的應用程式並按 `Enter` 開啟。在 Apps 中，按 `Ctrl+Right` 可展開應用程式已開啟的視窗與桌面動作。若無符合的應用程式，安裝候選項目將來自本機套件中繼資料。All 亦會顯示支援的內嵌計算結果、最多三筆本機 Web 結果，以及針對網址輸入的直接動作。
+- **All 與 Apps（`Ctrl+2`）**：搜尋已安裝的應用程式並按 `Enter` 開啟。在 Apps 中，按 `Ctrl+Right` 可展開應用程式已開啟的視窗與桌面動作。若無符合的應用程式，安裝候選項目將來自本機套件中繼資料。All 亦會顯示支援的內嵌計算結果、最多三個相符檔案、最多三筆本機 Web 結果，以及針對網址輸入的直接動作。
+- **Files（`Ctrl+3` / `/` / `~`）**：
+  - 依檔名搜尋、按 `Tab` 補全路徑，或按 `Ctrl+G` 搜尋檔案內容。可使用 `ext:md` 或 `in:~/Documents` 等篩選條件縮小結果。
+  - 預覽所選檔案，並按 `Ctrl+K` 開啟檔案動作。已釘選的檔案也會顯示於 All 中。
+  - 在 **Launcher 設定 → Files → History** 中按需啟用近期檔案或連結外部歷程記錄提供者；各項歷程記錄來源皆須啟用對應選項。
 - **Web（`Ctrl+4` / `?`）**：
   - 在 **Launcher Settings → Web** 中啟用 Firefox 或 Chromium 系列設定檔。即使未啟用任何設定檔，仍可開啟輸入的網址或使用搜尋引擎搜尋。Launcher 會從已啟用的設定檔讀取近期歷史紀錄與書籤，並維護私密的本機索引；它會從本機瀏覽器資料讀取網站圖示，若無可用圖示則顯示字首縮寫。
   - 可在 **Launcher 設定 → Web** 中選擇 DuckDuckGo 或 Google 作為預設搜尋引擎。關鍵字只會切換目前查詢的引擎。
@@ -82,14 +84,9 @@ python tool/install.py
 - **Emoji（`:`）**：離線搜尋 Emoji 18.0 的七語名稱、關鍵詞、短碼或 Unicode 序列。Enter 複製，Ctrl+Right 選擇變體。
   - 切換到 **Symbols** 搜尋獨立符號庫。在 **設定 → Emoji** 中可啟用 Ctrl+Enter 貼上和本機最近使用。
 - **互動式設計預覽（`--preview`）**：
-  - 使用 `--preview=<name>` 從建置完成的 bundle 檢視所有規劃中的 UI 狀態：
+  - 使用 `--preview=<name>` 從建置完成的 bundle 搭配範例資料檢視 [Figma 設計](https://www.figma.com/design/aXbt5J1Tf5nGRfJNkrPaWS/Remya-Launcher) 中的範例 UI 狀態：
     - 啟動器狀態：`empty`、`results`、`calculator`、`files`、`web`、`actions`、`quick-pick`、`clipboard`
     - 剪貼簿類型預覽：`clipboard-text`、`clipboard-code`、`clipboard-image`、`clipboard-link`、`clipboard-color`、`clipboard-files`、`clipboard-hidden`
-
-### 規劃中的範圍與能力（設計規範）
-
-- **Files（`Ctrl+3` / `/` / `~`）**：路徑補全、檔名模糊搜尋，以及目錄、文字與圖片的預覽。
-- **Run（`>`）**：清除本機剪貼簿歷程。
 
 ## ⌨️ 開發
 
@@ -99,18 +96,20 @@ python tool/install.py
   - `lib/app.dart` 與 `lib/main.dart`：應用程式組裝、CLI 旗標處理（`--clipboard`、`--settings`、`--preview=...`）與授權條款註冊。
   - `lib/features/launcher/`：啟動器面板、搜尋欄、範圍 chip、結果與釘選列、按鍵提示、計算機卡片、檔案預覽及動作選單。
   - `lib/features/clipboard/`：即時剪貼簿頁面、Unix socket 用戶端、類型預覽與剪貼簿動作。
+  - `lib/features/files/`：檔名、路徑與檔案內容搜尋、檔案動作、預覽及設定。
   - `lib/features/web/`：Web 結果、鍵盤動作、設定檔設定與 Web sidecar 用戶端。
   - `lib/features/preview/`：以可重用控制項組裝的互動式設計範例。
 - **後端**：位於儲存庫根目錄的 Rust（`edition = "2024"`，`resolver = "3"`）工作區：
   - `lib/src/rust/clipboard/`：Wayland 剪貼簿監聽常駐程式（`remya-launcher-clipboard`）、SQLite 持久化與 IPC 伺服器。
   - `lib/src/rust/apps/`：常駐應用程式索引、套件查詢與 Hyprland 視窗動作。
   - `lib/src/rust/calculator/`：本機求值、補全與計算機歷史紀錄。
+  - `lib/src/rust/files/`：隨選啟動的 Files sidecar，提供搜尋、預覽、動作與選擇性啟用的歷程記錄。
   - `lib/src/rust/web/`：隨選 Web sidecar，包含瀏覽器讀取器、私密 SQLite 索引與瀏覽器分派。
   - `lib/src/rust/core/`：核心 Rust crate（保留用於共用啟動器後端邏輯）。
 
 ### 先決條件與環境設定
 
-請將 Remya Core 簽出至與本儲存庫同層級的 `../remya-core`，以便 Flutter 解析 `remya_client` 與 `remya_ui`。請安裝 GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM，以及 `rust-toolchain.toml` 中指定的 Rust 工具鏈。
+請將 Remya Core 簽出至與本儲存庫同層級的 `../remya-core`，以便 Flutter 解析 `remya_client` 與 `remya_ui`。請安裝 GTK 3、`gtk-layer-shell`、CMake、Ninja、Clang、Python 3、`inter-font`、FVM，以及 `rust-toolchain.toml` 中指定的 Rust 工具鏈。Files 內容搜尋使用 `ripgrep`，在 Wayland 上複製檔案則使用 `wl-clipboard` 提供的 `wl-copy`。
 
 ```bash
 fvm install
@@ -140,7 +139,7 @@ fvm flutter build linux --debug
 fvm flutter build linux --release
 ```
 
-將 Release bundle、桌面進入點以及 `top.remya.launcher.clipboard.service` 與 `top.remya.launcher.apps.service` systemd 使用者單元安裝至 `$XDG_DATA_HOME`。Calculator 與 Web 則採隨選執行。
+將 Release bundle、桌面進入點以及 `top.remya.launcher.clipboard.service` 與 `top.remya.launcher.apps.service` systemd 使用者單元安裝至 `$XDG_DATA_HOME`。Calculator、Files 與 Web 則採隨選執行。
 
 ```bash
 python tool/install.py
