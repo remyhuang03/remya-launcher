@@ -150,41 +150,15 @@ python tool/install.py
 
 ### Hyprland Shortcuts
 
-Use this Hyprland Lua snippet to replace any existing Launcher bindings. Tap either Super key alone for under 250 ms to toggle Launcher. Super+V opens clipboard history. Adjust the executable path for your installation.
+Use this Hyprland Lua snippet to replace existing Launcher bindings. Press and release either Super key on its own to toggle Launcher. Super+V opens clipboard history. Adjust the executable path for your installation.
 
 ```lua
-local superKeys = { [133] = "SUPER_L", [134] = "SUPER_R" }
-local down, tap
 local launcher = '"$HOME/.local/bin/remya_launcher"'
 local toggle = hl.dsp.exec_cmd(launcher .. " --toggle")
 
-hl.on("input.keyboard.key", function(code, timeMs, state)
-    if state == 1 then
-        tap = nil
-        local superHeld = hl.is_key_down("Super_L") or hl.is_key_down("Super_R")
-        down = superKeys[code] and not superHeld and { code, timeMs } or nil
-    elseif state == 0 and superKeys[code] then
-        if down and code == down[1] and (timeMs - down[2]) % 4294967296 < 250 then
-            tap = code
-        end
-        down = nil
-    end
-end)
-
-for code, key in pairs(superKeys) do
+for _, key in ipairs({ "SUPER_L", "SUPER_R" }) do
     hl.unbind("SUPER + " .. key)
-    hl.bind(key, function()
-        if tap == code then
-            tap = nil
-            hl.dispatch(toggle)
-        end
-    end, { release = true, description = "Remya: Toggle launcher" })
-end
-
-for _, key in ipairs({ "mouse:272", "mouse:273", "mouse:274", "mouse:275", "mouse:276",
-    "mouse:277", "mouse:278", "mouse:279", "mouse_up", "mouse_down", "mouse_left", "mouse_right" }) do
-    hl.bind(key, function() down, tap = nil, nil end,
-        { ignore_mods = true, transparent = true, non_consuming = true })
+    hl.bind(key, toggle, { release = true, description = "Remya: Toggle launcher" })
 end
 
 hl.bind("SUPER + V", hl.dsp.exec_cmd(launcher .. " --clipboard"),
