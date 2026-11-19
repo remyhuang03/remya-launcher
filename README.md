@@ -82,6 +82,7 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 - **Calculator (`Ctrl+5` / `=`)**:
 
   - Evaluates inline basic expressions in `All` and full queries in `Calc` (`Ctrl+5` or `=`) locally via `fend-core` math, typed units, bases with width and signedness, FP32/FP16/BF16, time zones, and ECB reference snapshots fetched only on explicit refresh, with catalog completions and history.
+  - In `Calc`, try `molar mass H₂O` or `2 mmol to mg using NaCl`. For concentration conversions, provide a chemical formula or a molar mass, as in `372.45 pmol/L to pg/mL using 272.38 g/mol`.
   - Optional FP8 and general calendar arithmetic remain deferred.
 
 - **Emoji and Symbols (`:`)**:

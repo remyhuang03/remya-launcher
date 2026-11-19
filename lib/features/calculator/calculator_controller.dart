@@ -1823,6 +1823,7 @@ class CalculatorController extends ChangeNotifier {
       _extraCompletions = const [];
       _selectedCompletionIndex = 0;
       _selectedCatalogIndex = 0;
+      selectedSuggestionIndex = 0;
       _backendError = null;
 
       _syncSelectedCandidateAndFormat(parsed);
@@ -1842,7 +1843,6 @@ class CalculatorController extends ChangeNotifier {
       } else {
         _errorTimer?.cancel();
         _errorVisible = false;
-        selectedSuggestionIndex = 0;
       }
 
       final catalog = data['catalogEntries'];

@@ -162,6 +162,140 @@ fn protocol_bounds_stale_frames_and_shutdown() {
 }
 
 #[test]
+fn chemistry_previews_conversions_and_copies_the_selected_result() {
+    let state = State::new();
+    let mut sidecar = Sidecar::spawn(&state.0);
+    sidecar.ok(json!({"op":"hello"}));
+    let query = "372.45 pmol/L to pg/ml using 272.38 g/mol";
+    let data = sidecar.ok(preview(1, query));
+    let candidate = &data["candidates"][0];
+    assert_eq!(data["status"], "ready", "{data}");
+    assert_eq!(candidate["kind"], "chemistry_conversion");
+    assert_eq!(candidate["value"]["exact"], true);
+    assert_eq!(candidate["value"]["display"], "101.447931 pg/mL");
+    let committed = sidecar.ok(json!({
+        "op":"commit",
+        "candidateId":data["primaryCandidateId"],
+        "revision":1,
+        "idempotencyKey":"chemistry-copy",
+    }));
+    assert_eq!(committed["copyText"], "101.447931 pg/mL");
+    assert_eq!(
+        sidecar.ok(json!({"op":"historyList"}))["entries"][0]["query"],
+        query,
+    );
+
+    for (index, (input, expected)) in [
+        (
+            "101.447931 pg/mL to pmol/L using 272.38 g/mol",
+            "372.45 pmol/L",
+        ),
+        ("2 mmol to mg using 18 g/mol", "36 mg"),
+        ("36 mg to mmol using 18 g/mol", "2 mmol"),
+        ("1e3 umol/L to mmol/L", "1 mmol/L"),
+        ("1e3 μmol/L to mmol/L", "1 mmol/L"),
+        ("1e3 µmol/L to mmol/L", "1 mmol/L"),
+        ("1 pmol/L to mol/L", "0.000000000001 mol/L"),
+        ("1e-60 mol to g using 18 g/mol", "1.8e-59 g"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let data = sidecar.ok(preview(index as u64 + 2, input));
+        assert_eq!(data["status"], "ready", "{input}: {data}");
+        assert_eq!(
+            data["candidates"][0]["value"]["display"], expected,
+            "{input}"
+        );
+    }
+
+    for (revision, (input, expected)) in (10..).zip([
+        ("molar mass H₂O", 18.015),
+        ("molar mass Ca(OH)2", 74.093),
+        ("molar mass CuSO4·5H2O", 249.68),
+        ("2 mmol to mg using NaCl", 116.88),
+        ("1 mol*deg/rad to g using 1 g/mol", 0.017453293),
+    ]) {
+        let data = sidecar.ok(preview(revision, input));
+        let candidate = &data["candidates"][0];
+        assert_eq!(data["status"], "ready", "{input}: {data}");
+        assert_eq!(candidate["value"]["exact"], false);
+        let display = candidate["value"]["display"].as_str().unwrap();
+        let decimal: f64 = display
+            .strip_prefix("approx. ")
+            .unwrap()
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let tolerance = if expected < 1.0 { 1e-9 } else { 0.02 };
+        assert!((decimal - expected).abs() < tolerance, "{input}: {display}");
+        assert!(
+            !candidate["formats"][0]["copyText"]
+                .as_str()
+                .unwrap()
+                .starts_with("approx.")
+        );
+    }
+
+    let mut all = preview(15, query);
+    all["scope"] = json!("all");
+    assert_eq!(sidecar.ok(all)["status"], "ready");
+    let mut standalone_all = preview(16, "molar mass H2O");
+    standalone_all["scope"] = json!("all");
+    assert_eq!(sidecar.ok(standalone_all)["status"], "empty");
+}
+
+#[test]
+fn chemistry_requires_molar_mass_and_preserves_the_millilitre_alias() {
+    let state = State::new();
+    let mut sidecar = Sidecar::spawn(&state.0);
+    sidecar.ok(json!({"op":"hello"}));
+    let query = "372.45 pmol/L to pg/ml";
+    let data = sidecar.ok(preview(1, query));
+    assert_eq!(data["status"], "invalid", "{data}");
+    let diagnostic = &data["diagnostics"][0];
+    assert_eq!(diagnostic["code"], "molar_mass_required");
+    let end = query.encode_utf16().count();
+    assert_eq!(
+        diagnostic["suggestions"][0]["replacement"],
+        json!({"startUtf16":end,"endUtf16":end,"text":" using "}),
+    );
+    for (revision, input) in [(2, query), (3, "2 mmol to mg using Na")] {
+        let result = sidecar.ok(json!({
+            "op":"complete",
+            "query":input,
+            "cursorUtf16":input.encode_utf16().count(),
+            "revision":revision,
+        }));
+        assert_eq!(result["completions"], json!([]), "{input}");
+    }
+    let mut all = preview(4, query);
+    all["scope"] = json!("all");
+    let data = sidecar.ok(all);
+    assert_eq!(data["status"], "empty");
+    assert_eq!(data["diagnostics"], json!([]));
+
+    for (revision, (input, code)) in (5..).zip([
+        ("2 mmol to mg using", "molar_mass_missing_value"),
+        ("2 mmol to mg using Nacl", "invalid_chemical_formula"),
+        ("2 mmol to mg using H0O", "invalid_chemical_formula"),
+        ("2 mmol to mg using 0 g/mol", "invalid_molar_mass"),
+        ("2 mmol to mg using -18 g/mol", "invalid_molar_mass"),
+        ("2 mmol to mg using ++18 g/mol", "invalid_molar_mass"),
+        ("2 mmol to mg using .+18 g/mol", "invalid_molar_mass"),
+        ("2 mmol to mg using 18 g/L", "invalid_molar_mass"),
+        ("2 mmol to mg using NaN g/mol", "invalid_molar_mass"),
+        ("1 m to cm using H2O", "incompatible_molar_mass_conversion"),
+    ]) {
+        let data = sidecar.ok(preview(revision, input));
+        assert_eq!(data["status"], "invalid", "{input}: {data}");
+        assert_eq!(data["diagnostics"][0]["code"], code, "{input}");
+    }
+}
+
+#[test]
 fn durable_idempotency_variable_isolation_and_history() {
     let state = State::new();
     let mut sidecar = Sidecar::spawn(&state.0);

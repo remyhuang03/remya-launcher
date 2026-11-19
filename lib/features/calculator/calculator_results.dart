@@ -278,8 +278,9 @@ class _HeroSection extends StatelessWidget {
     final pinned = selected?.startsWith('pinned:') == true;
     final display =
         float?.str('storedDecimal') ?? candidate.primaryDisplay(selected);
-    final quantity = _quantity.firstMatch(display);
     final approximate = display.startsWith('approx. ');
+    final answer = approximate ? display.substring(8) : display;
+    final quantity = _quantity.firstMatch(answer);
     final expression = programmer || approximate
         ? (approximate ? candidate.interpretation : candidate.normalized)
         : float != null
@@ -292,9 +293,7 @@ class _HeroSection extends StatelessWidget {
           ? '$expression · ${controller.settings.shortLabel}'
           : expression,
       value: time == null
-          ? _groupInteger(
-              quantity?[1] ?? (approximate ? display.substring(8) : display),
-            )
+          ? _groupInteger(quantity?[1] ?? answer)
           : (selected == 'iso' || selected == 'unix')
           ? display
           : _clockText(pinned ? display : time.str('targetCivil') ?? display),
@@ -356,6 +355,12 @@ class _HeroSection extends StatelessWidget {
             controller.candidates.length > 1)
           Text(
             'Read as · ${candidate.assumptions.join(' · ')}',
+            style: const TextStyle(fontSize: 12),
+          ),
+        if (candidate.kind == 'chemistry_conversion' &&
+            candidate.assumptions.isNotEmpty)
+          Text(
+            candidate.assumptions.join(' · '),
             style: const TextStyle(fontSize: 12),
           ),
       ],
@@ -980,7 +985,8 @@ class _HistoryView extends StatelessWidget {
     }
     if (entries.isEmpty && variables.isEmpty) {
       return const _EmptyHint(
-        'Type an expression, unit conversion, programmer value, float format, time zone, or currency.',
+        'Type an expression, unit conversion, programmer value, float format, '
+        'time zone, or currency. For chemistry, try 2 mmol to mg using NaCl.',
       );
     }
     return Column(

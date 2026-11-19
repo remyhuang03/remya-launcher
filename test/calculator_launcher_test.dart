@@ -417,6 +417,107 @@ void main() {
       );
     });
 
+    testWidgets('chemistry prompts for molar mass and copies the conversion', (
+      tester,
+    ) async {
+      const query = '372.45 pmol/L to pg/ml';
+      const hint = 'Add a chemical formula or molar mass';
+      const answer = '67.0991022 pg/mL';
+      const molarMass = 'C6H12O6 · 180.156 g/mol';
+      final calcClient = _FakeCalculatorClient((op, fields) async {
+        if (op != 'preview') return _envelope({'entries': const []});
+        final revision = fields['revision'] as int?;
+        if (fields['query'] == '$query using C6H12O6') {
+          return _envelope({
+            'status': 'ready',
+            'primaryCandidateId': 'chemistry',
+            'candidates': [
+              {
+                'id': 'chemistry',
+                'kind': 'chemistry_conversion',
+                'normalized': '$query using C6H12O6',
+                'assumptions': [molarMass],
+                'value': {
+                  'tag': 'quantity',
+                  'display': 'approx. $answer',
+                  'exact': false,
+                },
+                'formats': [
+                  {
+                    'id': 'primary',
+                    'label': 'approx. $answer',
+                    'copyText': answer,
+                  },
+                ],
+              },
+            ],
+          }, revision: revision);
+        }
+        if (fields['scope'] == 'all') {
+          return _envelope({'status': 'empty'}, revision: revision);
+        }
+        return _envelope({
+          'status': 'invalid',
+          'diagnostics': [
+            {
+              'code': 'molar_mass_required',
+              'severity': 'error',
+              'parameters': {'message': 'A molar mass is required.'},
+              'suggestions': [
+                {
+                  'id': 'using',
+                  'label': hint,
+                  'replacement': {
+                    'startUtf16': query.length,
+                    'endUtf16': query.length,
+                    'text': ' using ',
+                  },
+                },
+              ],
+            },
+          ],
+        }, revision: revision);
+      });
+      final clipboard = _FakeClipboardClient();
+      await tester.pumpWidget(
+        buildApp(
+          calcClient: calcClient,
+          clipClient: clipboard,
+          platform: _FakeClipboardPlatform(),
+        ),
+      );
+
+      final field = find.byType(TextFormField);
+      await tester.enterText(field, query);
+      await tester.pumpAndSettle();
+      expect(find.text(hint, findRichText: true), findsNothing);
+      expect(find.text('approx. $answer'), findsNothing);
+
+      await tester.enterText(field, '$query using C6H12O6');
+      await tester.pumpAndSettle();
+      expect(find.text('approx. $answer'), findsOneWidget);
+
+      await tester.enterText(field, '=$query');
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('A molar mass is required.'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextFormField>(field).controller?.text,
+        '$query using ',
+      );
+
+      await tester.enterText(field, '$query using C6H12O6');
+      await tester.pumpAndSettle();
+      expect(find.text('Approximate'), findsOneWidget);
+      expect(find.text(molarMass), findsOneWidget);
+      expect(find.text(answer, findRichText: true), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(clipboard.publishedTexts, [answer]);
+    });
+
     testWidgets('All inline shows 1920*1080 and Tab switches to Calc', (
       tester,
     ) async {

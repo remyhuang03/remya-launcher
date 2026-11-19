@@ -1052,7 +1052,9 @@ pub(crate) fn complete(query: &str, cursor_utf16: usize) -> Vec<Value> {
     let Some((start_byte, end_byte, token)) = extract_token_at(query, cursor_byte) else {
         return Vec::new();
     };
-    if token.chars().all(|c| c.is_ascii_digit() || c == '.') {
+    if token.chars().all(|c| c.is_ascii_digit() || c == '.')
+        || crate::units::suppress_completion(query, start_byte, token)
+    {
         return Vec::new();
     }
 

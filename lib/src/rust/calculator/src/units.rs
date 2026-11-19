@@ -36,12 +36,16 @@ pub(crate) fn preview(query: &str, original: &str) -> Option<Result<Vec<Candidat
     {
         return None;
     }
+    if let Some(formula) = chemistry::command(query) {
+        return Some(chemistry::molar_mass_preview(formula).map(|candidate| vec![candidate]));
+    }
+    let (query, molar_mass) = chemistry::split_using(query);
     if is_non_unit_domain_or_prose(query.trim()) {
         return None;
     }
 
     let orig = if original.is_empty() { query } else { original };
-    let tokens = match tokenize_with_spans(query, orig) {
+    let tokens = match tokenize_with_spans(query, chemistry::split_using(orig).0) {
         Ok(t) => t,
         Err(d) => return looks_unit_related_quick(query).then_some(Err(d)),
     };
@@ -54,10 +58,17 @@ pub(crate) fn preview(query: &str, original: &str) -> Option<Result<Vec<Candidat
     }
 
     if let Some(op_idx) = find_conversion_split(&tokens) {
-        evaluate_conversion(&tokens, op_idx, orig)
+        evaluate_conversion(&tokens, op_idx, orig, molar_mass)
     } else {
         evaluate_unit_expression(&tokens, orig)
     }
+}
+
+pub(crate) fn suppress_completion(query: &str, start: usize, token: &str) -> bool {
+    chemistry::command(query).is_some()
+        || chemistry::split_using(query).1.is_some()
+        || (query[..start].trim_end().ends_with('/')
+            && lookup_exact(&token.replace('μ', "µ")).is_some())
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +82,10 @@ impl Dim {
     const ZERO: Self = Self([0; 9]);
     const LEN: Self = Self([1, 0, 0, 0, 0, 0, 0, 0, 0]);
     const MASS: Self = Self([0, 1, 0, 0, 0, 0, 0, 0, 0]);
+    const AMOUNT: Self = Self([0, 0, 0, 0, 0, 1, 0, 0, 0]);
+    const MOLAR_MASS: Self = Self([0, 1, 0, 0, 0, -1, 0, 0, 0]);
+    const MASS_CONCENTRATION: Self = Self([-3, 1, 0, 0, 0, 0, 0, 0, 0]);
+    const MOLAR_CONCENTRATION: Self = Self([-3, 0, 0, 0, 0, 1, 0, 0, 0]);
     const TIME: Self = Self([0, 0, 1, 0, 0, 0, 0, 0, 0]);
     const CURR: Self = Self([0, 0, 0, 1, 0, 0, 0, 0, 0]);
     const TEMP: Self = Self([0, 0, 0, 0, 1, 0, 0, 0, 0]);
@@ -116,6 +131,10 @@ impl Dim {
             (Dim::ZERO, "dimensionless"),
             (Dim::LEN, "length"),
             (Dim::MASS, "mass"),
+            (Dim::AMOUNT, "amount"),
+            (Dim::MOLAR_MASS, "molar_mass"),
+            (Dim::MASS_CONCENTRATION, "mass_concentration"),
+            (Dim::MOLAR_CONCENTRATION, "molar_concentration"),
             (Dim::TIME, "time"),
             (Dim::CURR, "electric_current"),
             (Dim::TEMP, "temperature"),
@@ -225,6 +244,8 @@ macro_rules! u {
 }
 
 use UnitSystem::{Iec, Imperial as Imp, Other as Oth, Si};
+
+mod chemistry;
 
 static UNITS: &[UnitDef] = &[
     // Data (base: 1 bit)
@@ -1696,6 +1717,7 @@ static UNITS: &[UnitDef] = &[
 fn lookup_exact(tok: &str) -> Option<&'static UnitDef> {
     UNITS
         .iter()
+        .chain(chemistry::UNITS)
         .find(|u| u.aliases.split_ascii_whitespace().any(|a| a == tok))
 }
 
@@ -2341,8 +2363,19 @@ fn format_rational_decimal(val: &BigRational, is_exact_source: bool) -> Formatte
             exact: is_exact_source,
         };
     }
-    let full_abs = round_rational(numer, denom, 15);
     let disp_abs = round_rational(numer, denom, 9);
+    let (full_abs, disp_abs) = if disp_abs == "0" {
+        let mut exponent = denom.to_string().len() - numer.to_string().len();
+        let mut scaled = numer * BigInt::from(10u8).pow(exponent as u32);
+        if scaled < *denom {
+            scaled *= 10;
+            exponent += 1;
+        }
+        let scientific = |places| format!("{}e-{exponent}", round_rational(&scaled, denom, places));
+        (scientific(15), scientific(9))
+    } else {
+        (round_rational(numer, denom, 15), disp_abs)
+    };
     let sign = |s: String| if neg && s != "0" { format!("-{s}") } else { s };
     FormattedDecimal {
         full: sign(full_abs),
@@ -3191,11 +3224,20 @@ fn evaluate_conversion(
     tokens: &[Token],
     op_idx: usize,
     original: &str,
+    molar_mass: Option<&str>,
 ) -> Option<Result<Vec<Candidate>, Diagnostic>> {
     let (lhs, rhs) = (&tokens[..op_idx], &tokens[op_idx + 1..]);
     let orig_len_u16: usize = original.chars().map(char::len_utf16).sum();
     if lhs.is_empty() {
         return None;
+    }
+    if let Some(specification) = molar_mass {
+        return Some(chemistry::convert_explicit(
+            lhs,
+            rhs,
+            specification,
+            orig_len_u16,
+        ));
     }
     if rhs.is_empty() {
         if let Ok(q) = parse_tokens(lhs, None, orig_len_u16, false)
@@ -3281,6 +3323,9 @@ fn evaluate_conversion(
 
     if !src_q.has_unit {
         return None;
+    }
+    if chemistry::is_conversion(src_q.unit.dimension, dst_q.unit.dimension) {
+        return Some(Err(chemistry::missing_mass(orig_len_u16)));
     }
     if src_q.unit.dimension != dst_q.unit.dimension {
         let span = json!({
