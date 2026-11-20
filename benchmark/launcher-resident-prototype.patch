@@ -1,0 +1,159 @@
+diff --git a/linux/runner/my_application.cc b/linux/runner/my_application.cc
+--- a/linux/runner/my_application.cc
++++ b/linux/runner/my_application.cc
+@@ -25,18 +25,24 @@
+   MyApplication* self = MY_APPLICATION(application);
+   auto* gtk_application = GTK_APPLICATION(application);
+   if (GList* windows = gtk_application_get_windows(gtk_application)) {
++    g_printerr("RESIDENT activate-accepted\n");
+     show_launcher_window(GTK_WINDOW(windows->data));
+     return;
+   }
+   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(gtk_application));
++  bool resident = false;
++  bool open_overlay = false;
+   gboolean preview = FALSE;
+   gboolean settings = FALSE;
+   for (char** argument = self->dart_entrypoint_arguments;
+        argument && *argument; ++argument) {
++    if (g_str_equal(*argument, "--resident")) resident = true;
++    if (g_str_equal(*argument, "--toggle") ||
++        g_str_equal(*argument, "--clipboard")) open_overlay = true;
+     if (g_strcmp0(*argument, "--settings") == 0) settings = TRUE;
+     if (g_str_has_prefix(*argument, "--preview=")) preview = TRUE;
+   }
+-  const bool overlay = !preview && !settings && configure_launcher_overlay(window);
++  const bool overlay = !preview && !settings && configure_launcher_overlay(window, resident);
+
+   // Use a header bar when running in GNOME as this is the common style used
+   // by applications and is the setup most users will be using (e.g. Ubuntu
+@@ -80,6 +86,8 @@
+   fl_dart_project_set_dart_entrypoint_arguments(
+       project, self->dart_entrypoint_arguments);
+
++  if (g_getenv("LAUNCHER_PERF_SKIA") != nullptr)
++    fl_dart_project_set_enable_impeller(project, FALSE);
+   FlView* view = fl_view_new(project);
+   GdkRGBA background_color;
+   // Background defaults to black, override it here if necessary, e.g. #00000000
+@@ -92,7 +100,15 @@
+   // Show overlay windows immediately so gtk-layer-shell receives the compositor
+   // configure size before Flutter creates its initial render surface.
+   if (overlay) {
+-    show_launcher_window(window);
++    g_signal_connect(view, "first-frame", G_CALLBACK(+[](FlView*, gpointer) {
++      g_printerr("RESIDENT first-flutter-frame\n");
++    }), nullptr);
++    if (resident && !open_overlay) {
++      gtk_widget_realize(GTK_WIDGET(view));
++      g_printerr("RESIDENT prewarm-started\n");
++    } else {
++      show_launcher_window(window);
++    }
+   } else {
+     g_signal_connect(view, "first-frame", G_CALLBACK(first_frame_cb), nullptr);
+     gtk_widget_realize(GTK_WIDGET(view));
+@@ -114,9 +130,11 @@
+   GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+   if (windows != nullptr) {
+     auto* window = GTK_WINDOW(windows->data);
+-    if (g_strv_contains(options, "--toggle")) {
+-      gtk_window_close(window);
+-    } else {
++    const bool toggle = g_strv_contains(options, "--toggle");
++    if (toggle && gtk_widget_get_visible(GTK_WIDGET(window))) {
++      if (!hide_resident_launcher(window)) gtk_window_close(window);
++    } else if (!g_strv_contains(options, "--resident")) {
++      g_printerr("RESIDENT command-accepted\n");
+       if (g_strv_contains(options, "--clipboard")) {
+         show_launcher_clipboard(window);
+       }
+diff --git a/linux/runner/launcher_window.cc b/linux/runner/launcher_window.cc
+--- a/linux/runner/launcher_window.cc
++++ b/linux/runner/launcher_window.cc
+@@ -5,6 +5,7 @@
+
+ namespace {
+
++const char kResident[] = "remya-launcher-resident";
+ const char kHiding[] = "remya-launcher-hiding";
+ const char kPress[] = "remya-launcher-press";
+ const char kChannel[] = "remya-launcher-window-channel";
+@@ -96,7 +97,7 @@
+ }
+
+ gboolean close_window(gpointer data) {
+-  gtk_widget_destroy(GTK_WIDGET(data));
++  if (!hide_resident_launcher(GTK_WINDOW(data))) gtk_widget_destroy(GTK_WIDGET(data));
+   return G_SOURCE_REMOVE;
+ }
+
+@@ -440,13 +441,33 @@
+   fl_method_call_respond_success(call, nullptr, nullptr);
+ }
+
++void queue_view_allocation(GtkWidget *widget, gpointer) {
++  gtk_widget_queue_allocate(widget);
++  if (GTK_IS_CONTAINER(widget))
++    gtk_container_forall(GTK_CONTAINER(widget), queue_view_allocation, nullptr);
++}
++
+ } // namespace
+
+-bool configure_launcher_overlay(GtkWindow *window) {
++bool hide_resident_launcher(GtkWindow *window) {
++  if (g_object_get_data(G_OBJECT(window), kResident) == nullptr) return false;
++  hide_launcher(window);
++  if (g_getenv("LAUNCHER_PERF_DROP_HIDDEN_SURFACE") != nullptr) {
++    auto *view = gtk_bin_get_child(GTK_BIN(window));
++    GtkAllocation allocation;
++    gtk_widget_get_allocation(view, &allocation);
++    queue_view_allocation(view, nullptr);
++    gtk_widget_size_allocate(view, &allocation);
++  }
++  return true;
++}
++
++bool configure_launcher_overlay(GtkWindow *window, bool resident) {
+   if (!gtk_layer_is_supported())
+     return false;
+
+   auto *widget = GTK_WIDGET(window);
++  if (resident) g_object_set_data(G_OBJECT(window), kResident, GINT_TO_POINTER(TRUE));
+   configure_overlay(window, "remya-launcher",
+                     GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
+   auto *windows = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+@@ -475,7 +496,8 @@
+   auto *widget = GTK_WIDGET(window);
+   clear_file_drag_press(file_drag_state(widget));
+   g_object_set_data(G_OBJECT(window), kHiding, nullptr);
+-  if (!gtk_widget_get_mapped(widget) && dismiss_windows(widget) != nullptr) {
++  const bool opening = !gtk_widget_get_mapped(widget);
++  if (opening && dismiss_windows(widget) != nullptr) {
+     // Hyprland stacks layer surfaces in creation order. Map the click
+     // catchers first so the launcher receives input on its own monitor.
+     auto *display = gtk_widget_get_display(widget);
+@@ -483,6 +505,10 @@
+       add_dismiss_window(widget, gdk_display_get_monitor(display, i));
+   }
+   gtk_window_present(window);
++  if (opening && g_object_get_data(G_OBJECT(widget), kResident) != nullptr) {
++    if (auto *view = gtk_bin_get_child(GTK_BIN(window)))
++      queue_view_allocation(view, nullptr);
++  }
+ }
+
+ void configure_settings_window(GtkWindow *window) {
+diff --git a/linux/runner/launcher_window.h b/linux/runner/launcher_window.h
+--- a/linux/runner/launcher_window.h
++++ b/linux/runner/launcher_window.h
+@@ -4,7 +4,8 @@
+ #include <flutter_linux/flutter_linux.h>
+ #include <gtk/gtk.h>
+
+-bool configure_launcher_overlay(GtkWindow *window);
++bool configure_launcher_overlay(GtkWindow *window, bool resident);
++bool hide_resident_launcher(GtkWindow *window);
+ void show_launcher_window(GtkWindow *window);
+ void configure_settings_window(GtkWindow *window);
+ void register_launcher_window(FlView *view, GtkWindow *window);
