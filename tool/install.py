@@ -16,6 +16,7 @@ FILES_SIDECAR = "remya-launcher-files"
 BUNDLE_BINARIES = (APP_ID, CLIPBOARD_SERVICE, CALCULATOR_SIDECAR, APPS_SIDECAR, WEB_SIDECAR, FILES_SIDECAR)
 UNIT = f"{PACKAGE}.clipboard.service"
 APPS_UNIT = f"{PACKAGE}.apps.service"
+GUI_UNIT = f"{PACKAGE}.gui.service"
 
 
 def data_home(environment):
@@ -59,6 +60,20 @@ def apps_unit(executable):
         f"[Service]\nExecStart={unit_quote(executable)} --daemon\n"
         "KillMode=process\n"
         "Restart=on-failure\nRestartSec=2\nUMask=0077\nLimitCORE=0\n\n"
+        "[Install]\nWantedBy=graphical-session.target\n"
+    )
+
+
+def gui_unit(executable):
+    return (
+        "[Unit]\nDescription=Remya Launcher prewarm\n"
+        "PartOf=graphical-session.target\n"
+        "Wants=top.remya.core.service\n"
+        "After=graphical-session.target top.remya.core.service\n\n"
+        "[Service]\nType=exec\n"
+        f"ExecStart={unit_quote(executable)} --background\n"
+        "Restart=on-failure\nRestartSec=2\n"
+        "UMask=0077\nLimitCORE=0\n\n"
         "[Install]\nWantedBy=graphical-session.target\n"
     )
 
@@ -113,7 +128,7 @@ def install(root, environment):
         raise RuntimeError("Cannot connect to the systemd user manager")
     was_active = {
         unit: systemctl("is-active", "--quiet", unit, check=False).returncode == 0
-        for unit in (UNIT, APPS_UNIT)
+        for unit in (UNIT, APPS_UNIT, GUI_UNIT)
     }
     try:
         for unit, active in was_active.items():
@@ -124,6 +139,7 @@ def install(root, environment):
         units.mkdir(parents=True, exist_ok=True)
         (units / UNIT).write_text(clipboard_unit(destination / CLIPBOARD_SERVICE))
         (units / APPS_UNIT).write_text(apps_unit(destination / APPS_SIDECAR))
+        (units / GUI_UNIT).write_text(gui_unit(destination / APP_ID))
         systemctl("daemon-reload")
         graphical_active = (
             systemctl("is-active", "--quiet", "graphical-session.target", check=False).returncode == 0
@@ -140,6 +156,7 @@ def install(root, environment):
     print(f"Installed {PACKAGE} in {destination}")
     print(f"Command: {command} (add ~/.local/bin to PATH if needed)")
     print(f"Autostart: {UNIT} and {APPS_UNIT} start with the graphical session")
+    print(f"Prewarm: {GUI_UNIT} starts the GUI when Fast startup is selected")
 
 
 def install_bundle(root, source, destination, data, command):

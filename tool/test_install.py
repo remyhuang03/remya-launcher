@@ -15,10 +15,12 @@ from tool.install import (
     CALCULATOR_SIDECAR,
     CLIPBOARD_SERVICE,
     FILES_SIDECAR,
+    GUI_UNIT,
     PACKAGE,
     UNIT,
     apps_unit,
     clipboard_unit,
+    gui_unit,
     install,
     require_bundle,
     require_core,
@@ -52,11 +54,12 @@ class PackagingTest(unittest.TestCase):
         self.assertEqual(registration["config"], "launcher")
         self.assertEqual(
             [page["id"] for page in registration["pages"]],
-            ["clipboard", "emoji", "files-search", "files-history", "files-preview", "files-actions", "material-theme"],
+            ["startup", "clipboard", "emoji", "files-search", "files-history", "files-preview", "files-actions", "material-theme"],
         )
         self.assertEqual({key: row["default"] for key, row in registration["settings"].items() if not key.startswith("files-")}, {
             "clipboard-history": True, "clipboard-max-items": 500, "clipboard-retention-days": 30,
             "emoji-auto-paste": False, "emoji-recents": False,
+            "resident-startup": False,
         })
         unit = clipboard_unit(Path('/tmp/a b/clipboard'))
         for line in ["Wants=top.remya.core.service",
@@ -66,6 +69,11 @@ class PackagingTest(unittest.TestCase):
         for line in ['ExecStart="/tmp/a b/apps" --daemon', "KillMode=process",
                      "After=graphical-session.target", "UMask=0077", "LimitCORE=0"]:
             self.assertIn(line, apps_svc.splitlines())
+        gui = gui_unit(Path('/tmp/a b/launcher'))
+        for line in ['ExecStart="/tmp/a b/launcher" --background',
+                     "PartOf=graphical-session.target",
+                     "After=graphical-session.target top.remya.core.service"]:
+            self.assertIn(line, gui.splitlines())
         desktop = (root / "linux/packaging/top.remya.launcher.desktop").read_text()
         self.assertIn("[Desktop Action settings]\nName=Settings\nExec=remya_launcher --settings", desktop)
 
@@ -139,7 +147,7 @@ class PackagingTest(unittest.TestCase):
             self.assertFalse((bin_dir / CLIPBOARD_SERVICE).exists())
 
             units_dir = data / "systemd/user"
-            self.assertEqual(sorted(path.name for path in units_dir.iterdir()), sorted([UNIT, APPS_UNIT]))
+            self.assertEqual(sorted(path.name for path in units_dir.iterdir()), sorted([UNIT, APPS_UNIT, GUI_UNIT]))
 
             # Unrelated binary at ~/.local/bin/remya_launcher must not be overwritten.
             (bin_dir / APP_ID).unlink()

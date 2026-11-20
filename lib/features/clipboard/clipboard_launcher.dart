@@ -55,6 +55,8 @@ class ClipboardLauncher extends StatefulWidget {
     required this.startInClipboard,
     required this.client,
     required this.platform,
+    this.listenForWindowRequests = true,
+    this.clipboardRequest = 0,
     this.calculatorClient,
     this.appsClient,
     this.webClient,
@@ -69,6 +71,8 @@ class ClipboardLauncher extends StatefulWidget {
   final bool startInClipboard;
   final ClipboardClient client;
   final ClipboardPlatform platform;
+  final bool listenForWindowRequests;
+  final int clipboardRequest;
   final CalculatorClient? calculatorClient;
   final AppsClient? appsClient;
   final WebClient? webClient;
@@ -267,11 +271,21 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     _apps.update(_scope, '', immediate: true);
     _updateFiles('', immediate: true);
     unawaited(_web.loadEngines());
-    unawaited(
-      widget.platform.listenForClipboard(() {
-        if (mounted) _setScope(.clipboard);
-      }),
-    );
+    if (widget.listenForWindowRequests) {
+      unawaited(
+        widget.platform.listenForClipboard(() {
+          if (mounted) _setScope(.clipboard);
+        }),
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ClipboardLauncher oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.clipboardRequest != oldWidget.clipboardRequest) {
+      _setScope(.clipboard);
+    }
   }
 
   @override
@@ -286,7 +300,9 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    widget.platform.stopListeningForClipboard();
+    if (widget.listenForWindowRequests) {
+      widget.platform.stopListeningForClipboard();
+    }
     _search.removeListener(_onSearchSelectionChanged);
     _stopWatch();
     _queryDelay?.cancel();
@@ -688,6 +704,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   Future<void> _dismiss() async {
+    if (!mounted) return;
     _maskSecret();
     await widget.platform.close();
   }
@@ -715,6 +732,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   }
 
   Future<void> _finishPaste() async {
+    if (!mounted) return;
     _maskSecret();
     final delivered = await widget.platform.pasteToPreviousWindow();
     if (!delivered && mounted) {

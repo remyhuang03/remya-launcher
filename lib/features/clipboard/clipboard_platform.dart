@@ -9,7 +9,7 @@ class ClipboardPlatform {
 
   static const _window = MethodChannel('top.remya.launcher/window');
 
-  static Future<ClipboardPlatform> capture() async {
+  static Future<ClipboardPlatform> capture({bool Function()? isCurrent}) async {
     try {
       final result = await _run('hyprctl', ['-j', 'activewindow']);
       if (result.exitCode != 0) return const ClipboardPlatform();
@@ -21,7 +21,7 @@ class ClipboardPlatform {
           address != '0x0' &&
           pid is int &&
           pid > 0) {
-        return _HyprlandClipboardPlatform(address, pid);
+        return _HyprlandClipboardPlatform(address, pid, isCurrent);
       }
     } on Object {
       // An unavailable compositor leaves copy-only behavior available.
@@ -207,13 +207,14 @@ class ClipboardPlatform {
 }
 
 class _HyprlandClipboardPlatform extends ClipboardPlatform {
-  const _HyprlandClipboardPlatform(this.address, this.pid);
+  const _HyprlandClipboardPlatform(this.address, this.pid, this.isCurrent);
 
   final String address;
   final int pid;
+  final bool Function()? isCurrent;
 
   @override
-  bool get canPasteToPreviousWindow => true;
+  bool get canPasteToPreviousWindow => isCurrent?.call() ?? true;
 
   static const _terminalClasses = {
     'alacritty',
@@ -238,6 +239,7 @@ class _HyprlandClipboardPlatform extends ClipboardPlatform {
 
   @override
   Future<bool> pasteToPreviousWindow() async {
+    if (!canPasteToPreviousWindow) return false;
     try {
       final result = await ClipboardPlatform._run('hyprctl', ['-j', 'clients']);
       if (result.exitCode != 0) return false;
@@ -251,30 +253,30 @@ class _HyprlandClipboardPlatform extends ClipboardPlatform {
                 client['mapped'] == true,
           )
           .firstOrNull;
-      if (target == null) return false;
+      if (target == null || !canPasteToPreviousWindow) return false;
       final terminal = ['class', 'initialClass'].any((field) {
         final name = target[field];
         return name is String && _terminalClasses.contains(name.toLowerCase());
       });
       await ClipboardPlatform._window.invokeMethod<void>('hide');
       // Wait for the compositor to restore the captured window's keyboard focus.
-      if (!await _waitForPreviousWindow()) {
-        await ClipboardPlatform._window.invokeMethod<void>('show');
-        return false;
-      }
-      final modifiers = terminal ? 'CTRL + SHIFT' : 'CTRL';
-      final sent = await ClipboardPlatform._run('hyprctl', [
-        'dispatch',
-        'hl.dsp.send_shortcut({mods = "$modifiers", key = "V", window = "address:$address"})',
-      ]);
-      if (sent.exitCode == 0 && (sent.stdout as String).trim() == 'ok') {
-        await close();
-        return true;
+      if (await _waitForPreviousWindow() && canPasteToPreviousWindow) {
+        final modifiers = terminal ? 'CTRL + SHIFT' : 'CTRL';
+        final sent = await ClipboardPlatform._run('hyprctl', [
+          'dispatch',
+          'hl.dsp.send_shortcut({mods = "$modifiers", key = "V", window = "address:$address"})',
+        ]);
+        if (sent.exitCode == 0 && (sent.stdout as String).trim() == 'ok') {
+          if (canPasteToPreviousWindow) await close();
+          return true;
+        }
       }
     } on Object {
       // Copy succeeded; keep the launcher available to report manual paste.
     }
-    await ClipboardPlatform._window.invokeMethod<void>('show');
+    if (canPasteToPreviousWindow) {
+      await ClipboardPlatform._window.invokeMethod<void>('show');
+    }
     return false;
   }
 

@@ -2,6 +2,7 @@
 
 #include <gtk-layer-shell.h>
 #include <initializer_list>
+#include <memory>
 
 namespace {
 
@@ -10,6 +11,10 @@ const char kPress[] = "remya-launcher-press";
 const char kChannel[] = "remya-launcher-window-channel";
 const char kReady[] = "remya-launcher-dart-ready";
 const char kShowClipboard[] = "remya-launcher-show-clipboard";
+const char kResident[] = "remya-launcher-resident";
+const char kSessionOpen[] = "remya-launcher-session-open";
+const char kPendingOpen[] = "remya-launcher-pending-open";
+const char kPreparingOpen[] = "remya-launcher-preparing-open";
 const char kDismissWindows[] = "remya-launcher-dismiss-windows";
 const char kFileDrag[] = "remya-launcher-file-drag";
 const char kDragUri[] = "remya-launcher-drag-uri";
@@ -96,7 +101,8 @@ void begin_move(GtkWindow *window) {
 }
 
 gboolean close_window(gpointer data) {
-  gtk_widget_destroy(GTK_WIDGET(data));
+  if (!hide_resident_launcher(GTK_WINDOW(data)))
+    gtk_widget_destroy(GTK_WIDGET(data));
   return G_SOURCE_REMOVE;
 }
 
@@ -213,6 +219,48 @@ void hide_launcher(GtkWindow *window) {
   g_object_set_data(G_OBJECT(widget), kHiding, GINT_TO_POINTER(TRUE));
   gtk_widget_hide(widget);
   gdk_display_sync(gtk_widget_get_display(widget));
+}
+
+void queue_allocation(GtkWidget *widget, gpointer) {
+  gtk_widget_queue_allocate(widget);
+  if (GTK_IS_CONTAINER(widget))
+    gtk_container_forall(GTK_CONTAINER(widget), queue_allocation, nullptr);
+}
+
+void allocate_launcher_view(GtkWindow *window, bool immediately) {
+  auto *view = gtk_bin_get_child(GTK_BIN(window));
+  if (view == nullptr) return;
+  queue_allocation(view, nullptr);
+  if (immediately) {
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(view, &allocation);
+    gtk_widget_size_allocate(view, &allocation);
+  }
+}
+
+struct OpenRequest {
+  GWeakRef window;
+
+  explicit OpenRequest(GtkWindow *target) { g_weak_ref_init(&window, target); }
+  ~OpenRequest() { g_weak_ref_clear(&window); }
+};
+
+void launcher_prepared(GObject *source, GAsyncResult *result, gpointer data) {
+  std::unique_ptr<OpenRequest> request(static_cast<OpenRequest *>(data));
+  g_autoptr(FlMethodResponse) response = fl_method_channel_invoke_method_finish(
+      FL_METHOD_CHANNEL(source), result, nullptr);
+  g_autoptr(GtkWindow) window = GTK_WINDOW(g_weak_ref_get(&request->window));
+  if (window == nullptr ||
+      g_object_get_data(G_OBJECT(window), kPreparingOpen) != request.get())
+    return;
+  g_object_set_data(G_OBJECT(window), kPreparingOpen, nullptr);
+  if (response == nullptr || !FL_IS_METHOD_SUCCESS_RESPONSE(response)) return;
+  auto *ready = fl_method_success_response_get_result(FL_METHOD_SUCCESS_RESPONSE(response));
+  if (ready == nullptr || fl_value_get_type(ready) != FL_VALUE_TYPE_BOOL ||
+      !fl_value_get_bool(ready))
+    return;
+  g_object_set_data(G_OBJECT(window), kSessionOpen, GINT_TO_POINTER(TRUE));
+  show_launcher_window(window);
 }
 
 gint run_dialog(GtkWindow *window, GtkWidget *dialog) {
@@ -415,10 +463,19 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
     return;
   } else if (g_str_equal(method, "readyForRequests")) {
     g_object_set_data(G_OBJECT(window), kReady, GINT_TO_POINTER(TRUE));
+    int request = GPOINTER_TO_INT(g_object_steal_data(G_OBJECT(window), kPendingOpen));
     g_autoptr(FlValue) pending = fl_value_new_bool(
         g_object_steal_data(G_OBJECT(window), kShowClipboard) != nullptr);
     fl_method_call_respond_success(call, pending, nullptr);
+    if (request != 0) open_launcher_window(window, request == 2);
     return;
+  } else if (g_str_equal(method, "disableResidency")) {
+    g_object_set_data(G_OBJECT(window), kResident, nullptr);
+    if (g_object_get_data(G_OBJECT(window), kSessionOpen) == nullptr) {
+      g_object_set_data(G_OBJECT(window), kPendingOpen, nullptr);
+      g_object_set_data(G_OBJECT(window), kPreparingOpen, nullptr);
+      schedule_close(widget);
+    }
   } else if (g_str_equal(method, "resolveAppIcon")) {
     resolve_app_icon(widget, call, args);
     return;
@@ -442,11 +499,13 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
 
 } // namespace
 
-bool configure_launcher_overlay(GtkWindow *window) {
+bool configure_launcher_overlay(GtkWindow *window, bool resident) {
   if (!gtk_layer_is_supported())
     return false;
 
   auto *widget = GTK_WIDGET(window);
+  if (resident)
+    g_object_set_data(G_OBJECT(window), kResident, GINT_TO_POINTER(TRUE));
   configure_overlay(window, "remya-launcher",
                     GTK_LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE);
   auto *windows = g_hash_table_new_full(g_direct_hash, g_direct_equal,
@@ -475,7 +534,8 @@ void show_launcher_window(GtkWindow *window) {
   auto *widget = GTK_WIDGET(window);
   clear_file_drag_press(file_drag_state(widget));
   g_object_set_data(G_OBJECT(window), kHiding, nullptr);
-  if (!gtk_widget_get_mapped(widget) && dismiss_windows(widget) != nullptr) {
+  bool opening = !gtk_widget_get_mapped(widget);
+  if (opening && dismiss_windows(widget) != nullptr) {
     // Hyprland stacks layer surfaces in creation order. Map the click
     // catchers first so the launcher receives input on its own monitor.
     auto *display = gtk_widget_get_display(widget);
@@ -483,6 +543,51 @@ void show_launcher_window(GtkWindow *window) {
       add_dismiss_window(widget, gdk_display_get_monitor(display, i));
   }
   gtk_window_present(window);
+  // GTK replaces the Wayland parent on remap, even when its size stays the same.
+  if (opening && (g_object_get_data(G_OBJECT(window), kResident) != nullptr ||
+                  g_object_get_data(G_OBJECT(window), kSessionOpen) != nullptr))
+    allocate_launcher_view(window, false);
+}
+
+bool launcher_window_is_open(GtkWindow *window) {
+  return gtk_widget_get_visible(GTK_WIDGET(window)) ||
+         g_object_get_data(G_OBJECT(window), kPendingOpen) != nullptr ||
+         g_object_get_data(G_OBJECT(window), kPreparingOpen) != nullptr;
+}
+
+void open_launcher_window(GtkWindow *window, bool clipboard) {
+  auto *object = G_OBJECT(window);
+  if (g_object_get_data(object, kResident) == nullptr ||
+      g_object_get_data(object, kSessionOpen) != nullptr) {
+    if (clipboard) show_launcher_clipboard(window);
+    show_launcher_window(window);
+    return;
+  }
+  if (g_object_get_data(object, kReady) == nullptr) {
+    g_object_set_data(object, kPendingOpen, GINT_TO_POINTER(clipboard ? 2 : 1));
+    return;
+  }
+  auto *request = new OpenRequest(window);
+  g_object_set_data(object, kPreparingOpen, request);
+  auto *channel = FL_METHOD_CHANNEL(g_object_get_data(object, kChannel));
+  g_autoptr(FlValue) args = fl_value_new_bool(clipboard);
+  fl_method_channel_invoke_method(channel, "prepareOpen", args, nullptr,
+                                  launcher_prepared, request);
+}
+
+bool hide_resident_launcher(GtkWindow *window) {
+  auto *object = G_OBJECT(window);
+  if (g_object_get_data(object, kResident) == nullptr) return false;
+  g_object_set_data(object, kPendingOpen, nullptr);
+  g_object_set_data(object, kPreparingOpen, nullptr);
+  g_object_set_data(object, kSessionOpen, nullptr);
+  auto *channel = FL_METHOD_CHANNEL(g_object_get_data(object, kChannel));
+  if (channel != nullptr)
+    fl_method_channel_invoke_method(channel, "endSession", nullptr,
+                                    nullptr, nullptr, nullptr);
+  hide_launcher(window);
+  allocate_launcher_view(window, true);
+  return true;
 }
 
 void configure_settings_window(GtkWindow *window) {
@@ -503,6 +608,9 @@ void configure_settings_window(GtkWindow *window) {
 void register_launcher_window(FlView *view, GtkWindow *window) {
   auto *window_widget = GTK_WIDGET(window);
   auto *view_widget = GTK_WIDGET(view);
+  g_signal_connect(window, "destroy", G_CALLBACK(+[](GtkWidget *widget, gpointer) {
+    g_object_set_data(G_OBJECT(widget), kPreparingOpen, nullptr);
+  }), nullptr);
   auto *drag_state = new FileDragState();
   g_object_set_data_full(
       G_OBJECT(window), kFileDrag, drag_state,

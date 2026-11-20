@@ -7,6 +7,11 @@
   "config": "launcher",
   "pages": [
     {
+      "id": "startup",
+      "title": "Startup",
+      "keywords": ["background", "resident", "launch", "memory"]
+    },
+    {
       "id": "clipboard",
       "title": "Clipboard",
       "keywords": [
@@ -84,6 +89,16 @@
     }
   ],
   "settings": {
+    "resident-startup": {
+      "title": "Startup mode",
+      "page": "startup",
+      "keywords": ["on demand", "fast startup"],
+      "default": false,
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "boolean"
+      }
+    },
     "emoji-auto-paste": {
       "title": "Copy and paste emoji",
       "page": "emoji",

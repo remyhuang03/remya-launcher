@@ -11,6 +11,7 @@ import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_tile.dart';
 import 'features/files/files_client.dart';
 import 'features/files/files_preferences.dart';
+import 'features/launcher/startup_settings.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
 
@@ -27,6 +28,7 @@ String? parseSettingsPage(List<String> arguments) {
       ![
         '',
         'clipboard',
+        startupSettingsPageId,
         'apps',
         'apps-preferences',
         'hidden-apps',
@@ -78,6 +80,11 @@ Future<void> main(List<String> arguments) async {
       ? null
       : example ?? (clipboardType == null ? .empty : .clipboard);
   final settingsPage = parseSettingsPage(arguments);
+  final resident =
+      arguments.contains('--resident-session') &&
+      selectedExample == null &&
+      settingsPage == null;
+  final onDemand = !resident && selectedExample == null && settingsPage == null;
   final theme = SettingsThemeController.service();
   await Future.wait([theme.start(), FileIconAssets.ensureLoaded()]);
   runApp(
@@ -85,16 +92,13 @@ Future<void> main(List<String> arguments) async {
       theme: theme,
       example: selectedExample,
       settingsPage: settingsPage,
-      appsClient: selectedExample == null && settingsPage == null
-          ? AppsClient()
-          : null,
-      webClient: selectedExample == null ? WebClient() : null,
-      filesClient: selectedExample == null && settingsPage == null
-          ? FilesClient()
-          : null,
+      resident: resident,
+      appsClient: onDemand ? AppsClient() : null,
+      webClient: !resident && selectedExample == null ? WebClient() : null,
+      filesClient: onDemand ? FilesClient() : null,
       clipboardType: clipboardType ?? 'command',
       startInClipboard: arguments.contains('--clipboard'),
-      clipboardPlatform: selectedExample == null && settingsPage == null
+      clipboardPlatform: onDemand
           ? await ClipboardPlatform.capture()
           : const ClipboardPlatform(),
     ),

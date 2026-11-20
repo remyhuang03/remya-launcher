@@ -11,6 +11,7 @@ import '../apps/apps_settings.dart';
 import '../emoji/emoji_settings.dart';
 import '../files/files_client.dart';
 import '../files/files_settings.dart';
+import '../launcher/startup_settings.dart';
 import '../web/web_client.dart';
 import '../web/web_settings.dart';
 import 'clipboard_client.dart';
@@ -102,6 +103,7 @@ class _ClipboardSettingsWindowState extends State<ClipboardSettingsWindow> {
                 _controller.policy == null,
             onBack: _selected == 'licenses' ? () => _select('about') : null,
             pages: [
+              startupSettingsPage(_client),
               RemyaSettingsPage(
                 id: 'clipboard',
                 title: 'Clipboard',

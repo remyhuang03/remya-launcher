@@ -15,6 +15,33 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+static bool is_string(FlValue* value, const char* expected) {
+  return value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_STRING &&
+         g_str_equal(fl_value_get_string(value), expected);
+}
+
+static bool resident_startup(GApplication* application) {
+  constexpr char preference[] = "remya-launcher.resident-startup";
+  auto* bus = g_application_get_dbus_connection(application);
+  if (bus == nullptr) return false;
+  g_autoptr(GVariant) reply = g_dbus_connection_call_sync(
+      bus, "top.remya.Core1", "/top/remya/Core1", "top.remya.Core1", "Get",
+      g_variant_new("(s)", preference), G_VARIANT_TYPE("(s)"),
+      G_DBUS_CALL_FLAGS_NONE, 500, nullptr, nullptr);
+  if (reply == nullptr) return false;
+  const char* json;
+  g_variant_get(reply, "(&s)", &json);
+  g_autoptr(FlJsonMessageCodec) codec = fl_json_message_codec_new();
+  g_autoptr(FlValue) record = fl_json_message_codec_decode(codec, json, nullptr);
+  if (record == nullptr || fl_value_get_type(record) != FL_VALUE_TYPE_MAP ||
+      !is_string(fl_value_lookup_string(record, "id"), preference) ||
+      !is_string(fl_value_lookup_string(record, "availability"), "available"))
+    return false;
+  auto* value = fl_value_lookup_string(record, "value");
+  return value != nullptr && fl_value_get_type(value) == FL_VALUE_TYPE_BOOL &&
+         fl_value_get_bool(value);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(FlView* view, gpointer) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -25,18 +52,29 @@ static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   auto* gtk_application = GTK_APPLICATION(application);
   if (GList* windows = gtk_application_get_windows(gtk_application)) {
-    show_launcher_window(GTK_WINDOW(windows->data));
+    open_launcher_window(GTK_WINDOW(windows->data), false);
     return;
   }
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(gtk_application));
   gboolean preview = FALSE;
   gboolean settings = FALSE;
+  bool background = false;
+  bool clipboard = false;
   for (char** argument = self->dart_entrypoint_arguments;
        argument && *argument; ++argument) {
     if (g_strcmp0(*argument, "--settings") == 0) settings = TRUE;
     if (g_str_has_prefix(*argument, "--preview=")) preview = TRUE;
+    if (g_str_equal(*argument, "--background")) background = true;
+    if (g_str_equal(*argument, "--clipboard")) clipboard = true;
   }
-  const bool overlay = !preview && !settings && configure_launcher_overlay(window);
+  bool resident = !preview && !settings && resident_startup(application);
+  const bool overlay = !preview && !settings &&
+                       configure_launcher_overlay(window, resident);
+  resident = resident && overlay;
+  if (background && !resident) {
+    gtk_widget_destroy(GTK_WIDGET(window));
+    return;
+  }
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -77,6 +115,14 @@ static void my_application_activate(GApplication* application) {
   }
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
+  if (resident) {
+    char** arguments = self->dart_entrypoint_arguments;
+    const gsize count = arguments == nullptr ? 0 : g_strv_length(arguments);
+    self->dart_entrypoint_arguments = g_renew(char*, arguments, count + 2);
+    self->dart_entrypoint_arguments[count] = g_strdup("--resident-session");
+    self->dart_entrypoint_arguments[count + 1] = nullptr;
+    fl_dart_project_set_enable_impeller(project, FALSE);
+  }
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
 
@@ -91,7 +137,9 @@ static void my_application_activate(GApplication* application) {
 
   // Show overlay windows immediately so gtk-layer-shell receives the compositor
   // configure size before Flutter creates its initial render surface.
-  if (overlay) {
+  if (resident) {
+    gtk_widget_realize(GTK_WIDGET(view));
+  } else if (overlay) {
     show_launcher_window(window);
   } else {
     g_signal_connect(view, "first-frame", G_CALLBACK(first_frame_cb), nullptr);
@@ -102,6 +150,7 @@ static void my_application_activate(GApplication* application) {
   if (!preview) register_launcher_window(view, window);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
+  if (resident && !background) open_launcher_window(window, clipboard);
 }
 
 // Routes subsequent Launcher invocations to the existing window over the session bus.
@@ -112,15 +161,17 @@ static int my_application_command_line(GApplication* application,
       g_application_command_line_get_arguments(command_line, nullptr);
   const gchar* const* options = args + 1;
   GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (g_strv_contains(options, "--quit")) {
+    if (windows != nullptr) gtk_widget_destroy(GTK_WIDGET(windows->data));
+    return 0;
+  }
   if (windows != nullptr) {
     auto* window = GTK_WINDOW(windows->data);
-    if (g_strv_contains(options, "--toggle")) {
-      gtk_window_close(window);
+    if (g_strv_contains(options, "--background")) return 0;
+    if (g_strv_contains(options, "--toggle") && launcher_window_is_open(window)) {
+      if (!hide_resident_launcher(window)) gtk_window_close(window);
     } else {
-      if (g_strv_contains(options, "--clipboard")) {
-        show_launcher_clipboard(window);
-      }
-      show_launcher_window(window);
+      open_launcher_window(window, g_strv_contains(options, "--clipboard"));
     }
     return 0;
   }

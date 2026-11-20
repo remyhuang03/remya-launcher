@@ -7,6 +7,8 @@ import 'package:remya_client/remya_client.dart';
 import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_client.dart';
 import 'package:remya_launcher/features/emoji/emoji_settings.dart';
+import 'package:remya_launcher/features/launcher/startup_mode.dart';
+import 'package:remya_launcher/features/launcher/startup_settings.dart';
 import 'package:remya_launcher/main.dart';
 import 'package:remya_ui/settings_ui.dart';
 
@@ -20,6 +22,7 @@ class _Core extends SettingsClient {
     'clipboard-retention-days': 30,
     emojiAutoPasteKey: false,
     emojiRecentsKey: false,
+    residentStartupKey: false,
   };
   Object? failure = StateError('Unavailable: remyad is not running');
 
@@ -186,6 +189,10 @@ void main() {
     expect(parseSettingsPage(const ['--settings', '--clipboard']), '');
     expect(parseSettingsPage(const ['--settings', 'clipboard']), 'clipboard');
     expect(
+      parseSettingsPage(const ['--settings', 'startup']),
+      startupSettingsPageId,
+    );
+    expect(
       parseSettingsPage(const ['--settings', emojiSettingsPageId]),
       emojiSettingsPageId,
     );
@@ -197,6 +204,40 @@ void main() {
       () => parseSettingsPage(const ['--settings', 'unknown']),
       throwsArgumentError,
     );
+  });
+
+  testWidgets('Startup settings use the Core preference and follow changes', (
+    tester,
+  ) async {
+    final core = _Core()..failure = null;
+    addTearDown(core.signals.close);
+    addTearDown(core.owners.close);
+    await tester.binding.setSurfaceSize(const Size(760, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      RemyaLauncherApp(
+        settingsPage: startupSettingsPageId,
+        settingsClient: core,
+      ),
+    );
+    await tester.pumpAndSettle();
+    bool? selection() => tester
+        .widget<SettingsSegmentedButton<bool>>(
+          find.byType(SettingsSegmentedButton<bool>),
+        )
+        .selected;
+    expect(selection(), isFalse);
+
+    core.values[residentStartupKey] = true;
+    core.signals.add((topic: 'remya-launcher.$residentStartupKey', value: {}));
+    await tester.pumpAndSettle();
+    expect(selection(), isTrue);
+
+    await tester.tap(find.text('On demand'));
+    await tester.pumpAndSettle();
+    expect(core.writes.single, ['remya-launcher.$residentStartupKey', 'false']);
+    expect(selection(), isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('Emoji settings use Core for both opt-in preferences', (
