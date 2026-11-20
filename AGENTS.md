@@ -19,6 +19,8 @@
 
 ## Validation and delivery
 
+- Run `python tool/check_source_length.py` as part of local validation. It warns for Rust and Dart source files over 800 physical lines, including comments and blank lines. Review every reported file against the single-responsibility principle and refactor files that mix responsibilities.
+- When a reviewed file should stay together, run `python tool/check_source_length.py add <path> --reason "<why it should stay together>"` and include the updated `tool/source_length_exceptions.json` in the change. The exception applies only to that file's recorded SHA-256. Changed files still over 800 lines require another review.
 - Run Dart format, Flutter analyze and test, the Linux debug and release builds, Cargo format, Clippy and tests, and `git diff --check` as relevant. Run debug and release builds sequentially.
 - After application changes, rebuild and install the release bundle with `python tool/install.py`. Verify the installed application on the desktop and close verification instances. The GUI runs on demand and the clipboard service runs with the graphical session. Use the [desktop testing skill](.agents/skills/launcher-desktop-testing/SKILL.md) for installed-bundle smoke checks and input or Wayland debugging.
 - Develop on a separate `<type>/<short-description>` branch and use Conventional Commits. Stage only intended files. Show completed changes and validation before requesting approval to commit unless the user has already authorized it. Commit approval also authorizes merging to `main`, cleaning up the merged development branch, and pushing `main` to the private origin.
