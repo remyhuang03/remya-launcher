@@ -12,6 +12,7 @@ import '../emoji/emoji_settings.dart';
 import '../files/files_client.dart';
 import '../files/files_preferences.dart';
 import '../web/web_client.dart';
+import 'launcher_controls.dart';
 import 'startup_mode.dart';
 
 class ResidentLauncher extends StatefulWidget {
@@ -24,10 +25,10 @@ class ResidentLauncher extends StatefulWidget {
 }
 
 class _ResidentSession {
-  _ResidentSession(this.platform, this.clipboard);
+  _ResidentSession(this.platform, this.scope);
 
   final ClipboardPlatform platform;
-  final bool clipboard;
+  final LauncherScope scope;
   final apps = AppsClient();
   final web = WebClient();
   final files = FilesClient();
@@ -40,7 +41,7 @@ class _ResidentLauncherState extends State<ResidentLauncher> {
   StreamSubscription<bool>? _coreAvailability;
   _ResidentSession? _session;
   int _generation = 0;
-  int _clipboardRequest = 0;
+  (LauncherScope, int)? _scopeRequest;
 
   @override
   void initState() {
@@ -50,7 +51,7 @@ class _ResidentLauncherState extends State<ResidentLauncher> {
     }, onError: (Object _) {});
     _watchStartupMode();
     _window.setMethodCallHandler(_handleRequest);
-    unawaited(_window.invokeMethod<bool>('readyForRequests'));
+    unawaited(_window.invokeMethod<String>('readyForRequests'));
   }
 
   void _watchStartupMode() {
@@ -73,16 +74,17 @@ class _ResidentLauncherState extends State<ResidentLauncher> {
         bool isCurrent() => mounted && generation == _generation;
         final platform = await ClipboardPlatform.capture(isCurrent: isCurrent);
         if (!isCurrent()) return false;
-        setState(
-          () => _session = _ResidentSession(platform, call.arguments == true),
-        );
+        final scope = LauncherScope.fromWindowRequest(call.arguments);
+        setState(() => _session = _ResidentSession(platform, scope ?? .all));
         // Build the new session while hidden so the old frame cannot reappear.
         final binding = WidgetsBinding.instance;
         binding.scheduleWarmUpFrame();
         await binding.endOfFrame;
         return isCurrent();
-      case 'showClipboard':
-        setState(() => _clipboardRequest++);
+      case 'showScope':
+        if (LauncherScope.fromWindowRequest(call.arguments) case final scope?) {
+          setState(() => _scopeRequest = (scope, (_scopeRequest?.$2 ?? 0) + 1));
+        }
       case 'endSession':
         _generation++;
         Navigator.of(context).popUntil((route) => route.isFirst);
@@ -108,9 +110,9 @@ class _ResidentLauncherState extends State<ResidentLauncher> {
       key: ObjectKey(session),
       client: widget.clipboard,
       platform: session?.platform ?? const ClipboardPlatform(),
-      startInClipboard: session?.clipboard ?? false,
+      initialScope: session?.scope ?? .all,
       listenForWindowRequests: false,
-      clipboardRequest: _clipboardRequest,
+      scopeRequest: _scopeRequest,
       appsClient: session?.apps,
       webClient: session?.web,
       filesClient: session?.files,

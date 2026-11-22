@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import '../launcher/launcher_controls.dart';
+
 class ClipboardPlatform {
   const ClipboardPlatform();
 
@@ -29,20 +31,24 @@ class ClipboardPlatform {
     return const ClipboardPlatform();
   }
 
-  Future<void> listenForClipboard(void Function() onOpen) async {
+  Future<void> listenForScope(void Function(LauncherScope) onOpen) async {
+    void open(Object? value) {
+      if (LauncherScope.fromWindowRequest(value) case final scope?) {
+        onOpen(scope);
+      }
+    }
+
     _window.setMethodCallHandler((call) async {
-      if (call.method == 'showClipboard') onOpen();
+      if (call.method == 'showScope') open(call.arguments);
     });
     try {
-      if (await _window.invokeMethod<bool>('readyForRequests') == true) {
-        onOpen();
-      }
+      open(await _window.invokeMethod<String>('readyForRequests'));
     } on MissingPluginException {
       // A test or an embedder without the Launcher window channel.
     }
   }
 
-  void stopListeningForClipboard() => _window.setMethodCallHandler(null);
+  void stopListeningForScope() => _window.setMethodCallHandler(null);
 
   Future<void> close() => _window.invokeMethod<void>('close');
 

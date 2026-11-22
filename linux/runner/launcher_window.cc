@@ -10,7 +10,7 @@ const char kHiding[] = "remya-launcher-hiding";
 const char kPress[] = "remya-launcher-press";
 const char kChannel[] = "remya-launcher-window-channel";
 const char kReady[] = "remya-launcher-dart-ready";
-const char kShowClipboard[] = "remya-launcher-show-clipboard";
+const char kPendingScope[] = "remya-launcher-pending-scope";
 const char kResident[] = "remya-launcher-resident";
 const char kSessionOpen[] = "remya-launcher-session-open";
 const char kPendingOpen[] = "remya-launcher-pending-open";
@@ -444,6 +444,31 @@ void begin_file_drag(GtkWindow *window, FlMethodCall *call, FlValue *args) {
   fl_method_call_respond_success(call, started, nullptr);
 }
 
+FlValue *scope_value(LauncherScope scope) {
+  switch (scope) {
+    case LauncherScope::Clipboard:
+      return fl_value_new_string("clipboard");
+    case LauncherScope::Characters:
+      return fl_value_new_string("characters");
+    default:
+      return fl_value_new_null();
+  }
+}
+
+void show_launcher_scope(GtkWindow *window, LauncherScope scope) {
+  auto *object = G_OBJECT(window);
+  // A second invocation can arrive before Flutter has attached its handler.
+  if (g_object_get_data(object, kReady) == nullptr) {
+    g_object_set_data(object, kPendingScope,
+                      GINT_TO_POINTER(static_cast<int>(scope)));
+    return;
+  }
+  auto *channel = FL_METHOD_CHANNEL(g_object_get_data(object, kChannel));
+  g_autoptr(FlValue) args = scope_value(scope);
+  fl_method_channel_invoke_method(channel, "showScope", args, nullptr,
+                                  nullptr, nullptr);
+}
+
 void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
   auto *window = GTK_WINDOW(data);
   auto *widget = GTK_WIDGET(window);
@@ -464,10 +489,12 @@ void window_method(FlMethodChannel *, FlMethodCall *call, gpointer data) {
   } else if (g_str_equal(method, "readyForRequests")) {
     g_object_set_data(G_OBJECT(window), kReady, GINT_TO_POINTER(TRUE));
     int request = GPOINTER_TO_INT(g_object_steal_data(G_OBJECT(window), kPendingOpen));
-    g_autoptr(FlValue) pending = fl_value_new_bool(
-        g_object_steal_data(G_OBJECT(window), kShowClipboard) != nullptr);
+    int scope = GPOINTER_TO_INT(
+        g_object_steal_data(G_OBJECT(window), kPendingScope));
+    g_autoptr(FlValue) pending = scope_value(static_cast<LauncherScope>(scope));
     fl_method_call_respond_success(call, pending, nullptr);
-    if (request != 0) open_launcher_window(window, request == 2);
+    if (request != 0)
+      open_launcher_window(window, static_cast<LauncherScope>(request));
     return;
   } else if (g_str_equal(method, "disableResidency")) {
     g_object_set_data(G_OBJECT(window), kResident, nullptr);
@@ -555,22 +582,23 @@ bool launcher_window_is_open(GtkWindow *window) {
          g_object_get_data(G_OBJECT(window), kPreparingOpen) != nullptr;
 }
 
-void open_launcher_window(GtkWindow *window, bool clipboard) {
+void open_launcher_window(GtkWindow *window, LauncherScope scope) {
   auto *object = G_OBJECT(window);
   if (g_object_get_data(object, kResident) == nullptr ||
       g_object_get_data(object, kSessionOpen) != nullptr) {
-    if (clipboard) show_launcher_clipboard(window);
+    if (scope != LauncherScope::Default) show_launcher_scope(window, scope);
     show_launcher_window(window);
     return;
   }
   if (g_object_get_data(object, kReady) == nullptr) {
-    g_object_set_data(object, kPendingOpen, GINT_TO_POINTER(clipboard ? 2 : 1));
+    g_object_set_data(object, kPendingOpen,
+                      GINT_TO_POINTER(static_cast<int>(scope)));
     return;
   }
   auto *request = new OpenRequest(window);
   g_object_set_data(object, kPreparingOpen, request);
   auto *channel = FL_METHOD_CHANNEL(g_object_get_data(object, kChannel));
-  g_autoptr(FlValue) args = fl_value_new_bool(clipboard);
+  g_autoptr(FlValue) args = scope_value(scope);
   fl_method_channel_invoke_method(channel, "prepareOpen", args, nullptr,
                                   launcher_prepared, request);
 }
@@ -645,15 +673,4 @@ void register_launcher_window(FlView *view, GtkWindow *window) {
                                             nullptr);
   g_object_set_data_full(G_OBJECT(window), kChannel, g_steal_pointer(&channel),
                          g_object_unref);
-}
-
-void show_launcher_clipboard(GtkWindow *window) {
-  // A second invocation can arrive before Flutter has attached its handler.
-  if (g_object_get_data(G_OBJECT(window), kReady) == nullptr) {
-    g_object_set_data(G_OBJECT(window), kShowClipboard, GINT_TO_POINTER(TRUE));
-    return;
-  }
-  auto *channel = FL_METHOD_CHANNEL(g_object_get_data(G_OBJECT(window), kChannel));
-  fl_method_channel_invoke_method(channel, "showClipboard", nullptr, nullptr,
-                                  nullptr, nullptr);
 }

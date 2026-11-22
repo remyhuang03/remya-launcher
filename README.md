@@ -85,7 +85,7 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
   - In `Calc`, try `molar mass H₂O` or `2 mmol to mg using NaCl`. For concentration conversions, provide a chemical formula or a molar mass, as in `372.45 pmol/L to pg/mL using 272.38 g/mol`.
   - Optional FP8 and general calendar arithmetic remain deferred.
 
-- **Emoji and Symbols (`:`)**:
+- **Characters (`remya_launcher --characters` / `:`)**:
 
   - Search Emoji 18.0 offline across seven languages. Select **Symbols** for a separate catalog of arrows, math, currency, and other text characters.
   - Press Enter to copy or Ctrl+Right to choose an emoji variant. In **Settings → Emoji**, enable Ctrl+Enter to paste into the previous Hyprland window, or enable and clear the local recent emoji list.
@@ -101,7 +101,7 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 ### Tech Stack & Architecture
 
 - **Frontend**: Flutter & Dart (pinned via `.fvmrc` to `3.50.0`) with `material_ui` (Material Design 3 Expressive) and `flutter_svg`.
-  - `lib/app.dart` & `lib/main.dart`: Application composition, CLI flag handling (`--clipboard`, `--settings`, `--preview=...`), and license registration.
+  - `lib/app.dart` & `lib/main.dart`: Application composition, CLI flag handling (`--clipboard`, `--characters`, `--settings`, `--preview=...`), and license registration.
   - `lib/features/launcher/`: Launcher panel, search field, scope chips, result/pinned rows, keycap hints, calculator card, file preview, and action menu.
   - `lib/features/clipboard/`: Live clipboard page, Unix socket client, type previews, and clipboard actions.
   - `lib/features/files/`: Filename, path, and content search, file actions, previews, and settings.

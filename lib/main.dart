@@ -11,6 +11,7 @@ import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_tile.dart';
 import 'features/files/files_client.dart';
 import 'features/files/files_preferences.dart';
+import 'features/launcher/launcher_controls.dart';
 import 'features/launcher/startup_settings.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
@@ -97,7 +98,11 @@ Future<void> main(List<String> arguments) async {
       webClient: !resident && selectedExample == null ? WebClient() : null,
       filesClient: onDemand ? FilesClient() : null,
       clipboardType: clipboardType ?? 'command',
-      startInClipboard: arguments.contains('--clipboard'),
+      initialScope: arguments.contains('--clipboard')
+          ? LauncherScope.clipboard
+          : arguments.contains('--characters')
+          ? LauncherScope.emoji
+          : LauncherScope.all,
       clipboardPlatform: onDemand
           ? await ClipboardPlatform.capture()
           : const ClipboardPlatform(),

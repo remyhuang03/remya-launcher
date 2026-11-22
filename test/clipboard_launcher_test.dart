@@ -146,7 +146,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final clipboard = _TestClipboard([_entry('text', 'text', 'Compact note')]);
     await tester.pumpWidget(
-      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+      RemyaLauncherApp(initialScope: .clipboard, clipboardClient: clipboard),
     );
     await tester.pumpAndSettle();
     expect(find.byTooltip('Paste').hitTestable(), findsOneWidget);
@@ -194,7 +194,7 @@ void main() {
       _entry('hidden', 'hidden', 'Hidden', expires: true),
     ]);
     await tester.pumpWidget(
-      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+      RemyaLauncherApp(initialScope: .clipboard, clipboardClient: clipboard),
     );
     await tester.pumpAndSettle();
     expect(find.text('test secret'), findsNothing);
@@ -212,7 +212,7 @@ void main() {
     final clipboard = _TestClipboard([]);
     clipboard.available = false;
     await tester.pumpWidget(
-      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+      RemyaLauncherApp(initialScope: .clipboard, clipboardClient: clipboard),
     );
     await tester.pumpAndSettle();
     expect(find.text('Clipboard service is unavailable.'), findsOneWidget);
@@ -229,7 +229,7 @@ void main() {
       _entry('old', 'text', 'Original', age: 1),
     ]);
     await tester.pumpWidget(
-      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+      RemyaLauncherApp(initialScope: .clipboard, clipboardClient: clipboard),
     );
     await tester.pumpAndSettle();
     expect(find.text('Original'), findsWidgets);
@@ -294,7 +294,7 @@ void main() {
       },
     );
     await tester.pumpWidget(
-      RemyaLauncherApp(startInClipboard: true, clipboardClient: clipboard),
+      RemyaLauncherApp(initialScope: .clipboard, clipboardClient: clipboard),
     );
     await tester.pumpAndSettle();
 

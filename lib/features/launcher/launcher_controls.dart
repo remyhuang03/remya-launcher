@@ -174,13 +174,19 @@ enum LauncherScope {
   calculator('Calc', .calculate),
   clipboard('Clipboard', .clipboard),
   windows('Windows', .window),
-  emoji('Emoji', .mood),
+  emoji('Characters', .mood),
   actions('Actions', .bolt);
 
   const LauncherScope(this.label, this.icon);
 
   final String label;
   final LauncherIconName icon;
+
+  static LauncherScope? fromWindowRequest(Object? value) => switch (value) {
+    'clipboard' => .clipboard,
+    'characters' => .emoji,
+    _ => null,
+  };
 }
 
 class LauncherScopeChip extends StatelessWidget {

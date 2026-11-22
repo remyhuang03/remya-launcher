@@ -81,12 +81,13 @@ Future<void> _render(
   ClipboardPlatform platform = const _Platform(),
   EmojiPreferences preferences = const EmojiPreferences(),
   EmojiRecents? recents,
+  bool startInCharacters = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: ClipboardLauncher(
-          startInClipboard: false,
+          initialScope: startInCharacters ? .emoji : .all,
           client: client,
           platform: platform,
           loadEmojiCatalog: load,
@@ -118,6 +119,23 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late EmojiCatalog catalog;
   setUpAll(() async => catalog = await EmojiCatalog.load());
+
+  testWidgets('Characters opens with both Emoji and Symbols sections', (
+    tester,
+  ) async {
+    await _render(tester, () async => catalog, startInCharacters: true);
+    await _waitForEmoji(tester);
+
+    expect(find.text('Characters'), findsWidgets);
+    expect(find.widgetWithText(ChoiceChip, 'Emoji'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Symbols'));
+    await _waitForEmoji(tester);
+
+    expect(
+      tester.widget<EmojiResults>(find.byType(EmojiResults)).symbols,
+      isTrue,
+    );
+  });
 
   testWidgets('A composing prefix is left intact until the IME commits', (
     tester,

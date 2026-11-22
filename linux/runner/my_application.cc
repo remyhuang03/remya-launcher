@@ -47,25 +47,31 @@ static void first_frame_cb(FlView* view, gpointer) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+static LauncherScope requested_scope(const gchar* const* options) {
+  if (options != nullptr && g_strv_contains(options, "--clipboard"))
+    return LauncherScope::Clipboard;
+  if (options != nullptr && g_strv_contains(options, "--characters"))
+    return LauncherScope::Characters;
+  return LauncherScope::Default;
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   auto* gtk_application = GTK_APPLICATION(application);
   if (GList* windows = gtk_application_get_windows(gtk_application)) {
-    open_launcher_window(GTK_WINDOW(windows->data), false);
+    open_launcher_window(GTK_WINDOW(windows->data), LauncherScope::Default);
     return;
   }
   GtkWindow* window = GTK_WINDOW(gtk_application_window_new(gtk_application));
   gboolean preview = FALSE;
   gboolean settings = FALSE;
   bool background = false;
-  bool clipboard = false;
   for (char** argument = self->dart_entrypoint_arguments;
        argument && *argument; ++argument) {
     if (g_strcmp0(*argument, "--settings") == 0) settings = TRUE;
     if (g_str_has_prefix(*argument, "--preview=")) preview = TRUE;
     if (g_str_equal(*argument, "--background")) background = true;
-    if (g_str_equal(*argument, "--clipboard")) clipboard = true;
   }
   bool resident = !preview && !settings && resident_startup(application);
   const bool overlay = !preview && !settings &&
@@ -114,6 +120,7 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_default_size(window, 1000, 820);
   }
 
+  const auto scope = requested_scope(self->dart_entrypoint_arguments);
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   if (resident) {
     char** arguments = self->dart_entrypoint_arguments;
@@ -150,7 +157,7 @@ static void my_application_activate(GApplication* application) {
   if (!preview) register_launcher_window(view, window);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
-  if (resident && !background) open_launcher_window(window, clipboard);
+  if (resident && !background) open_launcher_window(window, scope);
 }
 
 // Routes subsequent Launcher invocations to the existing window over the session bus.
@@ -171,7 +178,7 @@ static int my_application_command_line(GApplication* application,
     if (g_strv_contains(options, "--toggle") && launcher_window_is_open(window)) {
       if (!hide_resident_launcher(window)) gtk_window_close(window);
     } else {
-      open_launcher_window(window, g_strv_contains(options, "--clipboard"));
+      open_launcher_window(window, requested_scope(options));
     }
     return 0;
   }

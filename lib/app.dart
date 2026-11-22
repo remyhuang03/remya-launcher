@@ -12,6 +12,7 @@ import 'features/emoji/emoji_settings.dart';
 import 'features/files/file_icon_palette.dart';
 import 'features/files/files_client.dart';
 import 'features/files/files_preferences.dart';
+import 'features/launcher/launcher_controls.dart';
 import 'features/launcher/resident_launcher.dart';
 import 'features/preview/launcher_examples.dart';
 import 'features/web/web_client.dart';
@@ -21,7 +22,7 @@ class RemyaLauncherApp extends StatelessWidget {
     this.example,
     this.settingsPage,
     this.clipboardType = 'command',
-    this.startInClipboard = false,
+    this.initialScope = .all,
     this.resident = false,
     this.clipboardClient = const ClipboardClient(),
     this.clipboardPlatform = const ClipboardPlatform(),
@@ -36,7 +37,7 @@ class RemyaLauncherApp extends StatelessWidget {
   final LauncherExample? example;
   final String? settingsPage;
   final String clipboardType;
-  final bool startInClipboard;
+  final LauncherScope initialScope;
   final bool resident;
   final ClipboardClient clipboardClient;
   final ClipboardPlatform clipboardPlatform;
@@ -122,7 +123,7 @@ class RemyaLauncherApp extends StatelessWidget {
             body: resident
                 ? ResidentLauncher(clipboard: clipboardClient)
                 : ClipboardLauncher(
-                    startInClipboard: startInClipboard,
+                    initialScope: initialScope,
                     client: clipboardClient,
                     appsClient: appsClient,
                     webClient: webClient,

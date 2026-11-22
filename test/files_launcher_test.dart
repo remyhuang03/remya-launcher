@@ -144,7 +144,6 @@ Future<void> _render(
     MaterialApp(
       home: Scaffold(
         body: ClipboardLauncher(
-          startInClipboard: false,
           client: const ClipboardClient(),
           platform: platform,
           filesClient: files,

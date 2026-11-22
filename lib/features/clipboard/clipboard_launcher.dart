@@ -52,11 +52,11 @@ part 'clipboard_launcher_web.dart';
 
 class ClipboardLauncher extends StatefulWidget {
   const ClipboardLauncher({
-    required this.startInClipboard,
+    this.initialScope = .all,
     required this.client,
     required this.platform,
     this.listenForWindowRequests = true,
-    this.clipboardRequest = 0,
+    this.scopeRequest,
     this.calculatorClient,
     this.appsClient,
     this.webClient,
@@ -68,11 +68,11 @@ class ClipboardLauncher extends StatefulWidget {
     super.key,
   });
 
-  final bool startInClipboard;
+  final LauncherScope initialScope;
   final ClipboardClient client;
   final ClipboardPlatform platform;
   final bool listenForWindowRequests;
-  final int clipboardRequest;
+  final (LauncherScope, int)? scopeRequest;
   final CalculatorClient? calculatorClient;
   final AppsClient? appsClient;
   final WebClient? webClient;
@@ -264,17 +264,17 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _search.addListener(_onSearchSelectionChanged);
-    if (widget.startInClipboard) {
-      _scope = .clipboard;
-      _startWatch();
+    if (widget.initialScope == .all) {
+      _apps.update(_scope, '', immediate: true);
+      _updateFiles('', immediate: true);
+    } else {
+      _setScope(widget.initialScope);
     }
-    _apps.update(_scope, '', immediate: true);
-    _updateFiles('', immediate: true);
     unawaited(_web.loadEngines());
     if (widget.listenForWindowRequests) {
       unawaited(
-        widget.platform.listenForClipboard(() {
-          if (mounted) _setScope(.clipboard);
+        widget.platform.listenForScope((scope) {
+          if (mounted) _setScope(scope);
         }),
       );
     }
@@ -283,8 +283,9 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   @override
   void didUpdateWidget(covariant ClipboardLauncher oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.clipboardRequest != oldWidget.clipboardRequest) {
-      _setScope(.clipboard);
+    final request = widget.scopeRequest;
+    if (request != null && request != oldWidget.scopeRequest) {
+      _setScope(request.$1);
     }
   }
 
@@ -301,7 +302,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     if (widget.listenForWindowRequests) {
-      widget.platform.stopListeningForClipboard();
+      widget.platform.stopListeningForScope();
     }
     _search.removeListener(_onSearchSelectionChanged);
     _stopWatch();

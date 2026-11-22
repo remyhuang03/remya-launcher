@@ -323,7 +323,6 @@ void main() {
     }) => MaterialApp(
       home: Scaffold(
         body: ClipboardLauncher(
-          startInClipboard: false,
           client: clipClient,
           platform: platform,
           calculatorClient: calcClient,
