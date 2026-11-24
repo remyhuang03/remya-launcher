@@ -131,6 +131,33 @@ To inspect a design preview from a debug build:
 build/linux/x64/debug/bundle/remya_launcher --preview=files
 ```
 
+### NixOS development
+
+Use sibling Launcher and Core checkouts. Follow `../remya-core/docs/nixos-debug.md`
+for the guest Hyprland session and isolated XDG roots. With those roots set,
+copy the Launcher registration before starting Core.
+
+```sh
+install -Dm644 linux/packaging/remya-launcher.json "$XDG_DATA_HOME/remya/apps/remya-launcher.json"
+```
+
+From the Launcher checkout in that session, enter the shell and build the
+debug bundle.
+
+```sh
+nix-shell -I nixpkgs=channel:nixos-unstable
+fvm install --no-setup --skip-pub-get
+fvm flutter precache --linux
+fvm flutter pub get --enforce-lockfile
+fvm flutter build linux --debug
+GDK_BACKEND=wayland build/linux/x64/debug/bundle/remya_launcher --characters
+```
+
+Check that the Characters panel accepts keyboard input and closes with Escape.
+Run the bundle inside the Nix shell throughout the session. Use desktop-entry
+search to test launching apps. Arch package search and installation rely on
+pacman.
+
 ### Validation & Local Installation
 
 Run formatting, static analysis, tests, and sequential debug/release builds:
