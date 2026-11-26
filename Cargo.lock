@@ -1333,7 +1333,7 @@ checksum = "d902046e6a28a1e4c3cab97258a0ce11e994903f01c2d97a9447a0b3df85f4f6"
 
 [[package]]
 name = "remya_launcher_apps"
-version = "0.1.0-dev.20261118.0"
+version = "0.1.0"
 dependencies = [
  "flate2",
  "gio",
@@ -1349,7 +1349,7 @@ dependencies = [
 
 [[package]]
 name = "remya_launcher_calculator"
-version = "0.1.0-dev.20261118.0"
+version = "0.1.0"
 dependencies = [
  "fend-core",
  "half",
@@ -1369,7 +1369,7 @@ dependencies = [
 
 [[package]]
 name = "remya_launcher_clipboard"
-version = "0.1.0-dev.20261118.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "csscolorparser",
@@ -1389,11 +1389,11 @@ dependencies = [
 
 [[package]]
 name = "remya_launcher_core"
-version = "0.1.0-dev.20261118.0"
+version = "0.1.0"
 
 [[package]]
 name = "remya_launcher_files"
-version = "0.1.0-dev.20261118.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "gio",
@@ -1409,7 +1409,7 @@ dependencies = [
 
 [[package]]
 name = "remya_launcher_web"
-version = "0.1.0-dev.20261118.0"
+version = "0.1.0"
 dependencies = [
  "base64",
  "gio",
