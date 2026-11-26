@@ -1,6 +1,6 @@
 use rusqlite::{Transaction, params};
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 pub(super) fn init_schema(tx: &Transaction<'_>) -> rusqlite::Result<()> {
     let version: i64 = tx.pragma_query_value(None, "user_version", |row| row.get(0))?;
@@ -17,16 +17,6 @@ pub(super) fn init_schema(tx: &Transaction<'_>) -> rusqlite::Result<()> {
              UPDATE opt_ins
              SET consent_token = lower(hex(randomblob(16)))
              WHERE enabled = 1 AND consent_token IS NULL;",
-        )?;
-    } else if version > 0 && version < SCHEMA_VERSION {
-        tx.execute_batch(
-            "DROP TABLE IF EXISTS pins;
-             DROP TABLE IF EXISTS entries_fts;
-             DROP TABLE IF EXISTS entries;
-             DROP TABLE IF EXISTS launcher_opens;
-             DROP TABLE IF EXISTS hidden;
-             DROP TABLE IF EXISTS opt_ins;
-             DROP TABLE IF EXISTS sync_generations;",
         )?;
     }
 
@@ -142,6 +132,15 @@ pub(super) fn init_schema(tx: &Transaction<'_>) -> rusqlite::Result<()> {
            entry_id TEXT PRIMARY KEY REFERENCES entries(entry_id) ON DELETE CASCADE
          );
 
+         CREATE TABLE IF NOT EXISTS web_favicons (
+           profile_id TEXT NOT NULL REFERENCES opt_ins(profile_id) ON DELETE CASCADE,
+           normalized_url TEXT NOT NULL,
+           host TEXT NOT NULL,
+           png BLOB NOT NULL,
+           fetched_ms INTEGER NOT NULL,
+           PRIMARY KEY(profile_id, normalized_url)
+         );
+
          CREATE TABLE IF NOT EXISTS web_preferences (
            id INTEGER PRIMARY KEY CHECK(id = 1),
            default_engine_id TEXT NOT NULL CHECK(default_engine_id IN ('duckduckgo', 'google'))
@@ -153,6 +152,10 @@ pub(super) fn init_schema(tx: &Transaction<'_>) -> rusqlite::Result<()> {
 }
 
 pub(super) fn purge_profile_data(tx: &Transaction<'_>, profile_id: &str) -> rusqlite::Result<()> {
+    tx.execute(
+        "DELETE FROM web_favicons WHERE profile_id = ?1",
+        params![profile_id],
+    )?;
     tx.execute(
         "DELETE FROM entries WHERE profile_id = ?1",
         params![profile_id],

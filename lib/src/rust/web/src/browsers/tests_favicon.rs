@@ -7,6 +7,7 @@ use tempfile::TempDir;
 
 use super::discovery::profile_id;
 use super::favicon::normalize_raster_favicon;
+use super::sqlite::{classify_sqlite_error, with_chromium_favicons, with_readonly_sqlite};
 use super::{Family, MAX_FAVICON_BYTES, Profile, favicon};
 
 pub(super) fn make_png(width: u32, height: u32) -> Vec<u8> {
@@ -103,7 +104,7 @@ fn favicon_bounds_blob_rejects_svg_and_normalizes_to_64px_png() {
             .unwrap();
     chr_conn
         .execute(
-            "INSERT INTO favicons (id, url) VALUES (10, 'https://app.example/favicon.png')",
+            "INSERT INTO favicons (id, url) VALUES (10, 'https://app.example/favicon.svg')",
             [],
         )
         .unwrap();
@@ -138,4 +139,41 @@ fn favicon_bounds_blob_rejects_svg_and_normalizes_to_64px_png() {
     oversized_dim_png[16..20].copy_from_slice(&4096u32.to_be_bytes());
     oversized_dim_png[20..24].copy_from_slice(&4096u32.to_be_bytes());
     assert!(normalize_raster_favicon(&oversized_dim_png).is_none());
+}
+
+#[test]
+fn chromium_favicons_read_committed_pages_under_exclusive_lock() {
+    let tmp = TempDir::new().unwrap();
+    let path = tmp.path().join("Favicons");
+    let writer = Connection::open(&path).unwrap();
+    writer
+        .execute_batch(
+            "PRAGMA locking_mode = EXCLUSIVE;
+             PRAGMA synchronous = FULL;
+             PRAGMA cache_size = 3;
+             CREATE TABLE icons (id INTEGER PRIMARY KEY, data BLOB);
+             INSERT INTO icons VALUES (1, 'committed');
+             BEGIN IMMEDIATE;
+             UPDATE icons SET data = 'staged' WHERE id = 1;",
+        )
+        .unwrap();
+
+    let read_icon = |tx: &rusqlite::Transaction<'_>| -> Result<String, &'static str> {
+        tx.query_row("SELECT data FROM icons WHERE id = 1", [], |row| row.get(0))
+            .map_err(|err| classify_sqlite_error(&err))
+    };
+    assert_eq!(with_readonly_sqlite(&path, read_icon), Err("SOURCE_LOCKED"));
+    assert_eq!(
+        with_chromium_favicons(&path, read_icon).unwrap(),
+        "committed"
+    );
+
+    writer
+        .execute("INSERT INTO icons VALUES (2, zeroblob(262144))", [])
+        .unwrap();
+    assert_eq!(
+        with_chromium_favicons(&path, read_icon),
+        Err("SOURCE_LOCKED")
+    );
+    writer.execute_batch("ROLLBACK").unwrap();
 }

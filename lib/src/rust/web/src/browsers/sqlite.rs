@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::fs;
+use std::io::{Read, Seek};
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -12,8 +13,11 @@ use url::Url;
 use super::{
     Entry, HISTORY_BATCH_SIZE, MAX_HISTORY_ENTRIES, MAX_HISTORY_SCAN_ROWS, MAX_TITLE_CHARS,
     MAX_VISIT_COUNT, SQLITE_BUSY_TIMEOUT_MS, WEBKIT_EPOCH_OFFSET_US, check_owned_file_with_meta,
-    map_io_err, read_bounded_prefix, sanitize_text,
+    map_io_err, open_owned_readonly_file, path_present, read_bounded_prefix, sanitize_text,
 };
+
+const MAX_CHROMIUM_FAVICONS_DB_BYTES: u64 = 64 * 1024 * 1024;
+const SQLITE_HEADER: &[u8] = b"SQLite format 3\0";
 
 fn sidecar_path(db_canon: &Path, suffix: &str) -> PathBuf {
     let mut aux_os = db_canon.as_os_str().to_os_string();
@@ -37,6 +41,14 @@ pub(super) fn with_readonly_sqlite<T>(
     path: &Path,
     op: impl FnOnce(&Transaction<'_>) -> Result<T, &'static str>,
 ) -> Result<T, &'static str> {
+    with_readonly_sqlite_timeout(path, Duration::from_millis(SQLITE_BUSY_TIMEOUT_MS), op)
+}
+
+fn with_readonly_sqlite_timeout<T>(
+    path: &Path,
+    busy_timeout: Duration,
+    op: impl FnOnce(&Transaction<'_>) -> Result<T, &'static str>,
+) -> Result<T, &'static str> {
     let (canon_db, pre_meta) = check_owned_file_with_meta(path)?;
     let wal_meta = check_optional_sidecar(&canon_db, "-wal")?;
     let shm_meta = check_optional_sidecar(&canon_db, "-shm")?;
@@ -48,7 +60,7 @@ pub(super) fn with_readonly_sqlite<T>(
     }
 
     let header = read_bounded_prefix(&canon_db, 100)?;
-    let has_sqlite_header = header.len() >= 20 && header.starts_with(b"SQLite format 3\0");
+    let has_sqlite_header = header.len() >= 20 && header.starts_with(SQLITE_HEADER);
     if !has_sqlite_header && !(header.is_empty() && wal_meta.is_some() && shm_meta.is_some()) {
         return Err("UNSUPPORTED_SCHEMA");
     }
@@ -85,19 +97,9 @@ pub(super) fn with_readonly_sqlite<T>(
     }
     .map_err(|err| classify_sqlite_error(&err))?;
 
-    conn.busy_timeout(Duration::from_millis(SQLITE_BUSY_TIMEOUT_MS))
+    conn.busy_timeout(busy_timeout)
         .map_err(|err| classify_sqlite_error(&err))?;
-    conn.pragma_update(None, "query_only", "ON")
-        .map_err(|err| classify_sqlite_error(&err))?;
-    conn.pragma_update(None, "trusted_schema", "OFF")
-        .map_err(|err| classify_sqlite_error(&err))?;
-
-    let result = {
-        let tx = conn
-            .transaction_with_behavior(TransactionBehavior::Deferred)
-            .map_err(|err| classify_sqlite_error(&err))?;
-        op(&tx)
-    };
+    let result = in_readonly_transaction(&mut conn, op);
     drop(conn);
 
     if use_immutable {
@@ -123,6 +125,102 @@ pub(super) fn with_readonly_sqlite<T>(
     }
 
     result
+}
+
+pub(super) fn with_chromium_favicons<T>(
+    path: &Path,
+    op: impl Fn(&Transaction<'_>) -> Result<T, &'static str>,
+) -> Result<T, &'static str> {
+    match with_readonly_sqlite_timeout(path, Duration::ZERO, &op) {
+        Err("SOURCE_LOCKED") => {
+            let mut snapshot = chromium_favicons_snapshot(path)?;
+            in_readonly_transaction(&mut snapshot, op)
+        }
+        result => result,
+    }
+}
+
+fn chromium_favicons_snapshot(path: &Path) -> Result<Connection, &'static str> {
+    let (mut source, meta) = open_owned_readonly_file(path)?;
+    let mut header = [0; 100];
+    source.read_exact(&mut header).map_err(map_io_err)?;
+    if !header.starts_with(SQLITE_HEADER) || header[18..20] != [1, 1] {
+        return Err("SOURCE_LOCKED");
+    }
+    if meta.len() > MAX_CHROMIUM_FAVICONS_DB_BYTES {
+        return Err("SOURCE_TOO_LARGE");
+    }
+    let journal = chromium_rollback_state(path)?;
+
+    source.rewind().map_err(map_io_err)?;
+    let mut snapshot = Connection::open_in_memory().map_err(|err| classify_sqlite_error(&err))?;
+    snapshot
+        .deserialize_read_exact("main", source, meta.len() as usize, true)
+        .map_err(|err| classify_sqlite_error(&err))?;
+
+    let (mut current, current_meta) = open_owned_readonly_file(path)?;
+    let mut current_header = [0; 100];
+    current
+        .read_exact(&mut current_header)
+        .map_err(map_io_err)?;
+    if header != current_header
+        || file_stamp(&meta) != file_stamp(&current_meta)
+        || journal != chromium_rollback_state(path)?
+    {
+        return Err("SOURCE_LOCKED");
+    }
+    Ok(snapshot)
+}
+
+#[derive(PartialEq, Eq)]
+struct FileStamp {
+    identity: (u64, u64),
+    len: u64,
+    modified: (i64, i64),
+    changed: (i64, i64),
+}
+
+fn file_stamp(meta: &fs::Metadata) -> FileStamp {
+    FileStamp {
+        identity: (meta.dev(), meta.ino()),
+        len: meta.len(),
+        modified: (meta.mtime(), meta.mtime_nsec()),
+        changed: (meta.ctime(), meta.ctime_nsec()),
+    }
+}
+
+fn chromium_rollback_state(path: &Path) -> Result<Option<(FileStamp, [u8; 28])>, &'static str> {
+    if path_present(&sidecar_path(path, "-wal"))? || path_present(&sidecar_path(path, "-shm"))? {
+        return Err("SOURCE_LOCKED");
+    }
+    let journal_path = sidecar_path(path, "-journal");
+    if !path_present(&journal_path)? {
+        return Ok(None);
+    }
+    let (mut journal, meta) = open_owned_readonly_file(&journal_path)?;
+    let mut header = [0; 28];
+    if meta.len() != 0 {
+        journal.read_exact(&mut header).map_err(map_io_err)?;
+        // With Chromium's synced rollback journal, SQLite sets the magic and page count before writing DB pages.
+        if header[..12] != [0; 12] {
+            return Err("SOURCE_LOCKED");
+        }
+    }
+    Ok(Some((file_stamp(&meta), header)))
+}
+
+fn in_readonly_transaction<T>(
+    conn: &mut Connection,
+    op: impl FnOnce(&Transaction<'_>) -> Result<T, &'static str>,
+) -> Result<T, &'static str> {
+    conn.pragma_update(None, "query_only", "ON")
+        .map_err(|err| classify_sqlite_error(&err))?;
+    conn.pragma_update(None, "trusted_schema", "OFF")
+        .map_err(|err| classify_sqlite_error(&err))?;
+    let tx = conn
+        .transaction_with_behavior(TransactionBehavior::Deferred)
+        .map_err(|err| classify_sqlite_error(&err))?;
+    op(&tx)
 }
 
 pub(super) fn classify_sqlite_error(err: &rusqlite::Error) -> &'static str {

@@ -10,12 +10,11 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use crate::browsers::{self, Profile};
-use crate::index;
+use crate::index::{self, MAX_FAVICON_PNG_BYTES};
 
 use super::WebService;
 use super::protocol::{ApiError, MAX_ID_BYTES, validate_entity_id, validate_icon_key};
 
-const MAX_FAVICON_RAW_BYTES: usize = 192 * 1024;
 const FAVICON_RESOLVE_TIMEOUT: Duration = Duration::from_millis(250);
 const MAX_FAVICON_WORKERS: usize = 4;
 const FAVICON_CACHE_MAX_BYTES_PER_PROFILE: usize = 4 * 1024 * 1024;
@@ -24,9 +23,11 @@ const FAVICON_CACHE_MAX_TOTAL_BYTES: usize = 16 * 1024 * 1024;
 const FAVICON_CACHE_MAX_TOTAL_ENTRIES: usize = 1024;
 const PNG_MAGIC: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
 
+#[derive(Clone)]
 struct CachedFavicon {
     profile_id: String,
     normalized_url: String,
+    consent_token: String,
     host: String,
     png_bytes: Vec<u8>,
     last_used_seq: u64,
@@ -53,37 +54,39 @@ impl FaviconCache {
         }
     }
 
-    pub(super) fn get_key_for(&mut self, profile_id: &str, normalized_url: &str) -> Option<String> {
+    fn get_key_for(
+        &mut self,
+        profile_id: &str,
+        normalized_url: &str,
+        consent_token: &str,
+    ) -> Option<String> {
         let key = self
             .by_profile_url
             .get(&(profile_id.to_owned(), normalized_url.to_owned()))?
             .clone();
         self.seq = self.seq.wrapping_add(1);
-        if let Some(entry) = self.entries.get_mut(&key) {
-            entry.last_used_seq = self.seq;
-            Some(key)
-        } else {
-            None
+        let entry = self.entries.get_mut(&key)?;
+        if entry.consent_token != consent_token {
+            return None;
         }
+        entry.last_used_seq = self.seq;
+        Some(key)
     }
 
-    pub(super) fn read_by_key(&mut self, icon_key: &str) -> Option<(String, String, Vec<u8>)> {
+    fn read_by_key(&mut self, icon_key: &str) -> Option<&CachedFavicon> {
         self.seq = self.seq.wrapping_add(1);
         let seq = self.seq;
         let entry = self.entries.get_mut(icon_key)?;
         entry.last_used_seq = seq;
-        Some((
-            entry.profile_id.clone(),
-            entry.normalized_url.clone(),
-            entry.png_bytes.clone(),
-        ))
+        Some(entry)
     }
 
-    pub(super) fn insert(
+    fn insert(
         &mut self,
         profile_id: &str,
         normalized_url: &str,
         host: &str,
+        consent_token: &str,
         png_bytes: Vec<u8>,
     ) -> String {
         if let Some(old_key) = self
@@ -119,6 +122,7 @@ impl FaviconCache {
         hasher.update(b"\0");
         hasher.update(normalized_url.as_bytes());
         hasher.update(b"\0");
+        hasher.update(consent_token.as_bytes());
         hasher.update(seq.to_le_bytes());
         let digest = hasher.finalize();
         let mut icon_key = String::with_capacity(3 + 32);
@@ -144,6 +148,7 @@ impl FaviconCache {
             CachedFavicon {
                 profile_id: profile_id.to_owned(),
                 normalized_url: normalized_url.to_owned(),
+                consent_token: consent_token.to_owned(),
                 host: host.to_owned(),
                 png_bytes,
                 last_used_seq: seq,
@@ -311,8 +316,11 @@ impl WebService {
             return false;
         }
         let idx = self.index.lock().unwrap();
-        idx.has_url(profile_id, norm_url).unwrap_or(false)
-            && idx.consent_token(profile_id).ok().flatten().as_deref() == Some(consent_token)
+        idx.visible_url_token(profile_id, norm_url)
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some(consent_token)
     }
 
     pub(super) fn favicon_resolve(
@@ -394,10 +402,10 @@ impl WebService {
         {
             let idx = self.index.lock().unwrap();
             for item in candidate_profiles {
-                let visible = idx
-                    .has_url(&item.0.id, &norm_url)
+                let token = idx
+                    .visible_url_token(&item.0.id, &norm_url)
                     .map_err(|_| ApiError::internal("Failed to check index visibility."))?;
-                if visible {
+                if token.as_deref() == Some(item.3.as_str()) {
                     authorized_profiles.push(item);
                 }
             }
@@ -414,7 +422,7 @@ impl WebService {
         for (profile, opt_gen, clear_gen, token) in &authorized_profiles {
             let cached_key = {
                 let mut cache = self.favicons.cache.lock().unwrap();
-                cache.get_key_for(&profile.id, &norm_url)
+                cache.get_key_for(&profile.id, &norm_url, token)
             };
             if let Some(icon_key) = cached_key {
                 if self.is_favicon_candidate_eligible(
@@ -435,23 +443,32 @@ impl WebService {
             }
         }
 
-        // Bounded lookup through browser module (no scan lock held).
+        // Browser I/O happens outside the index and mutation locks.
         for (profile, opt_gen, clear_gen, token) in authorized_profiles {
-            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
-                break;
-            };
-            if remaining.is_zero() {
-                break;
-            }
-            let Some(png_bytes) =
+            let stored = self
+                .index
+                .lock()
+                .unwrap()
+                .stored_favicon(&profile.id, &norm_url, &token)
+                .ok()
+                .flatten()
+                .filter(|icon| icon.png.starts_with(PNG_MAGIC));
+            let refreshed = if stored.as_ref().is_none_or(|icon| icon.needs_refresh) {
                 self.favicons
-                    .fetch_bounded(profile.clone(), norm_url.clone(), remaining)
-            else {
+                    .fetch_bounded(
+                        profile.clone(),
+                        norm_url.clone(),
+                        deadline.saturating_duration_since(Instant::now()),
+                    )
+                    .filter(|png| png.len() <= MAX_FAVICON_PNG_BYTES && png.starts_with(PNG_MAGIC))
+            } else {
+                None
+            };
+            let from_browser = refreshed.is_some();
+            let Some(png) = refreshed.or_else(|| stored.map(|icon| icon.png)) else {
                 continue;
             };
-            if png_bytes.len() > MAX_FAVICON_RAW_BYTES || !png_bytes.starts_with(PNG_MAGIC) {
-                continue;
-            }
+            let _mutation = self.shared.mutation_lock.lock().unwrap();
             if !self.is_favicon_candidate_eligible(
                 &profile.id,
                 &norm_url,
@@ -461,9 +478,15 @@ impl WebService {
             ) {
                 continue;
             }
-
+            if from_browser {
+                let _ =
+                    self.index
+                        .lock()
+                        .unwrap()
+                        .store_favicon(&profile.id, &parsed, &token, &png);
+            }
             let mut cache = self.favicons.cache.lock().unwrap();
-            let icon_key = cache.insert(&profile.id, &norm_url, &host, png_bytes);
+            let icon_key = cache.insert(&profile.id, &norm_url, &host, &token, png);
             return Ok(json!({
                 "status": "ready",
                 "iconKey": icon_key,
@@ -482,39 +505,26 @@ impl WebService {
 
         let cached = {
             let mut cache = self.favicons.cache.lock().unwrap();
-            cache.read_by_key(icon_key)
+            cache.read_by_key(icon_key).cloned()
         };
-        let Some((profile_id, normalized_url, png_bytes)) = cached else {
+        let Some(cached) = cached else {
             return Err(ApiError::icon_not_found());
         };
 
         // Always verify against the shared SQLite projection (enabled, indexed, and unhidden),
         // even when our in-memory cache and map state still look enabled.
-        let (visible, still_enabled) = {
+        let visible_token = {
             let idx = self.index.lock().unwrap();
-            let visible = idx
-                .has_url(&profile_id, &normalized_url)
-                .map_err(|_| ApiError::internal("Failed to check favicon visibility."))?;
-            let still_enabled = if visible {
-                true
-            } else {
-                idx.consent_token(&profile_id)
-                    .map_err(|_| ApiError::internal("Failed to check profile opt-in state."))?
-                    .is_some()
-            };
-            (visible, still_enabled)
+            idx.visible_url_token(&cached.profile_id, &cached.normalized_url)
+                .map_err(|_| ApiError::internal("Failed to check favicon visibility."))?
         };
-        if !visible {
+        if visible_token.as_deref() != Some(cached.consent_token.as_str()) {
             let mut cache = self.favicons.cache.lock().unwrap();
-            if still_enabled {
-                cache.remove_by_key(icon_key);
-            } else {
-                cache.invalidate_profile(&profile_id);
-            }
+            cache.remove_by_key(icon_key);
             return Err(ApiError::icon_not_found());
         }
 
-        let png_base64 = BASE64_STANDARD.encode(&png_bytes);
+        let png_base64 = BASE64_STANDARD.encode(&cached.png_bytes);
         Ok(json!({ "pngBase64": png_base64 }))
     }
 }

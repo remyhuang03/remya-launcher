@@ -6,7 +6,9 @@ use image::{ImageFormat, ImageReader, Limits};
 use rusqlite::params;
 use rusqlite::types::ValueRef;
 
-use super::sqlite::{classify_sqlite_error, require_columns, with_readonly_sqlite};
+use super::sqlite::{
+    classify_sqlite_error, require_columns, with_chromium_favicons, with_readonly_sqlite,
+};
 use super::{
     MAX_FAVICON_BYTES, MAX_FAVICON_DECODE_ALLOC, MAX_FAVICON_PIXELS, MAX_FAVICON_SOURCE_DIM,
     TARGET_FAVICON_DIM,
@@ -24,11 +26,11 @@ pub(super) fn read_gecko_favicon(dir: &Path, candidate_urls: &[String]) -> Optio
     with_readonly_sqlite(&dir.join("favicons.sqlite"), |tx| {
         require_columns(tx, "moz_pages_w_icons", &["id", "page_url"])?;
         require_columns(tx, "moz_icons_to_pages", &["page_id", "icon_id"])?;
-        require_columns(tx, "moz_icons", &["id", "icon_url", "width", "data"])?;
+        require_columns(tx, "moz_icons", &["id", "width", "data"])?;
 
         let mut stmt = tx
             .prepare(
-                "SELECT i.data, COALESCE(i.icon_url, '') \
+                "SELECT i.data \
                  FROM moz_pages_w_icons p \
                  JOIN moz_icons_to_pages ip ON ip.page_id = p.id \
                  JOIN moz_icons i ON i.id = ip.icon_id \
@@ -49,9 +51,9 @@ pub(super) fn read_gecko_favicon(dir: &Path, candidate_urls: &[String]) -> Optio
 }
 
 pub(super) fn read_chromium_favicon(dir: &Path, candidate_urls: &[String]) -> Option<Vec<u8>> {
-    with_readonly_sqlite(&dir.join("Favicons"), |tx| {
+    with_chromium_favicons(&dir.join("Favicons"), |tx| {
         require_columns(tx, "icon_mapping", &["page_url", "icon_id"])?;
-        require_columns(tx, "favicons", &["id", "url"])?;
+        require_columns(tx, "favicons", &["id"])?;
         let bitmap_cols = require_columns(
             tx,
             "favicon_bitmaps",
@@ -64,7 +66,7 @@ pub(super) fn read_chromium_favicon(dir: &Path, candidate_urls: &[String]) -> Op
         };
 
         let sql = format!(
-            "SELECT b.image_data, COALESCE(f.url, '') \
+            "SELECT b.image_data \
              FROM icon_mapping m \
              JOIN favicons f ON f.id = m.icon_id \
              JOIN favicon_bitmaps b ON b.icon_id = f.id \
@@ -94,11 +96,6 @@ fn query_first_favicon(
             continue;
         };
         while let Ok(Some(row)) = rows.next() {
-            if let Ok(ValueRef::Text(url_bytes)) = row.get_ref(1)
-                && is_svg_icon_hint(&String::from_utf8_lossy(url_bytes))
-            {
-                continue;
-            }
             let Ok(ValueRef::Blob(blob)) = row.get_ref(0) else {
                 continue;
             };
@@ -113,11 +110,6 @@ fn query_first_favicon(
     None
 }
 
-fn is_svg_icon_hint(icon_url: &str) -> bool {
-    let lower = icon_url.trim().to_ascii_lowercase();
-    lower.starts_with("data:image/svg+xml") || lower.ends_with(".svg") || lower.contains(".svg?")
-}
-
 fn looks_like_svg_payload(data: &[u8]) -> bool {
     let prefix_len = data.len().min(256);
     let Ok(prefix) = std::str::from_utf8(&data[..prefix_len]) else {
@@ -129,6 +121,7 @@ fn looks_like_svg_payload(data: &[u8]) -> bool {
 }
 
 pub(super) fn normalize_raster_favicon(data: &[u8]) -> Option<Vec<u8>> {
+    // Browsers can cache rasterized SVG icons. Validate the bytes and reject actual SVG payloads.
     if data.is_empty() || data.len() > MAX_FAVICON_BYTES || looks_like_svg_payload(data) {
         return None;
     }
@@ -174,7 +167,10 @@ pub(super) fn normalize_raster_favicon(data: &[u8]) -> Option<Vec<u8>> {
         };
 
     let mut out = Cursor::new(Vec::new());
-    normalized.write_to(&mut out, ImageFormat::Png).ok()?;
+    normalized
+        .into_rgba8()
+        .write_to(&mut out, ImageFormat::Png)
+        .ok()?;
     let png_bytes = out.into_inner();
     if png_bytes.is_empty() || png_bytes.len() > MAX_FAVICON_BYTES {
         return None;

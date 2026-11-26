@@ -1,6 +1,7 @@
 mod candidates;
 mod dto;
 mod engines;
+mod favicon;
 mod query;
 mod ranking;
 mod schema;
@@ -14,6 +15,7 @@ mod tests;
 use rusqlite::Connection;
 
 pub use engines::{engine_url, engines, is_supported_default_engine, validate_url};
+pub(crate) use favicon::MAX_FAVICON_PNG_BYTES;
 
 pub(super) const MAX_FREQUENT_SITES: usize = 6;
 pub(super) const OPEN_RANK_WINDOW_MS: i64 = 30 * 86_400_000;

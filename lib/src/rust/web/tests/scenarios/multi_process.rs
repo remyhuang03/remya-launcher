@@ -89,6 +89,31 @@ fn multi_process_shared_projection_consent_and_favicons() {
     }));
     assert!(read_ok["data"]["pngBase64"].is_string());
 
+    // New processes can serve both fresh and stale cached PNGs while the browser DB is unavailable.
+    let db_path = env.state_home.join("remya-launcher/web/index.sqlite");
+    let db = Connection::open(&db_path).unwrap();
+    db.execute(
+        "UPDATE web_favicons SET fetched_ms = 0 WHERE normalized_url = ?1",
+        ["https://docs.example.org/"],
+    )
+    .unwrap();
+    let favicons_path = ff_dir.join("favicons.sqlite");
+    let unavailable = ff_dir.join("favicons.offline");
+    fs::rename(&favicons_path, &unavailable).unwrap();
+    let mut sidecar_c = env.spawn(&["--standalone"]);
+    for url in ["https://wiki.hypr.land/", "https://docs.example.org/"] {
+        let resolved = sidecar_c.request(json!({
+            "id": 200, "op": "web.favicon.resolve", "url": url, "profileId": ff_id
+        }));
+        assert_eq!(resolved["data"]["status"], "ready");
+        let read = sidecar_c.request(json!({
+            "id": 201, "op": "web.favicon.read", "iconKey": resolved["data"]["iconKey"]
+        }));
+        assert_eq!(read["data"]["pngBase64"], read_ok["data"]["pngBase64"]);
+    }
+    drop(sidecar_c);
+    fs::rename(&unavailable, &favicons_path).unwrap();
+
     // 1) Sidecar A hides https://wiki.hypr.land/ locally -> Sidecar B must reject cached read & resolve.
     let search_a =
         sidecar_a.request(json!({"id": 3, "op": "web.search", "query": "Hyprland Wiki"}));
@@ -122,6 +147,14 @@ fn multi_process_shared_projection_consent_and_favicons() {
         "profileId": ff_id
     }));
     assert_eq!(hidden_resolve_b["data"]["status"], "monogram");
+    let hidden_cached: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM web_favicons WHERE normalized_url = ?1",
+            ["https://wiki.hypr.land/"],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(hidden_cached, 0);
 
     // 2) Source URL removed on sync in Sidecar A -> Sidecar B must reject cached read & resolve.
     {
@@ -154,6 +187,10 @@ fn multi_process_shared_projection_consent_and_favicons() {
         "profileId": ff_id
     }));
     assert_eq!(removed_resolve_b["data"]["status"], "monogram");
+    let remaining_cached: i64 = db
+        .query_row("SELECT COUNT(*) FROM web_favicons", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(remaining_cached, 0);
 
     // Re-insert docs URL, sync in A, re-cache in B, then test cross-process disable + consent token race.
     {
@@ -183,7 +220,6 @@ fn multi_process_shared_projection_consent_and_favicons() {
     let docs_key_b2 = fav_docs_b2["data"]["iconKey"].as_str().unwrap().to_owned();
 
     // Capture the persisted consent token before Sidecar A disables & re-enables.
-    let db_path = env.state_home.join("remya-launcher/web/index.sqlite");
     let mut external_idx = remya_launcher_web::index::Index::open(&db_path).unwrap();
     let old_token = external_idx.consent_token(&ff_id).unwrap().unwrap();
 
@@ -207,6 +243,10 @@ fn multi_process_shared_projection_consent_and_favicons() {
         "profileId": ff_id
     }));
     assert_eq!(disabled_resolve_b["error"]["code"], "PROFILE_DISABLED");
+    let remaining_cached: i64 = db
+        .query_row("SELECT COUNT(*) FROM web_favicons", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(remaining_cached, 0);
 
     // 4) Sidecar A re-enables -> new consent token is issued; stale token cannot overwrite projection.
     sidecar_a.request(json!({
@@ -250,3 +290,4 @@ fn multi_process_shared_projection_consent_and_favicons() {
     }));
     assert_eq!(stale_search["data"]["matchedCount"], 0);
 }
+use std::fs;

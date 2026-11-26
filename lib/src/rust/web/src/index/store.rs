@@ -254,6 +254,14 @@ impl Index {
             "DELETE FROM entries WHERE profile_id = ?1 AND seen_generation <> ?2",
             params![&profile.id, generation],
         )?;
+        tx.execute(
+            "DELETE FROM web_favicons
+             WHERE profile_id = ?1 AND NOT EXISTS (
+               SELECT 1 FROM entries e
+               WHERE e.profile_id = ?1 AND e.normalized_url = web_favicons.normalized_url
+             )",
+            params![&profile.id],
+        )?;
 
         tx.commit()?;
         Ok(true)
@@ -362,6 +370,7 @@ impl Index {
         )?;
 
         if site {
+            tx.execute("DELETE FROM web_favicons WHERE host = ?1", params![host])?;
             tx.execute(
                 "DELETE FROM pins
                  WHERE entry_id IN (SELECT entry_id FROM entries WHERE host = ?1)",
@@ -374,6 +383,10 @@ impl Index {
                 params![target_key],
             )?;
         } else {
+            tx.execute(
+                "DELETE FROM web_favicons WHERE normalized_url = ?1",
+                params![normalized_url],
+            )?;
             tx.execute(
                 "DELETE FROM pins
                  WHERE entry_id IN (SELECT entry_id FROM entries WHERE normalized_url = ?1)",
@@ -630,27 +643,41 @@ impl Index {
         let Some(parsed) = validate_url(url) else {
             return Ok(false);
         };
-        let normalized_url = parsed.as_str();
-        let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
-
-        self.conn.query_row(
-            "SELECT EXISTS(
-               SELECT 1
-               FROM entries e
-               JOIN opt_ins o ON o.profile_id = e.profile_id AND o.enabled = 1
-               WHERE e.profile_id = ?1
-                 AND e.normalized_url = ?2
-                 AND NOT EXISTS (
-                   SELECT 1 FROM hidden h
-                   WHERE h.profile_id = e.profile_id
-                     AND ((h.scope = 'url' AND h.target = e.normalized_url)
-                       OR (h.scope = 'host' AND h.target = ?3))
-                 )
-             )",
-            params![id, normalized_url, host],
-            |row| row.get(0),
-        )
+        Ok(self.visible_url_token(id, parsed.as_str())?.is_some())
     }
+
+    pub(crate) fn visible_url_token(
+        &self,
+        id: &str,
+        url: &str,
+    ) -> rusqlite::Result<Option<String>> {
+        visible_url_token(&self.conn, id, url)
+    }
+}
+
+pub(super) fn visible_url_token(
+    conn: &Connection,
+    id: &str,
+    url: &str,
+) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT o.consent_token
+           FROM entries e
+           JOIN opt_ins o ON o.profile_id = e.profile_id AND o.enabled = 1
+           WHERE e.profile_id = ?1
+             AND e.normalized_url = ?2
+             AND NOT EXISTS (
+               SELECT 1 FROM hidden h
+               WHERE h.profile_id = e.profile_id
+                 AND ((h.scope = 'url' AND h.target = e.normalized_url)
+                   OR (h.scope = 'host' AND h.target = e.host))
+             )
+           LIMIT 1",
+        params![id, url],
+        |row| row.get::<_, Option<String>>(0),
+    )
+    .optional()
+    .map(Option::flatten)
 }
 
 fn enable_wal(conn: &Connection) -> rusqlite::Result<()> {
