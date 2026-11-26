@@ -4,23 +4,47 @@
 
 - Remya Launcher is a Linux desktop application for Hyprland, built with Flutter and Rust. Its application ID is `top.remya.launcher` and its executable is `remya_launcher`.
 - Keep general shell command execution out of the Launcher search field.
-- Clipboard history and its settings pages belong to Remya Launcher. Clipboard policy is registered with and read/written only through Remya Core app preferences. Keep example data separate from reusable controls. Add system integrations only when requested. Never present examples as detected system state.
+- Clipboard history and its settings pages belong to Remya Launcher. Clipboard policy is registered with and read/written only through Remya Core app preferences. Keep example data separate from reusable controls. Add system integrations only when requested.
 - Keep application composition in `lib/app.dart`, startup in `lib/main.dart`, and feature code under `lib/features/<feature>/`. Extract shared widgets only when multiple call sites need them.
 - Keep the Flutter project and Cargo workspace at the repository root. Place Rust crates in `lib/src/rust/<crate>/` and keep the core crate empty until it has a concrete responsibility. Keep any future generated bridge code separate from handwritten code.
-- Use the public remya_client and remya_ui packages from Remya Core for shared integrations. Respect XDG paths and preserve user configuration. Do not modify Hyprland configuration.
-- Write rule documents in English.
-
-## UI and toolchains
-
-- Use Material Design 3 Expressive and import `package:material_ui/material_ui.dart` for Material widgets. Preserve keyboard navigation, visible focus, readable contrast, and scrolling.
-- Use dot shorthand where the expected type is unambiguous. Split complex widgets by responsibility and keep small single-use widgets private.
-- Run Flutter and Dart via FVM. Use the pinned `.fvmrc` and the root `rust-toolchain.toml`. Keep dependency lockfiles tracked and ignore build artifacts and machine-specific settings.
-- Reuse existing packages and helpers. Preserve third-party notices and check dependency compatibility with the PolyForm Noncommercial License.
+- Use the public remya_client and remya_ui packages from Remya Core for shared integrations.
 
 ## Validation and delivery
 
-- Run `python tool/check_source_length.py` as part of local validation. It warns for Rust and Dart source files over 800 physical lines, including comments and blank lines. Review every reported file against the single-responsibility principle and refactor files that mix responsibilities.
-- When a reviewed file should stay together, run `python tool/check_source_length.py add <path> --reason "<why it should stay together>"` and include the updated `tool/source_length_exceptions.json` in the change. The exception applies only to that file's recorded SHA-256. Changed files still over 800 lines require another review.
-- Run Dart format, Flutter analyze and test, the Linux debug and release builds, Cargo format, Clippy and tests, and `git diff --check` as relevant. Run debug and release builds sequentially.
-- After application changes, rebuild and install the release bundle with `python tool/install.py`. Verify the installed application on the desktop and close verification instances. The GUI runs on demand and the clipboard service runs with the graphical session. Use the [desktop testing skill](.agents/skills/launcher-desktop-testing/SKILL.md) for installed-bundle smoke checks and input or Wayland debugging.
-- Develop on a separate `<type>/<short-description>` branch and use Conventional Commits. Stage only intended files. Show completed changes and validation before requesting approval to commit unless the user has already authorized it. Commit approval also authorizes merging to `main`, cleaning up the merged development branch, and pushing `main` to the private origin.
+- The GUI runs on demand and the clipboard service runs with the graphical session. Use the [desktop testing skill](.agents/skills/launcher-desktop-testing/SKILL.md) for installed-bundle smoke checks and input or Wayland debugging.
+
+<!-- BEGIN:remya-shared profiles=base,source-length,rust,flutter-app,workstation-install -->
+<!-- Generated from remya-apps-skills/rules/. Do not edit manually; run remya-apps-skills/rules/sync.py. -->
+
+## Shared Remya Guidelines
+
+- Write rule documents, including `AGENTS.md`, in English.
+- Respect XDG base directories (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`); ignore relative XDG values and use absolute `$HOME` fallbacks; do not create unused cache/state directories. Never automatically modify user Hyprland or desktop configuration.
+- License & dependencies: PolyForm Noncommercial License 1.0.0 (`LICENSE`). Check dependency license compatibility before adding code or libraries and preserve third-party notices. Prefer permissive licenses (`MIT`, `BSD`, `Apache-2.0`, `ISC`, `Zlib`, `Unlicense`). Keep `LGPL` libraries dynamically linked or in separate processes; never introduce `GPL`, `AGPL`, `SSPL`, or incompatible strong-copyleft code. Reuse existing helpers/packages.
+- Validation hygiene: Keep durable tests for non-trivial logic and regressions; remove obsolete, duplicate, or temporary UI-inspection tests before committing. Validate configuration input, preserve the last valid state on errors, and use atomic persistence.
+- Git workflow: Develop and validate on a separate branch `<type>/<short-description>` (lowercase words and hyphens). Use small, focused stacked commits when appropriate. Follow Conventional Commits: `<type>(<scope>): <description>` (lowercase imperative description without a final period; mark breaking changes with `!` or `BREAKING CHANGE:`). Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Inspect diffs, stage only intended paths, and preserve unrelated changes. Commit approval is mandatory: show completed changes and validation results before requesting explicit user approval to run `git commit`. Approval to commit also authorizes merging ready branches into `main`, deleting fully merged local branches (and clean worktrees), pushing `main` to `origin`, and verifying remote refs.
+
+### Source Length Check
+
+- Run `python tool/check_source_length.py` as part of local validation (warns for Rust and Dart files over 800 physical lines, including comments and blank lines). Review every reported file against the single-responsibility principle and refactor files that mix responsibilities.
+- When a reviewed file should stay together, run `python tool/check_source_length.py add <path> --reason "<why it should stay together>"` and include the updated `tool/source_length_exceptions.json` (keyed by SHA-256; modified files still over 800 lines require another review).
+
+### Rust Toolchain & Validation
+
+- Use the root `rust-toolchain.toml` (do not change toolchain channels without explicit instruction) and inherit common crate metadata from the workspace where applicable. Commit `Cargo.lock`; ignore build output.
+- Run before presenting changes: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace`.
+
+### Flutter Linux App Guidelines
+
+- Always invoke Flutter and Dart via `fvm flutter ...` and `fvm dart ...`, never global SDK commands.
+- Target Linux only.
+- All UI must follow Material Design 3 Expressive (MD3E): import `package:material_ui/material_ui.dart` instead of `package:flutter/material.dart`; enable Material 3 and Expressive color schemes; follow the design system for spacing, shape, typography, and motion.
+- Use dot shorthand wherever supported and the expected type is unambiguous. Split complex widgets by responsibility and keep small single-use widgets private.
+- Run `fvm flutter pub get` after dependency changes. Run `fvm dart format --output=none --set-exit-if-changed lib test`, `fvm flutter analyze`, `fvm flutter test`, and `fvm flutter build linux --debug` as relevant. Keep debug and release builds sequential because Flutter shares ephemeral native engine files between modes.
+- A successful build does not verify desktop behavior; verify affected window behavior and interactions on the real desktop and report untested boundaries.
+
+### Workstation Release Install
+
+- After application or daemon code changes, finish validation, rebuild the release bundle/binaries, and run `python tool/install.py` on this workstation as the final implementation step so the user can manually review the installed application. Source changes and successful builds alone do not complete the task.
+- Verify that the installed bundle, command, desktop entry, and any service unit use the updated build, and exercise the installed application. Preserve user configuration and unrelated installations. Install `remya-core` before dependent apps (and Settings before Bar when both change). Stop verification instances you started without disabling persistent user units.
+<!-- END:remya-shared -->
