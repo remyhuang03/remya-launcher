@@ -108,7 +108,7 @@ class FilesController extends ChangeNotifier {
     final candidates = _filterCandidates;
     return [
       if (candidates.isNotEmpty)
-        FileGroup('ADD FILTER', candidates, hint: 'Tab accept'),
+        FileGroup('ADD FILTER', candidates, hint: '→ accept'),
       if (places.isNotEmpty)
         FileGroup(
           'PLACES',

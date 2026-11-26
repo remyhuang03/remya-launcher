@@ -136,41 +136,48 @@ Future<void> _type(WidgetTester tester, String text) async {
 }
 
 void main() {
-  testWidgets('All direct URL opens the typed URL; Tab accepts completion', (
-    tester,
-  ) async {
-    final web = _Web();
-    final platform = _Platform();
-    await _render(tester, web, platform);
-    await _type(tester, 'docs.example.org/la');
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-    expect(web.actionsRun.single, (
-      'open.default',
-      null,
-      'https://docs.example.org/la',
-    ));
+  testWidgets(
+    'All direct URL opens the typed URL; Right Arrow accepts completion',
+    (tester) async {
+      final web = _Web();
+      final platform = _Platform();
+      await _render(tester, web, platform);
+      await _type(tester, 'docs.example.org/la');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(web.actionsRun.single, (
+        'open.default',
+        null,
+        'https://docs.example.org/la',
+      ));
 
-    await _ctrl(tester, LogicalKeyboardKey.digit4);
-    expect(
-      tester.widget<TextFormField>(_field).controller!.text,
-      'docs.example.org/la',
-    );
-    expect(find.text('accept'), findsOneWidget);
-    final editable = tester.state<EditableTextState>(find.byType(EditableText));
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<TextFormField>(_field).controller!.text,
-      'docs.example.org/launcher',
-    );
-    expect(
-      tester.state<EditableTextState>(find.byType(EditableText)),
-      same(editable),
-    );
-    expect(editable.widget.focusNode.hasFocus, isTrue);
-    expect(platform.closed, 1);
-  });
+      await _ctrl(tester, LogicalKeyboardKey.digit4);
+      expect(
+        tester.widget<TextFormField>(_field).controller!.text,
+        'docs.example.org/la',
+      );
+      expect(find.text('accept'), findsOneWidget);
+      final editable = tester.state<EditableTextState>(
+        find.byType(EditableText),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(editable.widget.controller.text, 'docs.example.org/la');
+      await tester.showKeyboard(_field);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextFormField>(_field).controller!.text,
+        'docs.example.org/launcher',
+      );
+      expect(
+        tester.state<EditableTextState>(find.byType(EditableText)),
+        same(editable),
+      );
+      expect(editable.widget.focusNode.hasFocus, isTrue);
+      expect(platform.closed, 1);
+    },
+  );
 
   testWidgets(
     'Engine keyword enters Web, Tab cycles, Backspace removes token',

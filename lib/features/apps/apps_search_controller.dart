@@ -604,8 +604,17 @@ class AppsSearchController extends ChangeNotifier {
       return .handled;
     }
     if (app == null) return .ignored;
-    if (key == LogicalKeyboardKey.tab && !ctrl && !shift && !empty) {
+    final atEnd =
+        search.selection.isCollapsed &&
+        search.selection.extentOffset == search.text.length &&
+        search.value.composing.isCollapsed;
+    if (key == LogicalKeyboardKey.arrowRight &&
+        !ctrl &&
+        !shift &&
+        !empty &&
+        atEnd) {
       final best = apps.firstOrNull?.name ?? app.name;
+      if (best == search.text) return .ignored;
       search.value = TextEditingValue(
         text: best,
         selection: TextSelection.collapsed(offset: best.length),
@@ -613,10 +622,6 @@ class AppsSearchController extends ChangeNotifier {
       onSearch(best);
       return .handled;
     }
-    final atEnd =
-        search.selection.isCollapsed &&
-        search.selection.extentOffset == search.text.length &&
-        search.value.composing.isCollapsed;
     if (ctrl &&
         key == LogicalKeyboardKey.arrowRight &&
         atEnd &&
@@ -633,8 +638,7 @@ class AppsSearchController extends ChangeNotifier {
       }
       return .handled;
     }
-    if ((ctrl && key == LogicalKeyboardKey.keyK) ||
-        (!ctrl && key == LogicalKeyboardKey.arrowRight && atEnd)) {
+    if (ctrl && !shift && key == LogicalKeyboardKey.keyK) {
       if (selected.isParent) {
         openMenu(app);
         return .handled;

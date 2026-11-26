@@ -1,6 +1,22 @@
 part of 'clipboard_launcher.dart';
 
 extension _LauncherView on _ClipboardLauncherState {
+  bool get _allWithoutQuery => _scope == .all && _search.text.trim().isEmpty;
+
+  Future<void> _openLauncherSettings() async {
+    try {
+      await Process.start(Platform.resolvedExecutable, const [
+        '--settings',
+      ], mode: .detached);
+    } on ProcessException {
+      if (mounted) {
+        _rebuild(() => _status = 'Could not open Launcher Settings.');
+      }
+      return;
+    }
+    await _dismiss();
+  }
+
   Widget _buildLauncher(BuildContext context) {
     final selected = _selected;
     final actions = selected == null || _error != null
@@ -53,7 +69,7 @@ extension _LauncherView on _ClipboardLauncherState {
                             ? 960
                             : _inFiles && _files.showPreview
                             ? 880
-                            : 720,
+                            : null,
                         scope: _scope,
                         enabledScopes: _activeScopes.toSet(),
                         onScopeSelected: _setScope,
@@ -230,7 +246,10 @@ extension _LauncherView on _ClipboardLauncherState {
       title: const TextSpan(text: 'Clipboard history'),
       subtitle: 'Search and paste recently copied items',
       leading: const LauncherSymbolTile(.clipboard),
-      trailing: const LauncherKeyHint(['Ctrl', '6']),
+      trailing: LauncherKeyHint([
+        'Ctrl',
+        LauncherScope.clipboard.shortcutNumber,
+      ]),
       onPressed: () => _setScope(.clipboard),
     );
     if (_scope == .all && _calculator.hasInlineResult) {
@@ -255,7 +274,7 @@ extension _LauncherView on _ClipboardLauncherState {
         ],
       );
     }
-    if (_scope == .all && _search.text.trim().isEmpty) {
+    if (_allWithoutQuery) {
       return Column(
         mainAxisSize: .min,
         crossAxisAlignment: .stretch,
@@ -266,22 +285,27 @@ extension _LauncherView on _ClipboardLauncherState {
             selectionVisible: !_filesActiveInAll,
           ),
           if (_files.groups.isNotEmpty) _filesBody(compact: false, all: true),
-          LauncherResultRow(
-            title: const TextSpan(text: 'Calculator'),
-            subtitle: 'Math, unit conversions, programmer bases, floats, time, currency',
-            leading: const LauncherSymbolTile(.calculate),
-            trailing: const LauncherKeyHint(['Ctrl', '5']),
-            onPressed: () => _setScope(.calculator),
-          ),
-          clipboardRow,
-          if (_apps.available)
-            LauncherResultRow(
-              title: const TextSpan(text: 'Windows'),
-              subtitle: 'Focus an open window or move it here',
-              leading: const LauncherSymbolTile(.window),
-              trailing: const LauncherKeyHint(['Ctrl', '7']),
-              onPressed: () => _setScope(.windows),
-            ),
+          for (final scope in _activeScopes.skip(1))
+            if (scope == .clipboard)
+              clipboardRow
+            else
+              LauncherResultRow(
+                title: TextSpan(
+                  text: scope == .calculator ? 'Calculator' : scope.label,
+                ),
+                subtitle: switch (scope) {
+                  .apps => 'Search installed applications',
+                  .files => 'Search files and folders',
+                  .web => 'Search browsing history, bookmarks, or the web',
+                  .calculator => 'Math, unit conversions, programmer bases, floats, time, currency',
+                  .windows => 'Focus an open window or move it here',
+                  .emoji => 'Find and copy emoji and symbols',
+                  _ => '',
+                },
+                leading: LauncherSymbolTile(scope.icon),
+                trailing: LauncherKeyHint(['Ctrl', scope.shortcutNumber]),
+                onPressed: () => _setScope(scope),
+              ),
         ],
       );
     }
@@ -325,7 +349,8 @@ extension _LauncherView on _ClipboardLauncherState {
             )
             .length,
     };
-    final filters = ClipboardFilters(
+    final filters = LauncherFilters(
+      shortcut: const LauncherKeyHint(['Ctrl', 'F']),
       counts: counts,
       selected: _filter.label,
       onSelected: (label) => _setFilter(
@@ -422,6 +447,23 @@ extension _LauncherView on _ClipboardLauncherState {
   );
 
   LauncherFooter _footer(
+    List<ClipboardAction> actions,
+    ClipboardEntry? selected, {
+    required bool singleLine,
+  }) {
+    final footer = _scopeFooter(actions, selected, singleLine: singleLine);
+    if (!_allWithoutQuery) return footer;
+    return LauncherFooter(
+      singleLine: singleLine,
+      leading: footer.leading,
+      trailing: [
+        ...footer.trailing,
+        const LauncherKeyHint(['Ctrl', ','], label: 'Launcher Settings'),
+      ],
+    );
+  }
+
+  LauncherFooter _scopeFooter(
     List<ClipboardAction> actions,
     ClipboardEntry? selected, {
     required bool singleLine,

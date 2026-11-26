@@ -65,6 +65,24 @@ class LauncherIcon extends StatelessWidget {
   }
 }
 
+double _textWidth(BuildContext context, String text, TextStyle style) {
+  final resolved = DefaultTextStyle.of(context).style.merge(style);
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: MediaQuery.boldTextOf(context)
+          ? resolved.merge(const TextStyle(fontWeight: .bold))
+          : resolved,
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
 class LauncherKeycap extends StatelessWidget {
   const LauncherKeycap(this.label, {this.compact = false, super.key});
 
@@ -174,13 +192,15 @@ enum LauncherScope {
   calculator('Calc', .calculate),
   clipboard('Clipboard', .clipboard),
   windows('Windows', .window),
-  emoji('Characters', .mood),
+  emoji('Chars', .mood),
   actions('Actions', .bolt);
 
   const LauncherScope(this.label, this.icon);
 
   final String label;
   final LauncherIconName icon;
+
+  String get shortcutNumber => (index + 1).toString();
 
   static LauncherScope? fromWindowRequest(Object? value) => switch (value) {
     'clipboard' => .clipboard,
@@ -193,15 +213,24 @@ class LauncherScopeChip extends StatelessWidget {
   const LauncherScopeChip({
     required this.scope,
     this.selected = false,
-    this.prefix,
     this.onPressed,
     super.key,
   });
 
   final LauncherScope scope;
   final bool selected;
-  final String? prefix;
   final VoidCallback? onPressed;
+
+  static const _spacing = 6.0;
+  static const _iconSize = 18.0;
+  static const _labelStyle = TextStyle(fontSize: 13, fontWeight: .w500);
+  double get _padding => selected ? 8 : 9;
+
+  double preferredWidth(BuildContext context) =>
+      2 * _padding +
+      _iconSize +
+      _spacing +
+      _textWidth(context, scope.label, _labelStyle);
 
   @override
   Widget build(BuildContext context) {
@@ -223,24 +252,18 @@ class LauncherScopeChip extends StatelessWidget {
           customBorder: shape,
           onTap: onPressed,
           child: Padding(
-            padding: .symmetric(horizontal: selected ? 8 : 9),
+            padding: .symmetric(horizontal: _padding),
             child: SizedBox(
               height: 32,
               child: Row(
                 mainAxisSize: .min,
-                spacing: 6,
+                spacing: _spacing,
                 children: [
-                  LauncherIcon(scope.icon, size: 18, color: foreground),
+                  LauncherIcon(scope.icon, size: _iconSize, color: foreground),
                   Text(
                     scope.label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: .w500,
-                      color: foreground,
-                    ),
+                    style: _labelStyle.copyWith(color: foreground),
                   ),
-                  if (prefix case final prefix?)
-                    LauncherKeycap(prefix, compact: true),
                 ],
               ),
             ),

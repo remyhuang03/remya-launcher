@@ -71,12 +71,17 @@ class WebShortcuts {
       showEngines();
       return .handled;
     }
-    if (!ctrl && !alt && key == LogicalKeyboardKey.tab && _atEnd) {
-      final suffix = web.completionSuffix(search.text);
-      if (!shift && suffix != null) {
+    if (!ctrl &&
+        !alt &&
+        !shift &&
+        key == LogicalKeyboardKey.arrowRight &&
+        _atEnd) {
+      if (web.completionSuffix(search.text) case final suffix?) {
         changeSearch('${search.text}$suffix', web.engine);
         return .handled;
       }
+    }
+    if (!ctrl && !alt && key == LogicalKeyboardKey.tab && _atEnd) {
       final engine = web.engine;
       if (!compact && engine != null && web.engines.length > 1) {
         final index = web.engines.indexWhere(
@@ -88,7 +93,9 @@ class WebShortcuts {
         );
         return .handled;
       }
-      if (!shift && choice?.isDirect == true) {
+      if (!shift &&
+          choice?.isDirect == true &&
+          web.completionSuffix(search.text) == null) {
         searchSite(choice!);
         return .handled;
       }
@@ -113,8 +120,7 @@ class WebShortcuts {
       return .handled;
     }
     if (choice == null || choice.isSearch) return .ignored;
-    if ((ctrl && !shift && key == LogicalKeyboardKey.keyK) ||
-        (!ctrl && !shift && key == LogicalKeyboardKey.arrowRight && _atEnd)) {
+    if (ctrl && !shift && key == LogicalKeyboardKey.keyK) {
       unawaited(web.openMenu(choice));
       return .handled;
     }

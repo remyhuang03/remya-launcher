@@ -19,28 +19,26 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
       return .ignored;
     }
     if (ctrl && !alt && event is KeyDownEvent) {
-      if (key == LogicalKeyboardKey.digit3 && _files.available) {
-        _setScope(.files, initialQuery: _search.text);
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.keyG &&
-          _scope == .all &&
-          _files.available) {
-        _setScope(.files, initialQuery: _search.text);
-        _switchFilesContents();
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.digit4 && _web.available) {
-        _setScope(.web);
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.digit2 && _apps.available) {
-        _setScope(.apps);
-        return .handled;
-      }
-      if (key == LogicalKeyboardKey.digit7 && _apps.available) {
-        _setScope(.windows);
-        return .handled;
+      if (!shift) {
+        final index = _shortcutDigits.indexOf(key);
+        if (index >= 0 && index <= LauncherScope.emoji.index) {
+          final scope = LauncherScope.values[index];
+          if (_activeScopes.contains(scope)) {
+            _setScope(scope);
+            return .handled;
+          }
+        }
+        if (_allWithoutQuery && key == LogicalKeyboardKey.comma) {
+          unawaited(_openLauncherSettings());
+          return .handled;
+        }
+        if (key == LogicalKeyboardKey.keyG &&
+            _scope == .all &&
+            _files.available) {
+          _setScope(.files, initialQuery: _search.text);
+          _switchFilesContents();
+          return .handled;
+        }
       }
       if (key == LogicalKeyboardKey.tab) {
         final scopes = _activeScopes;
@@ -151,14 +149,6 @@ extension _LauncherKeyboard on _ClipboardLauncherState {
         !alt &&
         event is KeyDownEvent) {
       _setScope(.all);
-      return .handled;
-    }
-    if (ctrl && key == LogicalKeyboardKey.digit5 && event is KeyDownEvent) {
-      _setScope(.calculator);
-      return .handled;
-    }
-    if (ctrl && key == LogicalKeyboardKey.digit6 && event is KeyDownEvent) {
-      _setScope(.clipboard);
       return .handled;
     }
     if (_scope == .all &&

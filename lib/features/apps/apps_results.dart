@@ -569,9 +569,6 @@ LauncherFooter appsFooter(AppsSearchController c, {required bool singleLine}) {
         LauncherKeyHint(['↵'], label: 'Run action'),
         LauncherKeyHint(['Esc'], label: 'Back to results'),
       ],
-      trailing: const [
-        LauncherKeyHint(['→'], label: 'also opens actions'),
-      ],
     );
   }
   if (c.expandedId != null) {
@@ -613,7 +610,7 @@ LauncherFooter appsFooter(AppsSearchController c, {required bool singleLine}) {
         ], label: app.actionId != null ? 'Run' : 'Open'),
         const LauncherKeyHint(['Ctrl', '↵'], label: 'New window'),
         if (!c.empty && (app.windows.isNotEmpty || app.actions.isNotEmpty))
-          const LauncherKeyHint(['Ctrl', '→'], label: 'Windows & actions'),
+          const LauncherKeyHint(['Ctrl', '→'], label: 'Expand app'),
         if (app.hidden)
           const LauncherKeyHint(['Ctrl', 'H'], label: 'Show in launcher'),
       ] else

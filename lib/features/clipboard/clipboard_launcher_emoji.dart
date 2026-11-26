@@ -1,5 +1,14 @@
 part of 'clipboard_launcher.dart';
 
+enum _CharFilter {
+  all('All'),
+  emoji('Emoji'),
+  symbols('Symbols');
+
+  const _CharFilter(this.label);
+  final String label;
+}
+
 extension _LauncherEmoji on _ClipboardLauncherState {
   Future<void> _loadEmojiOptions(int session) async {
     try {
@@ -36,7 +45,10 @@ extension _LauncherEmoji on _ClipboardLauncherState {
         return;
       }
       final selected = _emojiSelection == 0 ? null : _selectedEmoji?.emoji;
-      _emojiResults = catalog.browse(locale: _emojiLocale, recentIds: ids);
+      _emojiResults = [
+        ...catalog.browse(locale: _emojiLocale, recentIds: ids),
+        if (_inAllChars) ...SymbolCatalog.browse(),
+      ];
       final index = _emojiResults.indexWhere((item) => item.emoji == selected);
       _emojiSelection = index < 0 ? 0 : index;
     });
@@ -45,9 +57,9 @@ extension _LauncherEmoji on _ClipboardLauncherState {
   bool get _canPasteEmoji =>
       _emojiPreferences.autoPaste && widget.platform.canPasteToPreviousWindow;
 
-  void _selectEmojiSection({required bool symbols}) {
-    if (_inSymbols == symbols) return;
-    _inSymbols = symbols;
+  void _setCharFilter(_CharFilter filter) {
+    if (_charFilter == filter) return;
+    _charFilter = filter;
     _queueEmojiSearch(_search.text);
     _searchFocus.requestFocus();
   }
@@ -71,12 +83,15 @@ extension _LauncherEmoji on _ClipboardLauncherState {
 
   Future<void> _searchEmoji(String query, int revision) async {
     if (!mounted || !_inEmoji || revision != _emojiRevision) return;
+    final empty = query.trim().isEmpty;
+    final symbols = _charFilter == .emoji
+        ? const <EmojiResult>[]
+        : empty
+        ? SymbolCatalog.browse()
+        : SymbolCatalog.search(query);
     if (_inSymbols) {
-      final results = query.trim().isEmpty
-          ? SymbolCatalog.browse()
-          : SymbolCatalog.search(query);
       _rebuild(() {
-        _emojiResults = results;
+        _emojiResults = symbols;
         _emojiLoading = false;
       });
       return;
@@ -85,12 +100,12 @@ extension _LauncherEmoji on _ClipboardLauncherState {
     try {
       final catalog = await load;
       if (!mounted || !_inEmoji || revision != _emojiRevision) return;
-      final results = query.trim().isEmpty
+      final results = empty
           ? catalog.browse(locale: _emojiLocale, recentIds: _recentEmojiIds)
           : catalog.search(query, locale: _emojiLocale);
       _rebuild(() {
         _emojiCatalog = catalog;
-        _emojiResults = results;
+        _emojiResults = [...results, ...symbols];
         _emojiLoading = false;
       });
     } on Object {
@@ -98,7 +113,8 @@ extension _LauncherEmoji on _ClipboardLauncherState {
       if (!mounted || !_inEmoji || revision != _emojiRevision) return;
       _rebuild(() {
         _emojiLoading = false;
-        _emojiUnavailable = true;
+        _emojiResults = symbols;
+        _emojiUnavailable = symbols.isEmpty;
       });
     }
   }
@@ -173,9 +189,18 @@ extension _LauncherEmoji on _ClipboardLauncherState {
     required bool shift,
     required bool alt,
   }) {
+    final key = event.logicalKey;
+    if (ctrl && !alt && key == LogicalKeyboardKey.keyF) {
+      if (event is KeyDownEvent) {
+        final filters = _CharFilter.values;
+        _setCharFilter(
+          filters[(_charFilter.index + (shift ? -1 : 1)) % filters.length],
+        );
+      }
+      return .handled;
+    }
     final item = _selectedEmoji;
     if (item == null || shift || alt) return .ignored;
-    final key = event.logicalKey;
     if (ctrl &&
         key == LogicalKeyboardKey.arrowRight &&
         _hasEmojiVariants(item)) {
@@ -209,20 +234,13 @@ extension _LauncherEmoji on _ClipboardLauncherState {
     crossAxisAlignment: .stretch,
     spacing: 6,
     children: [
-      Row(
-        spacing: 6,
-        children: [
-          ChoiceChip(
-            label: const Text('Emoji'),
-            selected: !_inSymbols,
-            onSelected: (_) => _selectEmojiSection(symbols: false),
-          ),
-          ChoiceChip(
-            label: const Text('Symbols'),
-            selected: _inSymbols,
-            onSelected: (_) => _selectEmojiSection(symbols: true),
-          ),
-        ],
+      LauncherFilters(
+        counts: {for (final filter in _CharFilter.values) filter.label: null},
+        selected: _charFilter.label,
+        shortcut: const LauncherKeyHint(['Ctrl', 'F']),
+        onSelected: (label) => _setCharFilter(
+          _CharFilter.values.firstWhere((filter) => filter.label == label),
+        ),
       ),
       Flexible(
         child: EmojiResults(

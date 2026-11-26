@@ -3,7 +3,7 @@ part of 'clipboard_launcher.dart';
 extension _WebLauncher on _ClipboardLauncherState {
   Widget? _webSearchHint(BuildContext context) {
     if (_web.completionSuffix(_search.text) != null) {
-      return const LauncherKeyHint(['Tab'], label: 'accept');
+      return const LauncherKeyHint(['→'], label: 'accept');
     }
     if (_web.engine != null && _search.text.isEmpty) {
       return const LauncherKeyHint(['⌫'], label: 'remove engine');

@@ -8,6 +8,7 @@ import 'package:remya_launcher/app.dart';
 import 'package:remya_launcher/features/apps/apps_client.dart';
 import 'package:remya_launcher/features/apps/apps_icon.dart';
 import 'package:remya_launcher/features/clipboard/clipboard_platform.dart';
+import 'package:remya_launcher/features/launcher/launcher_controls.dart';
 import 'package:remya_launcher/features/windows/windows_controller.dart';
 
 const _search = Duration(milliseconds: 80);
@@ -200,6 +201,23 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('The narrow search field fits the entire scope strip', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(RemyaLauncherApp(appsClient: _Apps()));
+    await tester.pumpAndSettle();
+
+    final chips = find.byType(LauncherScopeChip);
+    expect(chips, findsNWidgets(8));
+    final left = tester.getTopLeft(chips.first).dx;
+    final right = tester.getTopRight(chips.last).dx;
+    final search = tester.getRect(find.byType(LauncherSearchField));
+    expect(left - search.left, closeTo(4, 1));
+    expect(search.right - right, closeTo(4, 1));
+  });
+
   testWidgets('All shows eight apps; Apps builds rows as they scroll in', (
     tester,
   ) async {
@@ -273,6 +291,25 @@ void main() {
     await tester.pump();
     expect(find.text('1 of 1'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Right Arrow completes an app query and Ctrl+K opens actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(RemyaLauncherApp(appsClient: _Apps()));
+    await _enter(tester, 'Test');
+    final field = tester.widget<TextFormField>(find.byType(TextFormField));
+    field.controller!.selection = const TextSelection.collapsed(offset: 4);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(_search);
+    expect(field.controller!.text, 'Test Editor');
+    expect(find.text('type to filter'), findsNothing);
+    await _shortcut(
+      tester,
+      LogicalKeyboardKey.controlLeft,
+      LogicalKeyboardKey.keyK,
+    );
+    expect(find.text('type to filter'), findsOneWidget);
   });
 
   testWidgets(

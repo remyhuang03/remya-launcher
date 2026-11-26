@@ -132,7 +132,7 @@ class _EmojiResultsState extends State<EmojiResults> {
           }
 
           return _EmojiRow(
-            key: ValueKey(item.emoji),
+            key: ValueKey((item.kind, item.emoji)),
             item: item,
             height: extent - 2,
             selected: index == widget.selectedIndex,

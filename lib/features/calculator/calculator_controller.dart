@@ -639,7 +639,7 @@ class CalculatorPreview {
   }
 }
 
-/// An action presented in the calculator actions menu (`Ctrl+K` / `→`).
+/// An action presented in the calculator actions menu (`Ctrl+K`).
 class CalculatorMenuAction {
   const CalculatorMenuAction({
     required this.id,
@@ -754,7 +754,7 @@ class CalculatorController extends ChangeNotifier {
         '1 · ${value.str('exponentBits')?.length ?? 0} · ${value.str('fractionBits')?.length ?? 0} bits',
       _ => null,
     },
-    _ when hasPendingCompletionOrCorrection => 'Tab to complete',
+    _ when hasPendingCompletionOrCorrection => '→ to complete',
     _ when catalogEntries.isNotEmpty => 'catalog',
     _ when query.isEmpty => 'units · bases · time · fx',
     _ => null,
@@ -1638,7 +1638,7 @@ class CalculatorController extends ChangeNotifier {
           id: 'edit_history_query',
           label: 'Edit expression',
           icon: .text,
-          keys: const ['Tab'],
+          keys: const [],
           run: () async => onEditQuery(history.query),
         ),
         CalculatorMenuAction(

@@ -6,6 +6,7 @@ import '../clipboard/clipboard_preview.dart';
 import '../files/file_icon_tile.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
+import '../launcher/launcher_filters.dart';
 import '../launcher/launcher_panel.dart';
 import '../launcher/launcher_results.dart';
 
@@ -111,7 +112,7 @@ class LauncherExampleView extends StatelessWidget {
         LauncherKeyHint(['Ctrl', 'Tab'], label: 'Scope'),
       ],
       trailing: [
-        LauncherKeyHint(['?'], label: 'All shortcuts'),
+        LauncherKeyHint(['Ctrl', ','], label: 'Launcher Settings'),
       ],
     ),
   );
@@ -188,7 +189,7 @@ class LauncherExampleView extends StatelessWidget {
             ],
             trailing: [
               LauncherKeyHint(['Alt'], label: 'Quick pick'),
-              LauncherKeyHint(['Tab'], label: 'Complete'),
+              LauncherKeyHint(['→'], label: 'Complete'),
             ],
           ),
   );
@@ -251,7 +252,7 @@ class LauncherExampleView extends StatelessWidget {
       scope: .files,
       initialQuery: '~/proj/remya-bar/docs/',
       autofocus: true,
-      trailing: LauncherKeyHint(['Tab'], label: 'complete'),
+      trailing: LauncherKeyHint(['→'], label: 'complete'),
     ),
     body: LauncherSplitBody(
       previewWidth: 248,
@@ -338,13 +339,10 @@ class LauncherExampleView extends StatelessWidget {
               LauncherKeyHint(['↵'], label: 'Run action'),
               LauncherKeyHint(['Esc'], label: 'Back to results'),
             ],
-            trailing: [
-              LauncherKeyHint(['→'], label: 'also opens actions'),
-            ],
           )
         : const LauncherFooter(
             leading: [
-              LauncherKeyHint(['Tab'], label: 'Complete'),
+              LauncherKeyHint(['→'], label: 'Complete'),
               LauncherKeyHint(['↵'], label: 'Open'),
               LauncherKeyHint(['Ctrl', '↵'], label: 'Terminal here'),
               LauncherKeyHint(['Ctrl', 'O'], label: 'Reveal'),
@@ -444,7 +442,8 @@ class LauncherExampleView extends StatelessWidget {
       previewWidth: 320,
       results: _Sections(
         children: [
-          const ClipboardFilters(
+          const LauncherFilters(
+            shortcut: LauncherKeyHint(['Ctrl', 'F']),
             counts: {
               'All': 31,
               'Text': 18,

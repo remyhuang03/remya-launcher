@@ -190,14 +190,16 @@ void main() {
     },
   );
 
-  testWidgets('Tab commits the focused filter candidate', (tester) async {
+  testWidgets('Right Arrow commits the focused filter candidate', (
+    tester,
+  ) async {
     final files = _Files();
     await _render(tester, files, _Platform());
     await _ctrl(tester, LogicalKeyboardKey.digit3);
     await _type(tester, 'type:');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     final args = files.calls.lastWhere((call) => call.$1 == 'search').$2;
     expect(args['filters'], ['type:dir']);
@@ -208,7 +210,10 @@ void main() {
   ) async {
     final files = _Files();
     await _render(tester, files, _Platform());
+    expect(find.text('Search files and folders'), findsOneWidget);
+    expect(find.text('Launcher Settings'), findsOneWidget);
     await _type(tester, 'todo');
+    expect(find.text('Launcher Settings'), findsNothing);
     expect(find.text('FILES'), findsOneWidget);
     await _ctrl(tester, LogicalKeyboardKey.digit3);
     expect(_query(tester), 'todo');
@@ -219,32 +224,35 @@ void main() {
     expect((args['query'] as String).trim(), 'todo');
   });
 
-  testWidgets('path prefix, Tab, create and Undo use verified sidecar IDs', (
-    tester,
-  ) async {
-    final files = _Files();
-    await _render(tester, files, _Platform());
-    await _type(tester, '~/Wo');
-    expect(find.text('Tab'), findsWidgets);
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pumpAndSettle();
-    expect(_query(tester), '~/Work/');
-    await _type(tester, '~/Work/new/');
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(_query(tester), '/home/test/Work/new/');
-    final create = files.calls
-        .lastWhere((call) => call.$2['action'] == 'createDirectory')
-        .$2;
-    expect(create['entryId'], 'folder');
-    expect(create['version'], 'folder-version');
-    expect(create['name'], 'new');
-    await _ctrl(tester, LogicalKeyboardKey.keyZ);
-    expect(
-      files.calls.lastWhere((call) => call.$2['action'] == 'undo').$2['undoId'],
-      'undo',
-    );
-  });
+  testWidgets(
+    'path prefix, Right Arrow, create and Undo use verified sidecar IDs',
+    (tester) async {
+      final files = _Files();
+      await _render(tester, files, _Platform());
+      await _type(tester, '~/Wo');
+      expect(find.text('→'), findsWidgets);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(_query(tester), '~/Work/');
+      await _type(tester, '~/Work/new/');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(_query(tester), '/home/test/Work/new/');
+      final create = files.calls
+          .lastWhere((call) => call.$2['action'] == 'createDirectory')
+          .$2;
+      expect(create['entryId'], 'folder');
+      expect(create['version'], 'folder-version');
+      expect(create['name'], 'new');
+      await _ctrl(tester, LogicalKeyboardKey.keyZ);
+      expect(
+        files.calls
+            .lastWhere((call) => call.$2['action'] == 'undo')
+            .$2['undoId'],
+        'undo',
+      );
+    },
+  );
 
   testWidgets(
     'contents exposes file and hit rows and opens a hit at its line',

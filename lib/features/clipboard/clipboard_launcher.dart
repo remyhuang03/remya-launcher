@@ -25,6 +25,7 @@ import '../files/files_query.dart';
 import '../files/files_results.dart';
 import '../launcher/launcher_controls.dart';
 import '../launcher/launcher_details.dart';
+import '../launcher/launcher_filters.dart';
 import '../launcher/launcher_panel.dart';
 import '../launcher/launcher_results.dart';
 import '../web/web_client.dart';
@@ -39,7 +40,6 @@ import 'clipboard_color.dart';
 import 'clipboard_history.dart';
 import 'clipboard_live_preview.dart';
 import 'clipboard_platform.dart';
-import 'clipboard_preview.dart';
 
 part 'clipboard_launcher_calculator.dart';
 part 'clipboard_launcher_dialogs.dart';
@@ -192,7 +192,9 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
   bool _emojiUnavailable = false;
   bool _emojiCopying = false;
   bool _emojiComposing = false;
-  bool _inSymbols = false;
+  _CharFilter _charFilter = .all;
+  bool get _inSymbols => _charFilter == .symbols;
+  bool get _inAllChars => _charFilter == .all;
   int _emojiSession = 0;
   EmojiPreferences _emojiPreferences = const EmojiPreferences();
   List<String> _recentEmojiIds = const [];
@@ -487,7 +489,7 @@ class _ClipboardLauncherState extends State<ClipboardLauncher>
     setState(() {
       _scope = scope;
       if (enteringEmoji) {
-        _inSymbols = false;
+        _charFilter = .all;
         _emojiPreferences = const EmojiPreferences();
         _recentEmojiIds = const [];
       }

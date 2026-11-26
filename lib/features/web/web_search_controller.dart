@@ -454,8 +454,8 @@ LauncherFooter webFooter(WebSearchController web, {required bool singleLine}) =>
               LauncherKeyHint(['Esc'], label: 'Back to results'),
             ]
           : [
-              if (web.result?.input.completion != null)
-                const LauncherKeyHint(['Tab'], label: 'Accept'),
+              if (web.completionSuffix(web.query) != null)
+                const LauncherKeyHint(['→'], label: 'Accept'),
               if (web.query.isEmpty && web.engine == null)
                 const LauncherKeyHint(['↑', '↓'], label: 'Navigate'),
               if (web.selected != null)
@@ -470,7 +470,7 @@ LauncherFooter webFooter(WebSearchController web, {required bool singleLine}) =>
                 const LauncherKeyHint(['Ctrl', 'C'], label: 'Copy URL'),
             ],
       trailing: [
-        if (web.menuChoice == null && web.selected?.entryId != null)
+        if (web.menuChoice == null && web.selected?.isSearch == false)
           const LauncherKeyHint(['Ctrl', 'K'], label: 'Actions')
         else if (web.menuChoice == null &&
             web.query.isEmpty &&

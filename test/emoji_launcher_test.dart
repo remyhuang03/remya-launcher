@@ -81,13 +81,11 @@ Future<void> _render(
   ClipboardPlatform platform = const _Platform(),
   EmojiPreferences preferences = const EmojiPreferences(),
   EmojiRecents? recents,
-  bool startInCharacters = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: ClipboardLauncher(
-          initialScope: startInCharacters ? .emoji : .all,
           client: client,
           platform: platform,
           loadEmojiCatalog: load,
@@ -120,21 +118,39 @@ void main() {
   late EmojiCatalog catalog;
   setUpAll(() async => catalog = await EmojiCatalog.load());
 
-  testWidgets('Characters opens with both Emoji and Symbols sections', (
+  testWidgets('Ctrl+8 opens Chars with All, Emoji, and Symbols filters', (
     tester,
   ) async {
-    await _render(tester, () async => catalog, startInCharacters: true);
+    await _render(tester, () async => catalog);
+    expect(find.text('Find and copy emoji and symbols'), findsOneWidget);
+    await _ctrl(tester, LogicalKeyboardKey.digit8);
     await _waitForEmoji(tester);
 
-    expect(find.text('Characters'), findsWidgets);
-    expect(find.widgetWithText(ChoiceChip, 'Emoji'), findsOneWidget);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Symbols'));
+    expect(find.text('Chars'), findsWidgets);
+    final results = tester.widget<EmojiResults>(find.byType(EmojiResults));
+    expect(results.results.map((result) => result.kind).toSet(), {
+      EmojiResultKind.emoji,
+      EmojiResultKind.symbol,
+    });
+    await _ctrl(tester, LogicalKeyboardKey.keyF);
     await _waitForEmoji(tester);
-
+    expect(
+      tester
+          .widget<EmojiResults>(find.byType(EmojiResults))
+          .results
+          .every((result) => result.kind == EmojiResultKind.emoji),
+      isTrue,
+    );
+    await tester.tap(find.text('Symbols'));
+    await _waitForEmoji(tester);
     expect(
       tester.widget<EmojiResults>(find.byType(EmojiResults)).symbols,
       isTrue,
     );
+    await _ctrl(tester, LogicalKeyboardKey.digit1);
+    await tester.pumpAndSettle();
+    expect(find.byType(EmojiResults), findsNothing);
+    expect(find.text('Launcher Settings'), findsOneWidget);
   });
 
   testWidgets('A composing prefix is left intact until the IME commits', (
@@ -305,11 +321,10 @@ void main() {
       tester
           .widget<EmojiResults>(find.byType(EmojiResults))
           .results
-          .single
-          .emoji,
-      '©️',
+          .map((result) => result.emoji),
+      ['©️', '©'],
     );
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Symbols'));
+    await tester.tap(find.text('Symbols'));
     await _waitForEmoji(tester);
     final results = tester.widget<EmojiResults>(find.byType(EmojiResults));
     expect(results.results.single.kind, EmojiResultKind.symbol);

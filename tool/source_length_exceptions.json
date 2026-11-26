@@ -1,1 +1,10 @@
-{}
+{
+  "lib/features/calculator/calculator_controller.dart": {
+    "reason": "The calculator query controller and its closely coupled preview, edit, and action models share the same query revisions and selection state. Keep this shortcut change local to those definitions.",
+    "sha256": "678f034d7aa18982deab80eb0ae3d253838de6d96a527eb342220227bf153302"
+  },
+  "lib/features/calculator/calculator_results.dart": {
+    "reason": "The full and inline calculator results share private display components for the same result states. Keep this shortcut label update in the existing results view.",
+    "sha256": "e3fd32e65fa38ee53f9c7ba46fb7c36e487e68914ddfba1cc0228404ce127b37"
+  }
+}

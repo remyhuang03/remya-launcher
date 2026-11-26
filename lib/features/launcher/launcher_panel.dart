@@ -8,7 +8,7 @@ class LauncherPanel extends StatelessWidget {
     required this.scope,
     required this.body,
     required this.footer,
-    this.width = 720,
+    this.width,
     this.onScopeSelected,
     this.enabledScopes,
     this.scrollBody = true,
@@ -25,7 +25,7 @@ class LauncherPanel extends StatelessWidget {
   final LauncherScope scope;
   final Widget body;
   final LauncherFooter footer;
-  final double width;
+  final double? width;
   final ValueChanged<LauncherScope>? onScopeSelected;
   final Set<LauncherScope>? enabledScopes;
   final bool scrollBody;
@@ -40,22 +40,24 @@ class LauncherPanel extends StatelessWidget {
     final radius = BorderRadius.circular(compact ? 22 : 32);
     final outline = BorderSide(color: colors.surfaceContainerHighest);
     final shadow = Colors.black.withValues(alpha: .4);
+    final padding = compact ? 8.0 : 13.0;
+    final scopeStrip = _ScopeStrip(
+      selected: scope,
+      onSelected: onScopeSelected,
+      enabledScopes: enabledScopes,
+      compact: compact,
+    );
     final contents = Stack(
       children: [
         Padding(
-          padding: .all(compact ? 8 : 13),
+          padding: .all(padding),
           child: Column(
             mainAxisSize: .min,
             crossAxisAlignment: .stretch,
             spacing: compact ? 5 : 8,
             children: [
               search,
-              _ScopeStrip(
-                selected: scope,
-                onSelected: onScopeSelected,
-                enabledScopes: enabledScopes,
-                compact: compact,
-              ),
+              scopeStrip,
               Flexible(
                 child: scrollBody
                     ? SingleChildScrollView(
@@ -92,7 +94,9 @@ class LauncherPanel extends StatelessWidget {
       ],
     );
     return SizedBox(
-      width: width,
+      width:
+          width ??
+          (scopeStrip.preferredWidth(context) + 2 * padding).ceilToDouble(),
       child: onOverlay
           ? DecoratedBox(
               decoration: BoxDecoration(
@@ -134,30 +138,38 @@ class _ScopeStrip extends StatelessWidget {
   final Set<LauncherScope>? enabledScopes;
   final bool compact;
 
+  static const _padding = 4.0;
+  static const _spacing = 6.0;
+
+  List<LauncherScopeChip> get _chips => [
+    for (final scope in LauncherScope.values)
+      if (scope == selected ||
+          enabledScopes == null ||
+          (scope != .actions && !compact) ||
+          enabledScopes!.contains(scope))
+        LauncherScopeChip(
+          scope: scope,
+          selected: scope == selected,
+          onPressed:
+              onSelected != null && (enabledScopes?.contains(scope) ?? true)
+              ? () => onSelected!(scope)
+              : null,
+        ),
+  ];
+
+  double preferredWidth(BuildContext context) {
+    final chips = _chips;
+    return chips.fold(
+      2 * _padding + _spacing * (chips.length - 1),
+      (width, chip) => width + chip.preferredWidth(context),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     scrollDirection: .horizontal,
-    padding: const .symmetric(horizontal: 4),
-    child: Row(
-      spacing: 6,
-      children: [
-        for (final scope in LauncherScope.values)
-          if (scope == selected ||
-              enabledScopes == null ||
-              (scope != .actions && !compact) ||
-              enabledScopes!.contains(scope))
-            LauncherScopeChip(
-              scope: scope,
-              prefix: scope == .emoji ? ':' : null,
-              selected: scope == selected,
-              onPressed:
-                  onSelected == null ||
-                      !(enabledScopes?.contains(scope) ?? true)
-                  ? null
-                  : () => onSelected!(scope),
-            ),
-      ],
-    ),
+    padding: const .symmetric(horizontal: _padding),
+    child: Row(spacing: _spacing, children: _chips),
   );
 }
 

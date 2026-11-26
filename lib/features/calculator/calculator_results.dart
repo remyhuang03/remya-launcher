@@ -882,7 +882,7 @@ class _CompletionList extends StatelessWidget {
     children: [
       const LauncherSectionHeader(
         'COMPLETIONS',
-        trailing: LauncherKeyHint(['Tab'], label: 'Accept'),
+        trailing: LauncherKeyHint(['→'], label: 'Accept'),
       ),
       for (final (index, completion) in completions.indexed)
         LauncherResultRow(
@@ -893,7 +893,7 @@ class _CompletionList extends StatelessWidget {
             selected: index == selectedIndex,
           ),
           trailing: index == selectedIndex
-              ? const LauncherKeyHint(['Tab'])
+              ? const LauncherKeyHint(['→'])
               : null,
           selected: index == selectedIndex,
           onPressed: () => onApply(completion),
@@ -920,7 +920,7 @@ class _CatalogList extends StatelessWidget {
     children: [
       const LauncherSectionHeader(
         'CATALOG',
-        trailing: LauncherKeyHint(['Tab'], label: 'Insert'),
+        trailing: LauncherKeyHint(['→'], label: 'Insert'),
       ),
       for (final (index, entry) in entries.indexed)
         LauncherResultRow(
@@ -940,7 +940,7 @@ class _CatalogList extends StatelessWidget {
             _ => .straighten,
           }, selected: index == selectedIndex),
           trailing: index == selectedIndex
-              ? const LauncherKeyHint(['Tab'])
+              ? const LauncherKeyHint(['→'])
               : null,
           selected: index == selectedIndex,
           onPressed: () => onInsert(entry),
@@ -1083,7 +1083,7 @@ class _HistoryRow extends StatelessWidget {
                 onPressed: onTogglePin,
                 child: Text(entry.isPinned ? 'Unpin' : 'Pin'),
               ),
-              TextButton(onPressed: onEdit, child: const Text('Edit  Tab')),
+              TextButton(onPressed: onEdit, child: const Text('Edit  →')),
               TextButton(onPressed: onCopy, child: const Text('Copy  ↵')),
             ],
           )
@@ -1124,7 +1124,7 @@ class _NoticeBanner extends StatelessWidget {
             borderRadius: .circular(8),
             child: const Padding(
               padding: .symmetric(horizontal: 6, vertical: 2),
-              child: LauncherKeyHint(['Tab'], label: 'Apply fix'),
+              child: LauncherKeyHint(['→'], label: 'Apply fix'),
             ),
           ),
       ],

@@ -331,6 +331,44 @@ void main() {
     );
 
     testWidgets(
+      'Right Arrow applies a completion and Tab leaves the query alone',
+      (tester) async {
+        final calcClient = _FakeCalculatorClient((op, fields) async {
+          if (op != 'preview') return _envelope({'entries': const []});
+          return _envelope({
+            'status': 'ready',
+            if (fields['query'] == '2 kil')
+              'completions': [
+                {
+                  'label': 'kilogram',
+                  'edit': {'startUtf16': 2, 'endUtf16': 5, 'text': 'kilogram'},
+                },
+              ],
+          }, revision: fields['revision'] as int?);
+        });
+        await tester.pumpWidget(
+          buildApp(
+            calcClient: calcClient,
+            clipClient: _FakeClipboardClient(),
+            platform: _FakeClipboardPlatform(),
+          ),
+        );
+        final field = find.byType(TextFormField);
+        await tester.enterText(field, '=2 kil');
+        await tester.pumpAndSettle();
+        expect(find.text('Apply edit'), findsOneWidget);
+        final controller = tester.widget<TextFormField>(field).controller!;
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(controller.text, '2 kil');
+        await tester.showKeyboard(field);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(controller.text, '2 kilogram');
+      },
+    );
+
+    testWidgets(
       'enters Calc with Ctrl+5, cycles formats with Tab, copies with Enter',
       (tester) async {
         final calcClient = _FakeCalculatorClient((op, fields) async {

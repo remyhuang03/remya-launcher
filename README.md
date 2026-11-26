@@ -51,11 +51,11 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 
 ## ✨ Features
 
-- **All and Apps (`Ctrl+2`)**: Search installed applications and open them with `Enter`. In Apps, `Ctrl+Right` expands an app’s open windows and desktop actions. If there are no matching apps, install candidates come from local package metadata. All also shows supported inline calculations, up to three matching local files, up to three local Web results, and a direct action for URL input.
+- **All (`Ctrl+1`) and Apps (`Ctrl+2`)**: Search installed applications and open them with `Enter`. In Apps, `Ctrl+Right` expands an app’s open windows and desktop actions. If there are no matching apps, install candidates come from local package metadata. All also shows supported inline calculations, up to three matching local files, up to three local Web results, and a direct action for URL input.
 
 - **Files (`Ctrl+3` / `/` / `~`)**:
 
-  - Search by name, complete a path with `Tab`, or press `Ctrl+G` to search file contents. Refine results with filters such as `ext:md` or `in:~/Documents`.
+  - Search by name, complete a path with `Right Arrow`, or press `Ctrl+G` to search file contents. Refine results with filters such as `ext:md` or `in:~/Documents`.
   - Preview the selected file and press `Ctrl+K` for file actions. Pinned files also appear in All.
   - Enable recent files or connect external history providers in **Launcher Settings → Files → History**. Each history source requires its corresponding option.
 
@@ -63,7 +63,7 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
 
   - Enable Firefox or Chromium family profiles in **Launcher Settings → Web**. With no profiles enabled, you can still open a typed URL or search with an engine. Launcher reads recent history and bookmarks from enabled profiles and keeps a private local index. It reads favicons from local browser data and shows a monogram when none is available.
   - Choose DuckDuckGo or Google as the default in **Launcher Settings → Web**. Engine keywords apply to the current query.
-  - Empty input shows frequent sites (`Alt+1–6`) and recent pages. Search shows bookmarks and history ranked by relevance and use, followed by engine suggestions. `Tab` accepts URL completion; `Enter` opens the typed URL or selected row; `Ctrl+Enter` searches instead.
+  - Empty input shows frequent sites (`Alt+1–6`) and recent pages. Search shows bookmarks and history ranked by relevance and use, followed by engine suggestions. `Right Arrow` accepts URL completion; `Enter` opens the typed URL or selected row; `Ctrl+Enter` searches instead.
   - Type an engine keyword followed by a space, such as `gh ` for GitHub, `aw ` for ArchWiki, or `yt ` for YouTube. With an engine selected, `Tab` cycles engines and `Backspace` removes the token when the query is empty.
   - `Ctrl+K` opens actions for a page: open in a supported browser or private window, copy the URL or Markdown link, search the site, pin it, or hide it from Launcher. Launcher never changes browser history or bookmarks. Turning off a profile removes its index from Launcher.
 
@@ -85,9 +85,9 @@ Open Launcher settings with `remya_launcher --settings`. Open a page directly wi
   - In `Calc`, try `molar mass H₂O` or `2 mmol to mg using NaCl`. For concentration conversions, provide a chemical formula or a molar mass, as in `372.45 pmol/L to pg/mL using 272.38 g/mol`.
   - Optional FP8 and general calendar arithmetic remain deferred.
 
-- **Characters (`remya_launcher --characters` / `:`)**:
+- **Chars (`remya_launcher --characters` / `Ctrl+8` / `:`)**:
 
-  - Search Emoji 18.0 offline across seven languages. Select **Symbols** for a separate catalog of arrows, math, currency, and other text characters.
+  - Search Emoji 18.0 offline across seven languages, alongside arrows, math, currency, and other text characters. Use **All**, **Emoji**, or **Symbols** to filter the results.
   - Press Enter to copy or Ctrl+Right to choose an emoji variant. In **Settings → Emoji**, enable Ctrl+Enter to paste into the previous Hyprland window, or enable and clear the local recent emoji list.
 
 - **Interactive Design Previews (`--preview`)**:

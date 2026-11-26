@@ -51,11 +51,11 @@ python tool/install.py
 
 ## ✨ Funktionen
 
-- **All und Apps (`Ctrl+2`)**: Durchsuchen Sie installierte Anwendungen und öffnen Sie sie mit `Enter`. In Apps klappt `Ctrl+Right` die geöffneten Fenster und Desktop-Aktionen einer App aus. Wenn keine passenden Apps vorhanden sind, stammen Installationskandidaten aus lokalen Paketmetadaten. All zeigt außerdem unterstützte Inline-Berechnungen, bis zu drei passende Dateien und bis zu drei lokale Web-Ergebnisse sowie eine direkte Aktion für URL-Eingaben.
+- **All (`Ctrl+1`) und Apps (`Ctrl+2`)**: Durchsuchen Sie installierte Anwendungen und öffnen Sie sie mit `Enter`. In Apps klappt `Ctrl+Right` die geöffneten Fenster und Desktop-Aktionen einer App aus. Wenn keine passenden Apps vorhanden sind, stammen Installationskandidaten aus lokalen Paketmetadaten. All zeigt außerdem unterstützte Inline-Berechnungen, bis zu drei passende Dateien und bis zu drei lokale Web-Ergebnisse sowie eine direkte Aktion für URL-Eingaben.
 
 - **Files (`Ctrl+3` / `/` / `~`)**:
 
-  - Suchen Sie nach Dateinamen, vervollständigen Sie einen Pfad mit `Tab` oder drücken Sie `Ctrl+G`, um Dateiinhalte zu durchsuchen. Grenzen Sie Ergebnisse mit Filtern wie `ext:md` oder `in:~/Documents` ein.
+  - Suchen Sie nach Dateinamen, vervollständigen Sie einen Pfad mit `→` oder drücken Sie `Ctrl+G`, um Dateiinhalte zu durchsuchen. Grenzen Sie Ergebnisse mit Filtern wie `ext:md` oder `in:~/Documents` ein.
   - Sehen Sie sich die Vorschau der ausgewählten Datei an und drücken Sie `Ctrl+K` für Dateiaktionen. Angeheftete Dateien erscheinen auch in All.
   - Aktivieren Sie optional zuletzt verwendete Dateien oder verbinden Sie externe Verlaufsquellen unter **Launcher-Einstellungen → Files → History**. Jede Verlaufsquelle erfordert die entsprechende Option.
 
@@ -63,7 +63,7 @@ python tool/install.py
 
   - Aktivieren Sie Firefox- oder Chromium-Familienprofile unter **Launcher-Einstellungen → Web**. Auch ohne aktivierte Profile können Sie eine eingegebene URL öffnen oder mit einer Suchmaschine suchen. Launcher liest den aktuellen Verlauf und die Lesezeichen aus aktivierten Profilen und führt einen privaten lokalen Index. Favicons werden aus lokalen Browserdaten gelesen; ist keines verfügbar, wird ein Monogramm angezeigt.
   - Unter **Launcher-Einstellungen → Web** lässt sich DuckDuckGo oder Google als Standardsuchmaschine wählen. Suchkürzel gelten für die aktuelle Anfrage.
-  - Bei leerer Eingabe werden häufig besuchte Websites (`Alt+1–6`) und zuletzt besuchte Seiten angezeigt. Die Suche zeigt Lesezeichen und Verlauf nach Relevanz und Nutzung sortiert, gefolgt von Suchmaschinenvorschlägen. `Tab` übernimmt die URL-Vervollständigung; `Enter` öffnet die eingegebene URL oder den ausgewählten Eintrag; `Ctrl+Enter` sucht stattdessen.
+  - Bei leerer Eingabe werden häufig besuchte Websites (`Alt+1–6`) und zuletzt besuchte Seiten angezeigt. Die Suche zeigt Lesezeichen und Verlauf nach Relevanz und Nutzung sortiert, gefolgt von Suchmaschinenvorschlägen. `→` übernimmt die URL-Vervollständigung; `Enter` öffnet die eingegebene URL oder den ausgewählten Eintrag; `Ctrl+Enter` sucht stattdessen.
   - Geben Sie ein Suchmaschinen-Schlüsselwort gefolgt von einem Leerzeichen ein, z. B. `gh ` für GitHub, `aw ` für ArchWiki oder `yt ` für YouTube. Ist eine Suchmaschine ausgewählt, wechselt `Tab` durch die Suchmaschinen und `Backspace` entfernt das Token, wenn die Suchanfrage leer ist.
   - `Ctrl+K` öffnet Aktionen für eine Seite: In einem unterstützten Browser oder privaten Fenster öffnen, URL oder Markdown-Link kopieren, die Website durchsuchen, anheften oder in Launcher ausblenden. Launcher verändert niemals den Browserverlauf oder die Lesezeichen. Das Deaktivieren eines Profils entfernt dessen Index aus Launcher.
 
@@ -84,8 +84,8 @@ python tool/install.py
   - Wertet grundlegende Ausdrücke inline in `All` sowie vollständige Abfragen in `Calc` (`Ctrl+5` oder `=`) lokal aus — mit `fend-core`-Mathematik, typisierten Einheiten, Zahlensystemen mit Bitbreite und Vorzeichen, FP32/FP16/BF16, Zeitzonen, nur auf explizite Aktualisierung abgerufenen EZB-Referenzkurs-Snapshots, Katalogvervollständigungen und Verlauf.
   - Optionales FP8 und allgemeine Kalenderarithmetik bleiben zurückgestellt.
 
-- **Emoji (`:`)**: Emoji 18.0 offline in sieben Sprachen nach Namen, Schlüsselwort, Kurzcode oder Unicode-Sequenz suchen. Enter kopiert das Emoji, Strg+Rechts öffnet die Varianten.
-  - Der Tab **Symbols** öffnet einen eigenen Symbolkatalog. Unter **Einstellungen → Emoji** lassen sich Einfügen mit Strg+Enter und die lokale Liste zuletzt verwendeter Emojis aktivieren.
+- **Chars (`Ctrl+8` / `:`)**: Emoji 18.0 offline in sieben Sprachen nach Namen, Schlüsselwort, Kurzcode oder Unicode-Sequenz suchen. Enter kopiert das Emoji, Strg+Rechts öffnet die Varianten.
+  - Mit **All**, **Emoji** oder **Symbols** lassen sich die Ergebnisse filtern. Unter **Einstellungen → Emoji** lassen sich Einfügen mit Strg+Enter und die lokale Liste zuletzt verwendeter Emojis aktivieren.
 
 - **Interaktive Design-Vorschauen (`--preview`)**:
 

@@ -21,9 +21,20 @@ extension _CalculatorLauncher on _ClipboardLauncherState {
         !alt &&
         _search.selection.isCollapsed &&
         _search.selection.extentOffset == _search.text.length &&
-        _calculator.canOpenActions) {
-      _openCalculatorActions();
-      return .handled;
+        _search.value.composing.isCollapsed) {
+      if (_calculator.pendingCorrectionEdit ?? _calculator.pendingCompletionEdit
+          case final edit?) {
+        _applyCalculatorEdit(edit);
+        return .handled;
+      }
+      if (_search.text.trim().isEmpty && _calculator.selectedHistory != null) {
+        _fillCalculatorQuery(_calculator.selectedHistory!.query);
+        return .handled;
+      }
+      if (_calculator.selectedCatalogEntry case final entry?) {
+        _fillCalculatorQuery(entry.insertText);
+        return .handled;
+      }
     }
     if (ctrl && key == LogicalKeyboardKey.keyB && !shift && !alt) {
       _calculator.cycleBitWidth();
@@ -205,32 +216,12 @@ extension _CalculatorLauncher on _ClipboardLauncherState {
   }
 
   KeyEventResult _handleCalculatorTab({required bool reverse}) {
-    if (!reverse) {
-      if (_calculator.pendingCorrectionEdit case final correction?) {
-        _applyCalculatorEdit(correction);
-        return .handled;
-      }
-      if (_calculator.pendingCompletionEdit case final completion?) {
-        _applyCalculatorEdit(completion);
-        return .handled;
-      }
-    }
     if ((_calculator.selectedCandidate?.formats.length ?? 0) > 1) {
       _calculator.cycleFormat(reverse ? -1 : 1);
       return .handled;
     }
     if (_calculator.candidates.length > 1) {
       _calculator.cycleCandidate(reverse ? -1 : 1);
-      return .handled;
-    }
-    if (!reverse &&
-        _search.text.trim().isEmpty &&
-        _calculator.selectedHistory != null) {
-      _fillCalculatorQuery(_calculator.selectedHistory!.query);
-      return .handled;
-    }
-    if (!reverse && _calculator.selectedCatalogEntry != null) {
-      _fillCalculatorQuery(_calculator.selectedCatalogEntry!.insertText);
       return .handled;
     }
     return .ignored;
@@ -478,7 +469,7 @@ extension _CalculatorLauncher on _ClipboardLauncherState {
         leading: [
           if (selectedHistory != null) ...[
             const LauncherKeyHint(['↵'], label: 'Copy result'),
-            const LauncherKeyHint(['Tab'], label: 'Edit query'),
+            const LauncherKeyHint(['→'], label: 'Edit query'),
             LauncherKeyHint(const [
               'Ctrl',
               'D',
@@ -512,8 +503,8 @@ extension _CalculatorLauncher on _ClipboardLauncherState {
       singleLine: singleLine,
       leading: [
         if (_calculator.hasPendingCompletionOrCorrection)
-          const LauncherKeyHint(['Tab'], label: 'Apply edit')
-        else if (formatCount > 1)
+          const LauncherKeyHint(['→'], label: 'Apply edit'),
+        if (formatCount > 1)
           const LauncherKeyHint(['Tab'], label: 'Next format'),
         if (_calculator.isCopyableResult)
           const LauncherKeyHint(['↵'], label: 'Copy'),
@@ -528,7 +519,7 @@ extension _CalculatorLauncher on _ClipboardLauncherState {
         if (_calculator.candidates.length > 1)
           const LauncherKeyHint(['Ctrl', 'I'], label: 'Next reading'),
         if (_calculator.selectedCatalogEntry != null)
-          const LauncherKeyHint(['Tab'], label: 'Insert symbol'),
+          const LauncherKeyHint(['→'], label: 'Insert symbol'),
       ],
       trailing: [
         if (_calculator.canOpenActions)

@@ -436,7 +436,7 @@ extension _FilesLauncher on _ClipboardLauncherState {
 
   Widget? _filesSearchHint() {
     if (_files.completionSuffix != null) {
-      return const LauncherKeyHint(['Tab'], label: 'accept');
+      return const LauncherKeyHint(['→'], label: 'accept');
     }
     if (_search.text.isEmpty && _files.filters.isNotEmpty) {
       return const LauncherKeyHint(['⌫'], label: 'remove filter');
@@ -526,15 +526,18 @@ extension _FilesLauncher on _ClipboardLauncherState {
                   ? 'Open at line'
                   : 'Open',
             ),
-          if (_files.completion != null || choice?.entry?.isDirectory == true)
-            LauncherKeyHint([
-              'Tab',
-            ], label: _files.mode == .path ? 'Complete' : 'Browse into'),
+          if ((_inFiles, _files.completion) case (true, final path?)
+              when path != _search.text)
+            const LauncherKeyHint(['→'], label: 'Complete'),
+          if (_inFiles &&
+              _files.completionSuffix == null &&
+              choice?.entry?.isDirectory == true)
+            const LauncherKeyHint(['Tab'], label: 'Browse into'),
           if (creating)
             const LauncherKeyHint(['Ctrl', '↵'], label: 'Create folder')
           else if (_files.contents)
-            const LauncherKeyHint(['Ctrl', 'G'], label: 'Search names')
-          else if (choice?.entry != null)
+            const LauncherKeyHint(['Ctrl', 'G'], label: 'Search names'),
+          if (choice?.entry != null)
             const LauncherKeyHint(['Ctrl', 'K'], label: 'Actions'),
         ],
       ],
@@ -546,7 +549,10 @@ extension _FilesLauncher on _ClipboardLauncherState {
             !singleLine)
           TextButton(
             style: TextButton.styleFrom(
-              visualDensity: .compact,
+              textStyle: Theme.of(context).textTheme.bodySmall,
+              minimumSize: const Size(0, 20),
+              padding: const .symmetric(horizontal: 4),
+              visualDensity: .standard,
               tapTargetSize: .shrinkWrap,
             ),
             onPressed: () => unawaited(_openFilesHistorySettings()),

@@ -51,11 +51,11 @@ python tool/install.py
 
 ## ✨ 功能特性
 
-- **All 与 Apps（`Ctrl+2`）**：搜索已安装的应用并按 `Enter` 打开。在 Apps 中，按 `Ctrl+Right` 可展开应用的已打开窗口与桌面操作。若无匹配应用，安装候选项将来自本地软件包元数据。All 还会显示支持的内联计算结果、最多三条匹配文件、最多三条本地 Web 结果，以及针对 URL 输入的直接操作。
+- **All（`Ctrl+1`）与 Apps（`Ctrl+2`）**：搜索已安装的应用并按 `Enter` 打开。在 Apps 中，按 `Ctrl+Right` 可展开应用的已打开窗口与桌面操作。若无匹配应用，安装候选项将来自本地软件包元数据。All 还会显示支持的内联计算结果、最多三条匹配文件、最多三条本地 Web 结果，以及针对 URL 输入的直接操作。
 
 - **Files（`Ctrl+3` / `/` / `~`）**：
 
-  - 按文件名搜索、按 `Tab` 补全路径，或按 `Ctrl+G` 搜索文件内容。可使用 `ext:md` 或 `in:~/Documents` 等筛选条件缩小结果范围。
+  - 按文件名搜索、按 `→` 补全路径，或按 `Ctrl+G` 搜索文件内容。可使用 `ext:md` 或 `in:~/Documents` 等筛选条件缩小结果范围。
   - 预览选中的文件，并按 `Ctrl+K` 打开文件操作。已置顶的文件也会显示在 All 中。
   - 在 **Launcher 设置 → Files → History** 中按需启用最近文件或接入外部历史提供方，各项历史来源均需开启对应选项。
 
@@ -63,7 +63,7 @@ python tool/install.py
 
   - 在 **Launcher Settings → Web** 中启用 Firefox 或 Chromium 系列浏览器配置。即使未启用任何配置，仍可直接打开输入的 URL 或使用搜索引擎进行搜索。Launcher 会从已启用的配置中读取近期历史与书签，并维护私有本地索引；它会从本地浏览器数据读取网站图标，若无可用图标则显示首字母徽标。
   - 可在 **Launcher 设置 → Web** 中选择 DuckDuckGo 或 Google 作为默认搜索引擎。关键词仅切换当前查询的引擎。
-  - 空输入时显示常用站点（`Alt+1–6`）与近期页面。搜索时显示按相关性与使用频率排序的书签和历史记录，随后是搜索引擎建议。`Tab` 接受 URL 补全；`Enter` 打开输入的 URL 或选中行；`Ctrl+Enter` 则改为执行搜索。
+  - 空输入时显示常用站点（`Alt+1–6`）与近期页面。搜索时显示按相关性与使用频率排序的书签和历史记录，随后是搜索引擎建议。`→` 接受 URL 补全；`Enter` 打开输入的 URL 或选中行；`Ctrl+Enter` 则改为执行搜索。
   - 输入搜索引擎关键词后接空格即可指定引擎，例如 `gh ` 对应 GitHub、`aw ` 对应 ArchWiki、`yt ` 对应 YouTube。选中搜索引擎后，`Tab` 可循环切换引擎；查询为空时按 `Backspace` 可移除引擎词元。
   - `Ctrl+K` 可打开针对页面的操作菜单：在受支持的浏览器或隐私窗口中打开、复制 URL 或 Markdown 链接、站内搜索、置顶或在 Launcher 中隐藏。Launcher 绝不会修改浏览器历史或书签；关闭某项配置会从 Launcher 中移除其索引。
 
@@ -84,8 +84,8 @@ python tool/install.py
   - 在 `All` 中内联求值基本表达式并在 `Calc`（`Ctrl+5` 或 `=`）中处理完整查询，基于本地 `fend-core` 数学运算、带类型单位、带位宽与符号性的进制、FP32/FP16/BF16、时区，以及仅在显式刷新时获取的 ECB 参考汇率快照，并提供目录补全与历史记录。
   - 可选的 FP8 与通用日历算术仍处于延后状态。
 
-- **Emoji（`:`）**：离线搜索 Emoji 18.0 的七语名称、关键词、短码或 Unicode 序列。Enter 复制，Ctrl+Right 选择变体。
-  - 切换到 **Symbols** 搜索独立符号库。在 **设置 → Emoji** 中可启用 Ctrl+Enter 粘贴和本地最近使用。
+- **Chars（`Ctrl+8` / `:`）**：离线搜索 Emoji 18.0 的七语名称、关键词、短码或 Unicode 序列。Enter 复制，Ctrl+Right 选择变体。
+  - 使用 **All**、**Emoji** 或 **Symbols** 筛选结果。在 **设置 → Emoji** 中可启用 Ctrl+Enter 粘贴和本地最近使用。
 
 - **交互式设计预览（`--preview`）**：
 

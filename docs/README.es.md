@@ -51,11 +51,11 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
 
 ## ✨ Características
 
-- **All y Apps (`Ctrl+2`)**: busca aplicaciones instaladas y ábrelas con `Enter`. En Apps, `Ctrl+Right` expande las ventanas abiertas y acciones de escritorio de una aplicación. Si no hay aplicaciones coincidentes, los candidatos de instalación provienen de los metadatos de paquetes locales. All también muestra cálculos en línea compatibles, hasta tres archivos coincidentes y hasta tres resultados web locales, además de una acción directa para entradas de URL.
+- **All (`Ctrl+1`) y Apps (`Ctrl+2`)**: busca aplicaciones instaladas y ábrelas con `Enter`. En Apps, `Ctrl+Right` expande las ventanas abiertas y acciones de escritorio de una aplicación. Si no hay aplicaciones coincidentes, los candidatos de instalación provienen de los metadatos de paquetes locales. All también muestra cálculos en línea compatibles, hasta tres archivos coincidentes y hasta tres resultados web locales, además de una acción directa para entradas de URL.
 
 - **Files (`Ctrl+3` / `/` / `~`)**:
 
-  - Busca por nombre de archivo, completa una ruta con `Tab` o pulsa `Ctrl+G` para buscar en el contenido de los archivos. Refina los resultados con filtros como `ext:md` o `in:~/Documents`.
+  - Busca por nombre de archivo, completa una ruta con `→` o pulsa `Ctrl+G` para buscar en el contenido de los archivos. Refina los resultados con filtros como `ext:md` o `in:~/Documents`.
   - Obtén una vista previa del archivo seleccionado y pulsa `Ctrl+K` para abrir las acciones de archivo. Los archivos fijados también aparecen en All.
   - Activa opcionalmente los archivos recientes o conecta proveedores de historial externos en **Ajustes de Launcher → Files → History**. Cada fuente de historial requiere su opción correspondiente.
 
@@ -63,7 +63,7 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
 
   - Habilita perfiles de la familia Firefox o Chromium en **Launcher Settings → Web**. Sin perfiles habilitados, aún puedes abrir una URL escrita o buscar con un motor. Launcher lee el historial reciente y los marcadores de los perfiles habilitados y mantiene un índice local privado. Lee los favicons de los datos locales del navegador y muestra un monograma cuando no hay ninguno disponible.
   - En **Ajustes de Launcher → Web** puedes elegir DuckDuckGo o Google como buscador predeterminado. Las palabras clave solo cambian el buscador de la consulta actual.
-  - La entrada vacía muestra sitios frecuentes (`Alt+1–6`) y páginas recientes. La búsqueda muestra marcadores e historial ordenados por relevancia y uso, seguidos de sugerencias de motores. `Tab` acepta el autocompletado de URL; `Enter` abre la URL escrita o la fila seleccionada; `Ctrl+Enter` busca en su lugar.
+  - La entrada vacía muestra sitios frecuentes (`Alt+1–6`) y páginas recientes. La búsqueda muestra marcadores e historial ordenados por relevancia y uso, seguidos de sugerencias de motores. `→` acepta el autocompletado de URL; `Enter` abre la URL escrita o la fila seleccionada; `Ctrl+Enter` busca en su lugar.
   - Escribe la palabra clave de un motor seguida de un espacio, como `gh ` para GitHub, `aw ` para ArchWiki o `yt ` para YouTube. Con un motor seleccionado, `Tab` alterna entre motores y `Backspace` elimina el token cuando la consulta está vacía.
   - `Ctrl+K` abre acciones para una página: abrir en un navegador compatible o ventana privada, copiar la URL o el enlace Markdown, buscar en el sitio, fijarla u ocultarla de Launcher. Launcher nunca modifica el historial ni los marcadores del navegador. Desactivar un perfil elimina su índice de Launcher.
 
@@ -84,8 +84,8 @@ Abre la configuración de Launcher con `remya_launcher --settings`. Abre una pá
   - Evalúa expresiones básicas en línea en `All` y consultas completas en `Calc` (`Ctrl+5` o `=`) localmente mediante cálculo con `fend-core`, unidades tipadas, bases con ancho de bits y signo, FP32/FP16/BF16, zonas horarias e instantáneas de referencia del BCE obtenidas solo bajo actualización explícita, con autocompletado de catálogo e historial.
   - El soporte opcional de FP8 y la aritmética general de calendario siguen pospuestos.
 
-- **Emoji (`:`)**: Busca Emoji 18.0 sin conexión por nombre, palabra clave, código corto o secuencia Unicode en siete idiomas. Pulsa Intro para copiar o Ctrl+Derecha para elegir una variante.
-  - La pestaña **Symbols** abre un catálogo de símbolos separado. En **Ajustes → Emoji** puedes activar el pegado con Ctrl+Intro y la lista local de emojis recientes.
+- **Chars (`Ctrl+8` / `:`)**: Busca Emoji 18.0 sin conexión por nombre, palabra clave, código corto o secuencia Unicode en siete idiomas. Pulsa Intro para copiar o Ctrl+Derecha para elegir una variante.
+  - Usa **All**, **Emoji** o **Symbols** para filtrar los resultados. En **Ajustes → Emoji** puedes activar el pegado con Ctrl+Intro y la lista local de emojis recientes.
 
 - **Vistas previas interactivas de diseño (`--preview`)**:
 

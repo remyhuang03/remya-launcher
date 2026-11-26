@@ -1,6 +1,6 @@
 part of 'clipboard_launcher.dart';
 
-const _fileShortcutDigits = [
+const _shortcutDigits = [
   LogicalKeyboardKey.digit1,
   LogicalKeyboardKey.digit2,
   LogicalKeyboardKey.digit3,
@@ -55,7 +55,7 @@ extension _FilesKeyboard on _ClipboardLauncherState {
         return .handled;
       }
       if (alt && !ctrl && !shift && down && _filesChoosingApp) {
-        final index = _fileShortcutDigits.indexOf(key);
+        final index = _shortcutDigits.indexOf(key);
         if (index >= 0 && index < items.length) {
           items[index].run();
           return .handled;
@@ -75,7 +75,7 @@ extension _FilesKeyboard on _ClipboardLauncherState {
       return .handled;
     }
     if (alt && !ctrl && !shift && down) {
-      final index = _fileShortcutDigits.indexOf(key);
+      final index = _shortcutDigits.indexOf(key);
       final choices = _files.mode == .empty && _inFiles
           ? _files.groups.where((group) => group.tiles).firstOrNull?.choices ??
                 _files.choices
@@ -146,16 +146,21 @@ extension _FilesKeyboard on _ClipboardLauncherState {
       }
     }
 
-    if (!ctrl && !shift && down && key == LogicalKeyboardKey.tab && _inFiles) {
-      if (_files.acceptFilterCandidate() case final query?) {
-        _changeFilesQuery(query);
-        return .handled;
+    if (!ctrl && !shift && down && _inFiles) {
+      if (key == LogicalKeyboardKey.arrowRight &&
+          _search.selection.isCollapsed &&
+          _cursorUtf16() == _search.text.length) {
+        if (_files.acceptFilterCandidate() case final query?) {
+          _changeFilesQuery(query);
+          return .handled;
+        }
+        if (_files.completion case final path? when path != _search.text) {
+          _changeFilesQuery(path);
+          return .handled;
+        }
       }
-      if (_files.completion case final path?) {
-        _changeFilesQuery(path);
-        return .handled;
-      }
-      if (choice?.entry case final entry? when entry.isDirectory) {
+      if ((key, choice?.entry) case (LogicalKeyboardKey.tab, final entry?)
+          when entry.isDirectory && _files.completionSuffix == null) {
         _files.browseOpaqueDirectory(entry);
         _changeFilesQuery('');
         return .handled;
@@ -178,10 +183,7 @@ extension _FilesKeyboard on _ClipboardLauncherState {
       return .handled;
     }
     if (entry == null || !down) return .ignored;
-    final atEnd =
-        _search.selection.isCollapsed && _cursorUtf16() == _search.text.length;
-    if ((!shift && ctrl && key == LogicalKeyboardKey.keyK) ||
-        (!shift && !ctrl && key == LogicalKeyboardKey.arrowRight && atEnd)) {
+    if (ctrl && !shift && key == LogicalKeyboardKey.keyK) {
       unawaited(_openFilesMenu(entry));
       return .handled;
     }
