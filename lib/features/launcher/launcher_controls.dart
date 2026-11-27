@@ -307,6 +307,7 @@ class LauncherSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textStyle = TextStyle(fontSize: 18, color: colors.onSurface);
+    final suffix = controller == null ? null : completionSuffix;
     final field = Semantics(
       label: placeholder,
       child: TextFormField(
@@ -320,14 +321,13 @@ class LauncherSearchField extends StatelessWidget {
         cursorOpacityAnimates: true,
         style: textStyle,
         decoration: InputDecoration(
-          hintText: placeholder,
+          hintText: suffix == null ? placeholder : null,
           hintStyle: TextStyle(color: colors.onSurfaceVariant),
           isCollapsed: true,
           border: .none,
         ),
       ),
     );
-    final suffix = completionSuffix;
     return Container(
       height: compact ? 46 : 56,
       padding: .only(left: scope == .all ? 16 : 12, right: 14),
@@ -349,7 +349,7 @@ class LauncherSearchField extends StatelessWidget {
               alignment: .centerLeft,
               children: [
                 RepaintBoundary(child: field),
-                if (suffix != null && controller != null)
+                if (suffix != null)
                   Positioned.fill(
                     child: IgnorePointer(
                       child: ExcludeSemantics(
