@@ -16,8 +16,47 @@ const char kSessionOpen[] = "remya-launcher-session-open";
 const char kPendingOpen[] = "remya-launcher-pending-open";
 const char kPreparingOpen[] = "remya-launcher-preparing-open";
 const char kDismissWindows[] = "remya-launcher-dismiss-windows";
+const char kPressedKeys[] = "remya-launcher-pressed-keys";
 const char kFileDrag[] = "remya-launcher-file-drag";
 const char kDragUri[] = "remya-launcher-drag-uri";
+
+gboolean track_key(GtkWidget *, GdkEventKey *key, gpointer data) {
+  if (key->send_event) return GDK_EVENT_PROPAGATE;
+  auto *keys = static_cast<GHashTable *>(data);
+  auto *code = GUINT_TO_POINTER(key->hardware_keycode);
+  if (key->type == GDK_KEY_PRESS) {
+    g_hash_table_replace(keys, code,
+                         gdk_event_copy(reinterpret_cast<GdkEvent *>(key)));
+  } else {
+    g_hash_table_remove(keys, code);
+  }
+  return GDK_EVENT_PROPAGATE;
+}
+
+void release_pressed_keys(GtkWindow *window) {
+  auto *view = gtk_bin_get_child(GTK_BIN(window));
+  if (view == nullptr || !gtk_widget_get_mapped(view)) return;
+  auto *keys = static_cast<GHashTable *>(
+      g_object_get_data(G_OBJECT(view), kPressedKeys));
+  if (keys == nullptr || g_hash_table_size(keys) == 0) return;
+
+  // Wayland can stop delivering releases as soon as the overlay loses focus.
+  auto *keymap = gdk_keymap_get_for_display(gtk_widget_get_display(view));
+  const auto locks = gdk_keymap_get_modifier_state(keymap) &
+                     (GDK_LOCK_MASK | GDK_MOD2_MASK);
+  GHashTableIter iter;
+  g_hash_table_iter_init(&iter, keys);
+  gpointer value;
+  while (g_hash_table_iter_next(&iter, nullptr, &value)) {
+    auto *event = static_cast<GdkEvent *>(value);
+    event->key.type = GDK_KEY_RELEASE;
+    event->key.send_event = TRUE;
+    event->key.time = GDK_CURRENT_TIME;
+    event->key.state = locks;
+    gtk_widget_event(view, event);
+    g_hash_table_iter_remove(&iter);
+  }
+}
 
 struct FileDragState {
   GdkEvent *press_event = nullptr;
@@ -198,6 +237,7 @@ void dismiss_monitor_removed(GdkDisplay *, GdkMonitor *monitor,
 }
 
 gboolean on_focus_out(GtkWidget *window, GdkEvent *, gpointer) {
+  release_pressed_keys(GTK_WINDOW(window));
   if (is_file_drag_active(window)) {
     return GDK_EVENT_PROPAGATE;
   }
@@ -217,6 +257,7 @@ void hide_launcher(GtkWindow *window) {
     gtk_drag_cancel(state->active_context);
   }
   g_object_set_data(G_OBJECT(widget), kHiding, GINT_TO_POINTER(TRUE));
+  release_pressed_keys(window);
   gtk_widget_hide(widget);
   gdk_display_sync(gtk_widget_get_display(widget));
 }
@@ -636,6 +677,17 @@ void configure_settings_window(GtkWindow *window) {
 void register_launcher_window(FlView *view, GtkWindow *window) {
   auto *window_widget = GTK_WIDGET(window);
   auto *view_widget = GTK_WIDGET(view);
+  if (dismiss_windows(window_widget) != nullptr) {
+    auto *keys = g_hash_table_new_full(
+        g_direct_hash, g_direct_equal, nullptr,
+        [](gpointer data) { gdk_event_free(static_cast<GdkEvent *>(data)); });
+    g_object_set_data_full(G_OBJECT(view), kPressedKeys, keys,
+                           [](gpointer data) {
+                             g_hash_table_unref(static_cast<GHashTable *>(data));
+                           });
+    g_signal_connect(view, "key-press-event", G_CALLBACK(track_key), keys);
+    g_signal_connect(view, "key-release-event", G_CALLBACK(track_key), keys);
+  }
   g_signal_connect(window, "destroy", G_CALLBACK(+[](GtkWidget *widget, gpointer) {
     g_object_set_data(G_OBJECT(widget), kPreparingOpen, nullptr);
   }), nullptr);
