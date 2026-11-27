@@ -619,7 +619,7 @@ void main() {
         await tester.tap(
           find.descendant(
             of: find.byKey(const ValueKey('editor')),
-            matching: find.byType(OutlinedButton),
+            matching: find.byType(SettingsButton),
           ),
         );
         await tester.pumpAndSettle();

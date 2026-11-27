@@ -234,11 +234,11 @@ class _ClipboardPage extends StatelessWidget {
   }
 
   Widget _limit(BuildContext context, _Limit limit, int? value) =>
-      OutlinedButton(
+      SettingsButton(
         onPressed: value == null || !_canChange
             ? null
             : () => _changeLimit(context, limit, value),
-        child: Text(value == null ? 'Unavailable' : '$value ${limit.unit}'),
+        label: value == null ? 'Unavailable' : '$value ${limit.unit}',
       );
 
   @override
@@ -309,12 +309,12 @@ class _ClipboardPage extends StatelessWidget {
                     'Remove every saved item, including pinned items, from '
                     'Remy\'a Launcher.',
               ),
-              control: FilledButton.tonal(
-                style: destructiveTonalButtonStyle(context),
+              control: SettingsButton(
+                variant: .destructive,
                 onPressed: controller.busy
                     ? null
                     : () => _clearHistory(context),
-                child: const Text('Clear history'),
+                label: 'Clear history',
               ),
             ),
           ],

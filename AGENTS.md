@@ -9,6 +9,10 @@
 - Keep the Flutter project and Cargo workspace at the repository root. Place Rust crates in `lib/src/rust/<crate>/` and keep the core crate empty until it has a concrete responsibility. Keep any future generated bridge code separate from handwritten code.
 - Use the public remya_client and remya_ui packages from Remya Core for shared integrations.
 
+## Coding & UI
+
+- Build settings controls from `remya_ui` as specified in Core's `docs/settings-controls.md` (choices, `SettingsButton` variants, sliders, number fields, metrics). Do not use Material `SegmentedButton`, dropdowns or `OutlinedButton` in settings rows.
+
 ## Validation and delivery
 
 - The GUI runs on demand and the clipboard service runs with the graphical session. Use the [desktop testing skill](.agents/skills/launcher-desktop-testing/SKILL.md) for installed-bundle smoke checks and input or Wayland debugging.

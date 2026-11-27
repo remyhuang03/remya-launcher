@@ -241,10 +241,10 @@ class _EmojiSettingsState extends State<_EmojiSettings> {
             SettingRow(
               id: 'clear-emoji-recents',
               label: const SettingLabel('Clear recent emoji'),
-              control: FilledButton.tonal(
-                style: destructiveTonalButtonStyle(context),
+              control: SettingsButton(
+                variant: .destructive,
                 onPressed: _busy ? null : _clear,
-                child: const Text('Clear recents'),
+                label: 'Clear recents',
               ),
             ),
           ],

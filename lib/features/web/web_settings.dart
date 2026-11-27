@@ -103,6 +103,7 @@ class _WebSettingsState extends State<_WebSettings> {
               child: const Text('Cancel'),
             ),
             FilledButton(
+              style: destructiveFilledButtonStyle(context),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Clear data'),
             ),
@@ -221,7 +222,7 @@ class _WebSettingsState extends State<_WebSettings> {
         if (status != null) ...[
           SettingsGroup(
             title: 'Browser profiles',
-            trailing: OutlinedButton.icon(
+            trailing: TextButton.icon(
               onPressed: _busy || status.syncing
                   ? null
                   : () => _update(
@@ -250,9 +251,10 @@ class _WebSettingsState extends State<_WebSettings> {
                   'Clear Web data',
                   description: 'Remove the Web index and saved Web activity from Launcher.',
                 ),
-                control: OutlinedButton(
+                control: SettingsButton(
+                  variant: .destructive,
                   onPressed: _busy ? null : _confirmClear,
-                  child: const Text('Clear…'),
+                  label: 'Clear…',
                 ),
               ),
             ],

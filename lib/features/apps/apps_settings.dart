@@ -91,12 +91,12 @@ class _AppsPreferencesPageState extends State<_AppsPreferencesPage> {
           preference.label,
           description: preference.description,
         ),
-        control: OutlinedButton(
+        control: SettingsButton(
           onPressed: _saving ? null : () => _edit(preference, value),
-          child: Text(switch (preference) {
+          label: switch (preference) {
             .frequentDays => '$value days',
             .terminal => value == '' ? 'Automatic' : '$value',
-          }, overflow: .ellipsis),
+          },
         ),
       );
 
@@ -309,9 +309,9 @@ class _HiddenAppsPageState extends State<_HiddenAppsPage> {
                   ),
                   control: Semantics(
                     label: 'Restore ${app.name}',
-                    child: OutlinedButton(
+                    child: SettingsButton(
                       onPressed: _restoring ? null : () => _restore(app, apps),
-                      child: const Text('Restore'),
+                      label: 'Restore',
                     ),
                   ),
                 ),
