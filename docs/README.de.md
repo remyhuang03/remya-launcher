@@ -38,12 +38,12 @@ Installieren Sie zuerst **Remya Core**. Folgen Sie unter Arch Linux den Abschnit
 
 ### Release-Archiv
 
-Laden Sie nach der Installation von Remya Core `0.2.0` die Dateien `remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst` und `SHA256SUMS` von [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) herunter. Führen Sie die folgenden Befehle im Verzeichnis mit beiden Dateien aus.
+Laden Sie nach der Installation von Remya Core `0.3.0` die Dateien `remya_launcher-0.1.1-linux-x86_64.tar.zst` und `SHA256SUMS` von [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) herunter. Führen Sie die folgenden Befehle im Verzeichnis mit beiden Dateien aus.
 
 ```bash
 sha256sum -c SHA256SUMS
-tar --zstd -xf remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst
-cd remya_launcher-0.1.0-dev.20261118.0-linux-x86_64
+tar --zstd -xf remya_launcher-0.1.1-linux-x86_64.tar.zst
+cd remya_launcher-0.1.1-linux-x86_64
 python tool/install.py
 ```
 

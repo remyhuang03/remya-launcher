@@ -38,12 +38,12 @@ Remya Launcher是一款专为 Hyprland 设计的键盘优先应用启动器、�
 
 ### 发布归档包
 
-安装 Remya Core `0.2.0` 后，从 [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) 下载 `remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst` 和 `SHA256SUMS`。在存放这两个文件的目录中运行以下命令。
+安装 Remya Core `0.3.0` 后，从 [GitHub Releases](https://github.com/remyhuang03/remya-launcher/releases) 下载 `remya_launcher-0.1.1-linux-x86_64.tar.zst` 和 `SHA256SUMS`。在存放这两个文件的目录中运行以下命令。
 
 ```bash
 sha256sum -c SHA256SUMS
-tar --zstd -xf remya_launcher-0.1.0-dev.20261118.0-linux-x86_64.tar.zst
-cd remya_launcher-0.1.0-dev.20261118.0-linux-x86_64
+tar --zstd -xf remya_launcher-0.1.1-linux-x86_64.tar.zst
+cd remya_launcher-0.1.1-linux-x86_64
 python tool/install.py
 ```
 

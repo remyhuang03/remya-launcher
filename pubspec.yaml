@@ -1,7 +1,7 @@
 name: remya_launcher
 description: "A Material Design 3 Expressive launcher UI for Hyprland on Linux."
 publish_to: none
-version: 0.1.0
+version: 0.1.1
 
 environment:
   sdk: ^3.13.7
